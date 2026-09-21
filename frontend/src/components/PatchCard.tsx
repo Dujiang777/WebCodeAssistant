@@ -4,6 +4,7 @@ import type { BlastRadius, BuildResult, PatchRecord } from '../lib/api';
 import { parseUnifiedDiff } from '../lib/diff';
 import { BlastRadiusBar } from './BlastRadiusBar';
 import { CompileStrip } from './CompileStrip';
+import { PrPreviewPanel } from './PrPreviewPanel';
 import { CheckIcon, CloseIcon, DiffIcon } from './icons';
 
 /**
@@ -126,12 +127,15 @@ export function PatchCard({
       </div>
 
       {patch.status === 'pending' && (
-        <BlastRadiusBar
-          radius={radius}
-          loading={radiusLoading}
-          error={radiusError}
-          onOpenRef={onOpenRef}
-        />
+        <>
+          <PrPreviewPanel patchId={patch.id} fileName={fileName} />
+          <BlastRadiusBar
+            radius={radius}
+            loading={radiusLoading}
+            error={radiusError}
+            onOpenRef={onOpenRef}
+          />
+        </>
       )}
 
       {patch.status !== 'pending' && (

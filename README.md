@@ -8,7 +8,11 @@ AI 能读你的项目、能按正则搜代码，但**它没有任何写盘权限
 
 - **每个结论都能点开核对**：回答里的 `路径:行号` 是可点的证据 chip，编造的引用会被后端校验标红；
 - **改之前先看影响面**：补丁卡片会算出「改了哪些类、谁在调用、有没有碰鉴权代码、有没有测试」；
+- **改之前先预演 PR**：同一张补丁卡片能展开「假如这是真实 PR」——标题、分支建议、审查清单（含仓库宪法条款），应用之前就能看到审查者会揪住什么；
 - **改完自证还能编过**：应用补丁后自动跑一次项目自己的编译，失败就把编译器输出喂回去重改；
+- **测试失败驱动改代码**：一键在工作区里跑测试套件，失败用例（或测试代码的编译诊断）逐条列出，一键交给 AI 出最小修复补丁；
+- **仓库宪法**：`.wca/CONSTITUTION.md` 是最高优先级的硬规则，注入 system prompt 并进入 PR 审查清单——Agent 只能遵守，不能修改；
+- **Spring 地图**：扫描工作区里的 Bean / HTTP 端点 / 依赖注入关系，回答「有哪些接口、谁在注入谁」；
 - **同一套 Agent 两种口吻**：交付模式少说话给结果，教学模式讲清动机与取舍。
 
 工作区是**服务器磁盘上的真实目录**（`git clone` 或 zip 导入），不是浏览器里的虚拟文件系统。
@@ -36,12 +40,15 @@ AI 能读你的项目、能按正则搜代码，但**它没有任何写盘权限
 | **两个通道分开** | `POST /messages` 立刻返回 `messageId`（不等模型）；事件走 `GET /events` 这条 SSE 长连接。断线重连时带 `afterId` 可以回放漏掉的事件。 |
 | **不用 WebFlux** | Spring MVC 的 `SseEmitter` + **虚拟线程**足够：Agent 回合是阻塞式 IO（等模型、读文件），虚拟线程让每轮对话独占一个廉价线程，代码还是同步风格。 |
 | **Redis 可降级** | 它只承载限流与 token 配额。连不上就自动退回进程内实现（启动时打 WARN），不阻塞任何功能。 |
-| **四个工具全部只读或产出补丁** | `list_dir` / `read_file` / `grep` / `propose_patch`。没有 `run_command`，模型无法在宿主机上执行任何命令。 |
+| **四个只读/产出补丁的工具 + 两个只读自查工具** | `list_dir` / `read_file` / `grep` / `propose_patch`，加上 `run_tests`（跑测试，参数服务端拼死）与 `spring_map`（扫组件地图）。没有 `run_command`，模型无法在宿主机上执行任何命令。 |
 | **结论必须带证据，且证据会被复核** | system prompt 强制每条关于代码的结论挂 `路径:行号`；回合结束时 `CitationVerifier` 再扫一遍回答，把「文件不存在 / 行号越界」的挑出来，前端标红、可点跳转。「编一个引用」会在界面上露馅，而不是被当成正常输出。 |
 | **改之前先摊开影响面** | 补丁卡片在「待确认」状态下显示 blast radius：改了哪些类与成员、谁在调用（可点跳到调用点）、命中哪些高风险特征（Controller / 鉴权 / 支付 / 迁移脚本 / 删除公开方法 / 无测试覆盖）、以及有没有测试。它只提示、不拦人。 |
 | **改完必须自证「还能编过」** | 应用补丁后自动用**项目自己的构建方式**（有 `pom.xml` 用 Maven、有 `build.gradle` 用 Gradle，优先用 wrapper）在工作区里跑一次编译。失败时把编译器输出**原样**喂回 Agent 出第二轮补丁。**「没编译」永远显示成「没编译」**，绝不谎报成通过。 |
 | **同一套 Agent，两种口吻** | 交付 / 教学只是两个 system prompt 段落 + 一个 UI 开关。它不改工具集、不改安全边界 —— 模式影响「说多少」，不影响「能不能做」。 |
-| **模型拿不到编译器参数** | 编译命令与参数全部由服务端拼装（`BuildService`），模型只能提补丁。否则它可以借编译参数做别的事 —— 这与「没有写盘能力」同等重要。 |
+| **模型拿不到编译器参数** | 编译命令与参数全部由服务端拼装（`BuildService`），模型只能提补丁。`run_tests` 同理：模型能触发测试，但选不了 goal、塞不进自定义参数。 |
+| **仓库宪法只对模型生效，且模型改不了** | `.wca/CONSTITUTION.md` 由用户在 UI 里写 / 存 / 撤回，`ContextAssembler` 每轮把它注入 system prompt 顶部（最高优先级段）。工具集里没有写它的方法，Agent 想改也没有入口；置空保存即撤回。 |
+| **PR 预演是纯派生的只读视图** | 从已生成的 diff 派生标题 / 分支建议 / 审查清单（含宪法条款是否就位），不落库、不影响补丁状态 —— 它帮你判断「要不要应用」，不产生任何写副作用。 |
+| **「测试失败」包括「测试编译不过」** | `runTests` 在 surefire 没跑（totals 为空）但退出码非 0 时，会把测试代码的**编译诊断**解析成结构化 `issues` —— 补丁改了主代码签名、测试没跟上是最高频的真实场景，此时该修的是编译错误而不是断言。 |
 
 ---
 
@@ -60,8 +67,10 @@ Spring Boot 3.5 (Java 21, 虚拟线程)
   ├── workspace/  路径解析（三层防越界）、文件读写（原子替换）、配额
   │     └── diff/   unified diff 解析 + 应用（上下文逐字符匹配，容忍行号漂移）
   ├── scm/         JGit 浅克隆（depth=1 + 超时）、zip 导入（zip slip / zip bomb 防护）
-  ├── agent/       Agent 编排、4 个工具、补丁生命周期、影响面分析、SSE 事件中心
-  ├── build/       编译验证（构建工具检测 → 跑构建 → 解析诊断）
+  ├── agent/       Agent 编排、6 个工具、补丁生命周期、影响面分析、PR 预演、SSE 事件中心
+  ├── build/       编译验证 + 测试运行（构建工具检测 → 跑构建 → 解析诊断 / 失败用例 / 编译诊断）
+  ├── constitution/ 仓库宪法（.wca/CONSTITUTION.md 读写 + 模板）
+  ├── map/         Spring 组件地图（Bean / 端点 / 依赖注入扫描）
   ├── context/     system prompt 组装（项目画像 / 规则文件 / 引用规则 / 当前模式）+ 引用校验
   └── llm/         LangChain4j 流式模型、限流与配额
         │
@@ -270,6 +279,34 @@ node tools/mock-llm/server.mjs --port 8787
 > 「为什么读这个文件」，讲清改法的取舍与风险；交付模式则直接给结果 + 一段可粘进 commit 的
 > 提交说明。两种模式都仍然遵守引用规则。
 
+**11｜仓库宪法（顶栏「宪法」）**
+点顶栏 **宪法** → 编辑器里是模板（一例：一律构造器注入、禁止字段 `@Autowired`）→ 保存。
+
+> 预期：顶栏按钮的「未配置」态消失；之后每轮对话它都注入 system prompt 顶部，
+> Agent 的回答与补丁会遵守这些条款。置空保存 = 撤回，文件从磁盘删除。
+
+**12｜Spring 组件地图（顶栏「地图」）**
+点顶栏 **地图**。
+
+> 预期：面板按 CONTROLLER / SERVICE / REPOSITORY 分组列出 Bean，每个 Controller
+> 挂着拼好类级前缀的 HTTP 端点（`GET /api/users` …），Service 到 Repository 的
+> 构造器注入关系以边的形式呈现，点 Bean 可跳到源码行。
+
+**13｜测试运行（顶栏「测试」）**
+点顶栏 **测试**。
+
+> 预期：自动在工作区里跑项目自己的测试命令，结果条区分 `测试通过 / 测试失败 / 超时 / 未执行`。
+> 失败时逐条列出失败用例（类.方法:行号 + 断言原文）；若是测试代码**编译不过**
+> （比如上面的补丁改了构造器、测试还没跟上），则列出编译诊断并说明「先修编译错误」。
+> 每条都可 **让 AI 修复** —— 把失败信息组装成一条聊天消息走补丁闭环。
+
+**14｜变更预演 PR（补丁卡片内）**
+让 AI 出一个补丁（待确认状态），在补丁卡片里展开 **变更 PR 预演**。
+
+> 预期：给出 PR 标题（`patch: 变更 UserService +18 / -16`）、建议分支名（`patch/userservice`）、
+> 变更内容小节、以及一份审查清单 —— 调用覆盖 / 循环复杂度 / 仓库宪法是否就位，每项 PASS/WARN/NONE。
+> 它是纯派生视图：不落库、不改变补丁状态，只帮你决定「要不要应用」。
+
 ### 自动跑一遍（不用开浏览器）
 
 ```bash
@@ -280,7 +317,9 @@ BASE_URL=http://127.0.0.1:8080 node tools/e2e-smoke.mjs
 
 它会依次验证：健康检查 → 注册 → 建工作区 → 读文件树 → 读文件基线 → **越界防护** →
 建会话 → 开 SSE → 发消息 → 等 patch 事件 → 应用补丁 → **回头读文件确认内容真的变了** →
-重复应用被拒 → 会话历史与补丁列表已持久化。退出码 0 = 全绿。
+重复应用被拒 → 影响面 → 编译闭环 → **仓库宪法（读 / 模板 / 存 / 撤回 / 再存）** →
+**Spring 地图（Bean / 端点 / 注入边）** → **PR 预演（标题 / 分支 / 审查清单）** →
+**测试运行（统计 / 失败用例或编译诊断）** → 会话历史与补丁列表已持久化。退出码 0 = 全绿。
 
 ### 真开浏览器跑一遍（UI 自检）
 
@@ -380,6 +419,12 @@ MOCK_LLM_STEP_DELAY_MS=2500 node tools/mock-llm/server.mjs --port 8787
 | `POST` | `/patches/{patchId}/reject` | 丢弃补丁（磁盘不动） |
 | `GET` | `/patches/{patchId}/blast-radius` | **影响面**：改了哪些类/成员、谁在调用、命中哪些风险、有没有测试。纯只读，不依赖补丁状态 |
 | `POST` | `/patches/{patchId}/compile` | **编译验证**。补丁未应用时返回 `disabled`；无构建工具返回 `unavailable` |
+| `GET` | `/workspaces/{id}/constitution` | **仓库宪法**：`{ exists, content }` |
+| `PUT` | `/workspaces/{id}/constitution` | 保存（`content` 为空串 = 撤回并删除文件） |
+| `GET` | `/workspaces/{id}/constitution/template` | 宪法模板 |
+| `GET` | `/workspaces/{id}/spring-map` | **Spring 地图**：Bean / 端点 / 依赖注入边（只读扫描） |
+| `POST` | `/workspaces/{id}/test-run` | **测试运行**：跑项目自己的 `test` goal，返回统计 / 失败用例 / 编译诊断 |
+| `GET` | `/patches/{patchId}/pr-preview` | **PR 预演**：标题 / 分支建议 / 审查清单（含宪法条款），纯派生只读 |
 
 ### SSE 事件协议
 
@@ -470,13 +515,15 @@ data: {"seq":18,"type":"done","messageId":"1234"}
 web-code-assistant/
 ├── backend/                       Spring Boot 后端
 │   ├── src/main/java/com/webcode/assistant/
-│   │   ├── agent/                 Agent 编排、4 个工具、补丁生命周期、影响面分析、SSE 事件中心
+│   │   ├── agent/                 Agent 编排、6 个工具、补丁生命周期、影响面分析、PR 预演、SSE 事件中心
 │   │   ├── api/                   REST 控制器与请求/响应模型
-│   │   ├── build/                 编译验证（构建工具检测、诊断解析、超时与输出裁剪）
+│   │   ├── build/                 编译验证 + 测试运行（构建工具检测、诊断/失败用例解析、超时与输出裁剪）
 │   │   ├── common/                错误码与统一异常处理
 │   │   ├── config/                配置属性、线程池、启动检查
-│   │   ├── context/               system prompt 组装（引用规则 / 双模式）+ 引用校验
+│   │   ├── constitution/          仓库宪法（.wca/CONSTITUTION.md 读写 + 模板）
+│   │   ├── context/               system prompt 组装（引用规则 / 宪法 / 双模式）+ 引用校验
 │   │   ├── llm/                   LangChain4j 模型 + 限流配额
+│   │   ├── map/                   Spring 组件地图（Bean / 端点 / 依赖注入扫描）
 │   │   ├── scm/                   Git 克隆、zip 导入、内置示例
 │   │   ├── security/              JWT 鉴权
 │   │   └── workspace/             路径解析、文件读写、diff 解析与应用
@@ -495,7 +542,7 @@ web-code-assistant/
 ├── docs/self-test/                演示截图 + 自检日志（跑 ui-probe 产出）
 └── tools/
     ├── mock-llm/server.mjs        OpenAI 兼容 mock 模型，离线自测用（带行号剥离 + 真实行号引用）
-    ├── e2e-smoke.mjs              接口层端到端自测（29 项断言）
+    ├── e2e-smoke.mjs              接口层端到端自测（30+ 项断言，含宪法 / Spring 地图 / PR 预演 / 测试运行）
     ├── ui-probe.mjs               浏览器自检驱动（按 JSON 步骤跑 agent-browser）
     ├── maven-self-test-settings.xml  自测用 Maven settings（把内网镜像换回 Central）
     └── ui-steps/                  自检步骤定义（*.json）

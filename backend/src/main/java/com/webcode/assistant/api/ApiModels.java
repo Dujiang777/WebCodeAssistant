@@ -181,4 +181,30 @@ public final class ApiModels {
     public record HealthResponse(String status, boolean modelConfigured, String model, String grepEngine,
                                  boolean redisAvailable) {
     }
+
+    // --------------------------------------------------------- 宪法 / PR 预演
+
+    /** 宪法模板（只返回文本，不落盘）。 */
+    public record ConstitutionTemplate(String content) {
+    }
+
+    /** 变更预演 PR 的一项审查清单结论。state: ok / warn / bad / info */
+    public record PrCheckItem(String text, String state, String detail) {
+    }
+
+    /**
+     * 变更预演 PR：应用前给用户看的「假如这是一个真正的 PR，它会怎么被描述」。
+     *
+     * @param title     建议的 PR 标题（约定式前缀）
+     * @param branch    建议的分支名（仅命名建议，本产品不建分支）
+     * @param body      Markdown 正文：变更内容 / 影响面 / 风险 / 建议验证
+     * @param stats     变更统计（files 固定为 1：一个补丁只改一个文件）
+     * @param checklist 应用前应逐项过目的审查清单
+     */
+    public record PrPreviewView(String patchId, String title, String branch, String body,
+                                Stats stats, List<PrCheckItem> checklist) {
+
+        public record Stats(int files, int addedLines, int removedLines, int callers, int testFiles) {
+        }
+    }
 }

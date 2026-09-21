@@ -239,6 +239,99 @@ export interface BuildResult {
   note: string;
 }
 
+// ------------------------------------------------------------------ 功能 5-8 模型
+
+/** 仓库宪法视图。exists=false 表示工作区里还没有宪法。 */
+export interface ConstitutionView {
+  exists: boolean;
+  path: string | null;
+  content: string | null;
+  updatedAt: number | null;
+  updatedAtIso?: string | null;
+}
+
+/** 宪法模板（不落盘）。 */
+export interface ConstitutionTemplate {
+  content: string;
+}
+
+/** Spring 地图：一个 Bean 节点。 */
+export interface SpringMapNode {
+  name: string;
+  stereotype: string;
+  layer: string;
+  file: string;
+  line: number;
+  basePath: string | null;
+  endpoints: string[];
+}
+
+/** Spring 地图：一条构造器注入依赖。 */
+export interface SpringMapEdge {
+  from: string;
+  to: string;
+}
+
+/** Spring 地图整体。nodes 为空表示非 Spring 项目（note 里会说明）。 */
+export interface SpringMapData {
+  workspaceName: string;
+  scannedFiles: number;
+  nodes: SpringMapNode[];
+  edges: SpringMapEdge[];
+  truncated: boolean;
+  note: string;
+}
+
+/** 测试用例统计。skipped 可能为 null（框架未报告）。 */
+export interface TestTotals {
+  run: number;
+  failures: number;
+  errors: number;
+  skipped: number | null;
+}
+
+/** 一个失败用例。 */
+export interface TestFailure {
+  testClass: string;
+  method: string | null;
+  line: number | null;
+  message: string;
+  /** 后端序列化的展示名：类.方法（拿不到方法时退化为类名）。 */
+  displayName: string;
+}
+
+/** 测试运行结果。status 语义与 BuildResult 一致：没跑 ≠ 通过。 */
+export interface TestRunResult {
+  status: 'ok' | 'failed' | 'timeout' | 'unavailable' | 'disabled' | string;
+  buildSystem: string;
+  command: string;
+  exitCode: number | null;
+  durationMs: number;
+  output: string;
+  totals: TestTotals | null;
+  failures: TestFailure[];
+  /** 测试代码编译不过时的结构化诊断（failures 为空时看这里）。 */
+  issues: CompileIssue[] | null;
+  note: string;
+}
+
+/** PR 预演的审查清单项。state: ok / warn / bad / info */
+export interface PrCheckItem {
+  text: string;
+  state: 'ok' | 'warn' | 'bad' | 'info' | string;
+  detail: string;
+}
+
+/** 变更预演 PR：应用前看「假如这是真实 PR，它会怎么被描述、审查者会揪住什么」。 */
+export interface PrPreview {
+  patchId: string;
+  title: string;
+  branch: string;
+  body: string;
+  stats: { files: number; addedLines: number; removedLines: number; callers: number; testFiles: number };
+  checklist: PrCheckItem[];
+}
+
 // ------------------------------------------------------------------ 接口
 
 export const api = {
@@ -342,6 +435,34 @@ export const api = {
   /** 应用后在沙箱里跑一次编译。没应用过的补丁会返回 disabled。 */
   compilePatch: (patchId: string) =>
     request<BuildResult>(`/api/patches/${patchId}/compile`, { method: 'POST' }),
+
+  // -------------------------------------------------- 功能 5-8 接口
+
+  /** 读取仓库宪法。exists=false 表示未配置。 */
+  constitution: (workspaceId: number) =>
+    request<ConstitutionView>(`/api/workspaces/${workspaceId}/constitution`),
+
+  /** 保存仓库宪法（内容写进 .wca/CONSTITUTION.md，Agent 不可修改）。 */
+  saveConstitution: (workspaceId: number, content: string) =>
+    request<ConstitutionView>(`/api/workspaces/${workspaceId}/constitution`, {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    }),
+
+  /** 宪法模板（只返回文本，不落盘）。 */
+  constitutionTemplate: (workspaceId: number) =>
+    request<ConstitutionTemplate>(`/api/workspaces/${workspaceId}/constitution/template`),
+
+  /** Spring 组件地图（每次全量重扫，毫秒级）。 */
+  springMap: (workspaceId: number) =>
+    request<SpringMapData>(`/api/workspaces/${workspaceId}/spring-map`),
+
+  /** 在工作区里跑一次测试套件。 */
+  runTests: (workspaceId: number) =>
+    request<TestRunResult>(`/api/workspaces/${workspaceId}/test-run`, { method: 'POST' }),
+
+  /** 变更预演 PR（纯只读，待确认 / 已应用的补丁都能看）。 */
+  prPreview: (patchId: string) => request<PrPreview>(`/api/patches/${patchId}/pr-preview`),
 };
 
 /** 人读的字节数格式化。 */

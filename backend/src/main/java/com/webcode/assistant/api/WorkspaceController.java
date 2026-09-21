@@ -1,7 +1,11 @@
 package com.webcode.assistant.api;
 
+import com.webcode.assistant.build.BuildService;
+import com.webcode.assistant.build.TestRunResult;
 import com.webcode.assistant.common.ApiException;
 import com.webcode.assistant.common.ErrorCode;
+import com.webcode.assistant.constitution.ConstitutionService;
+import com.webcode.assistant.map.SpringMapService;
 import com.webcode.assistant.security.CurrentUser;
 import com.webcode.assistant.workspace.FileContent;
 import com.webcode.assistant.workspace.FileNode;
@@ -38,13 +42,22 @@ public class WorkspaceController {
 
     private final WorkspaceService workspaceService;
     private final WorkspaceFileService fileService;
+    private final ConstitutionService constitutionService;
+    private final SpringMapService springMapService;
+    private final BuildService buildService;
     private final CurrentUser currentUser;
 
     public WorkspaceController(WorkspaceService workspaceService,
                                WorkspaceFileService fileService,
+                               ConstitutionService constitutionService,
+                               SpringMapService springMapService,
+                               BuildService buildService,
                                CurrentUser currentUser) {
         this.workspaceService = workspaceService;
         this.fileService = fileService;
+        this.constitutionService = constitutionService;
+        this.springMapService = springMapService;
+        this.buildService = buildService;
         this.currentUser = currentUser;
     }
 
@@ -89,6 +102,60 @@ public class WorkspaceController {
     @GetMapping("/{id}")
     public ApiModels.WorkspaceView detail(@PathVariable long id) {
         return ApiModels.WorkspaceView.of(workspaceService.require(currentUser.requireId(), id));
+    }
+
+    // ----------------------------------------------------------- 仓库宪法
+
+    /** 读取仓库宪法。不存在时 {@code exists=false}，前端据此显示「未配置」。 */
+    @GetMapping("/{id}/constitution")
+    public ConstitutionService.ConstitutionView constitution(@PathVariable long id) {
+        return constitutionService.read(requireWorkspace(id));
+    }
+
+    /**
+     * 保存仓库宪法。内容写进 {@code .wca/CONSTITUTION.md}；提交空字符串等同撤回宪法。
+     * Agent 没有任何工具能改这个文件 —— 宪法只有用户能写。
+     */
+    @PutMapping("/{id}/constitution")
+    public ConstitutionService.ConstitutionView saveConstitution(@PathVariable long id,
+                                                                 @RequestBody ConstitutionSaveRequest request) {
+        if (request == null) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "缺少宪法内容");
+        }
+        return constitutionService.save(requireWorkspace(id), request.content());
+    }
+
+    /** 返回宪法模板（不落盘），供前端「从模板开始」按钮填充编辑框。 */
+    @GetMapping("/{id}/constitution/template")
+    public ApiModels.ConstitutionTemplate constitutionTemplate(@PathVariable long id) {
+        return new ApiModels.ConstitutionTemplate(
+                constitutionService.template(requireWorkspace(id)));
+    }
+
+    /** 保存宪法请求体。 */
+    public record ConstitutionSaveRequest(String content) {
+    }
+
+    // ------------------------------------------------------------ Spring 地图
+
+    /**
+     * Spring 组件地图。每次调用都全量重扫（毫秒级），保证补丁应用后地图立即跟上。
+     * 非 Spring 工作区返回空节点列表与解释性 note，不硬凑结论。
+     */
+    @GetMapping("/{id}/spring-map")
+    public SpringMapService.SpringMapData springMap(@PathVariable long id) {
+        return springMapService.scan(requireWorkspace(id));
+    }
+
+    // ------------------------------------------------------------ 测试运行
+
+    /**
+     * 在工作区里跑一次测试套件（Maven {@code test} / Gradle {@code test}）。
+     * 与编译验证同一安全边界：命令由服务端拼装，工作区目录内执行，超时强杀。
+     */
+    @PostMapping("/{id}/test-run")
+    public TestRunResult runTests(@PathVariable long id) {
+        return buildService.runTests(requireWorkspace(id));
     }
 
     // --------------------------------------------------------------- 文件

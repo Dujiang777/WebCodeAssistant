@@ -7,10 +7,12 @@ import type {
   BuildResult,
   ChatMessage,
   ChatSession,
+  ConstitutionView,
   FileContent,
   FileNode,
   HealthInfo,
   PatchRecord,
+  TestRunResult,
   Workspace,
 } from '../lib/api';
 import { EMPTY_TURN, messageOf, nextToolId } from '../lib/chat';
@@ -20,13 +22,16 @@ import { openChatStream } from '../lib/sse';
 import type { ChatEvent, StreamStatus } from '../lib/sse';
 import { useToast } from '../lib/toast';
 import { ChatPane } from '../components/ChatPane';
+import { ConstitutionModal } from '../components/ConstitutionModal';
 import { EditorPane } from '../components/EditorPane';
 import type { RevealTarget } from '../components/EditorPane';
 import { FileTree } from '../components/FileTree';
 import type { CreateTarget } from '../components/FileTree';
 import { PatchModal } from '../components/PatchModal';
 import { Splitter } from '../components/Splitter';
+import { SpringMapModal } from '../components/SpringMapModal';
 import { StatusBar } from '../components/StatusBar';
+import { TestsModal } from '../components/TestsModal';
 import { TopBar } from '../components/TopBar';
 import { TerminalMark, FolderIcon, PlusIcon, RefreshIcon } from '../components/icons';
 
@@ -198,6 +203,12 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const [treeVisible, setTreeVisible] = useState(true);
   const [chatVisible, setChatVisible] = useState(true);
 
+  // ------------------------------------------------- 功能 5-8：宪法 / 地图 / 测试
+  const [constitution, setConstitution] = useState<ConstitutionView | null>(null);
+  const [constitutionOpen, setConstitutionOpen] = useState(false);
+  const [springMapOpen, setSpringMapOpen] = useState(false);
+  const [testsOpen, setTestsOpen] = useState(false);
+
   // ------------------------------------------------------------ 可变引用
   const turnRef = useRef<LiveTurn | null>(null);
   const sessionIdRef = useRef<number | null>(null);
@@ -225,6 +236,22 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   useEffect(() => {
     localStorage.setItem(MODE_KEY, mode);
   }, [mode]);
+
+  // 宪法状态：进页面拉一次，保存后由 ConstitutionModal 回传更新
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const view = await api.constitution(workspaceId);
+        if (!cancelled) setConstitution(view);
+      } catch {
+        // 宪法是增强能力，拉取失败不打断主流程
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
 
   // ------------------------------------------------- 影响面：补丁一出现就去算
 
@@ -693,6 +720,45 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     void send(content);
   };
 
+  /**
+   * 把测试失败整体喂回 Agent —— 「测试失败驱动改代码」的人工触发点。
+   * 带上原始失败明细（类 / 方法 / 行号 / 断言信息），Agent 可以 run_tests 复跑、
+   * read_file 定位、propose_patch 出最小修复；修完后用户再跑一次测试验证。
+   */
+  const fixFromTests = (result: TestRunResult) => {
+    setTestsOpen(false);
+    const failures = result.failures
+      .slice(0, 20)
+      .map((failure) => `- \`${failure.displayName}${failure.line ? `:${failure.line}` : ''}\` ${failure.message}`)
+      .join('\n');
+    // 补丁改了主代码签名、测试代码没跟上的场景：surefire 没跑，失败明细为空，
+    // 真正要修的是这些测试代码的编译错误。
+    const issues = (result.issues ?? [])
+      .slice(0, 20)
+      .map((issue) => `- \`${issue.file}${issue.line ? `:${issue.line}` : ''}\` ${issue.message}`)
+      .join('\n');
+    const tail = result.output.length > 6000 ? result.output.slice(-6000) : result.output;
+
+    const content = [
+      '工作区里的测试套件失败了，请修复。',
+      '',
+      `测试命令：\`${result.command}\`（退出码 ${result.exitCode ?? '未知'}）`,
+      result.totals ? `用例统计：共 ${result.totals.run}，失败 ${result.totals.failures}，错误 ${result.totals.errors}` : '',
+      failures ? `\n失败用例：\n${failures}` : '',
+      issues
+        ? `\n注意：失败明细为空、下面是测试代码的编译诊断 —— 测试根本没跑起来。这是测试代码没跟上主代码的新签名，请先修编译错误：\n${issues}`
+        : '',
+      tail ? `\n原始输出（尾部）：\n\`\`\`text\n${tail}\n\`\`\`` : '',
+      '',
+      '请先 read_file 打开失败的测试与其测试的源码，判断是实现错了还是断言过时，',
+      '然后给出最小改动的补丁；不要顺手做别的重构。修完建议我再跑一次测试验证。',
+    ]
+      .filter((part) => part !== '')
+      .join('\n');
+
+    void send(content);
+  };
+
   const applyPatch = async (patch: PatchRecord) => {
     setPatchBusyId(patch.id);
     try {
@@ -828,10 +894,14 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         dirty={dirty}
         health={health}
         username={username}
+        constitutionExists={constitution?.exists ?? false}
         onBack={() => navigate('/workspaces')}
         onLogout={onLogout}
         onToggleTree={() => setTreeVisible((value) => !value)}
         onToggleChat={() => setChatVisible((value) => !value)}
+        onOpenConstitution={() => setConstitutionOpen(true)}
+        onOpenSpringMap={() => setSpringMapOpen(true)}
+        onOpenTests={() => setTestsOpen(true)}
         treeVisible={treeVisible}
         chatVisible={chatVisible}
         pendingPatches={patches.filter((patch) => patch.status === 'pending').length}
@@ -977,6 +1047,33 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           busy={patchBusyId === diffPatch.id}
           onClose={() => setDiffPatch(null)}
           onApply={(patch) => void applyPatch(patch)}
+        />
+      )}
+
+      {constitutionOpen && (
+        <ConstitutionModal
+          workspaceId={workspaceId}
+          onClose={() => setConstitutionOpen(false)}
+          onSaved={(view) => setConstitution(view)}
+        />
+      )}
+
+      {springMapOpen && (
+        <SpringMapModal
+          workspaceId={workspaceId}
+          onClose={() => setSpringMapOpen(false)}
+          onOpenRef={(path, line) => {
+            setSpringMapOpen(false);
+            void openCitation(path, line);
+          }}
+        />
+      )}
+
+      {testsOpen && (
+        <TestsModal
+          workspaceId={workspaceId}
+          onClose={() => setTestsOpen(false)}
+          onFixWithAi={(result) => fixFromTests(result)}
         />
       )}
     </div>
