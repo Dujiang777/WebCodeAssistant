@@ -1,0 +1,162 @@
+# ui-probe start  steps=68
+
+$ agent-browser set viewport 1512 950
+✓ Done
+
+$ agent-browser open http://127.0.0.1:5173/#/login
+✓ Patchforge · 网页版编码助手
+  http://127.0.0.1:5173/#/login
+
+$ sleep 2500
+
+$ agent-browser find text 一键随机演示账号 click
+✓ Done
+
+$ sleep 3500
+
+$ agent-browser click .form-stack .btn-primary
+✓ Done
+
+$ sleep 9000
+
+$ agent-browser eval location.hash
+"#/ide/10"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\00-ide.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\00-ide.png
+
+$ agent-browser click [title="src/main/java/com/demo/UserService.java"]
+✓ Done
+
+$ sleep 3000
+
+$ agent-browser eval document.querySelector('.composer-context').innerText.replace(/\n/g,' | ')
+"交付 | 教学 | 当前文件 · UserService.java | 连接中"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\01-context.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\01-context.png
+
+$ agent-browser eval 'MODE_INIT=' + (document.querySelector('.mode-btn.active')||{innerText:'NONE'}).innerText + ' LS=' + localStorage.getItem('patchforge.mode') + ' BTNS=' + document.querySelectorAll('.mode-btn').length
+"MODE_INIT=交付 LS=deliver BTNS=2"
+
+$ agent-browser eval document.querySelector('.mode-toggle') ? String(document.querySelector('.mode-toggle').scrollIntoView({block:'center'})) : 'none'
+"[object Promise]"
+
+$ sleep 400
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\02-mode-deliver.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\02-mode-deliver.png
+
+$ agent-browser fill .composer-input 解释一下这个类
+✓ Done
+
+$ agent-browser click .composer-actions .btn-primary
+✓ Done
+
+$ sleep 10000
+
+$ agent-browser eval document.querySelector('.chat-scroll').scrollTop = document.querySelector('.chat-scroll').scrollHeight
+669
+
+$ sleep 500
+
+$ agent-browser eval 'CITE_CHIPS=' + document.querySelectorAll('.cite-chip').length + ' BAD=' + document.querySelectorAll('.cite-chip-bad').length + ' MSG_HEAD=' + Array.prototype.map.call(document.querySelectorAll('.msg-meta'), function(e){return e.innerText}).join('/')
+"CITE_CHIPS=7 BAD=0 MSG_HEAD=13:42:38/交付/mock-coder/引用 7/13:42:38"
+
+$ agent-browser eval document.querySelector('.chat-scroll').innerText.slice(-380)
+":38`）；\n4. `countActive` 用传统的下标 for 循环累加（`src/main/java/com/demo/UserService.java:47`）；\n5. `rename` 改完名字后同样复用 `save` 落库（`src/main/java/com/demo/UserService.java:61`）；\n\n6. 依赖是通过 **字段注入** 拿到的（`src/main/java/com/demo/UserService.java:17`）。\n\n字段注入的问题在于：依赖关系不在构造器签名里，单元测试只能靠反射注入，而且对象可以在「依赖还没注入」的状态下被创建出来。改成构造器注入可以解决这两点。\n\n以上结论都来自 `src/main/java/com/demo/UserService.java`，点引用可以直接跳到对应那一行。\n"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\03-citations.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\03-citations.png
+
+$ agent-browser eval (function(){var b=document.querySelectorAll('.cite-chip')[1];if(!b)return 'NO_CHIP';b.click();return 'clicked [' + b.innerText + ']'})()
+"clicked [src/main/java/com/demo/UserService.java:30]"
+
+$ sleep 2200
+
+$ agent-browser eval 'REVEAL_LINES=' + document.querySelectorAll('.cite-line').length + ' GUTTER=' + document.querySelectorAll('.cite-line-gutter').length + ' STATUS=' + (document.querySelector('.statusbar')||{innerText:''}).innerText.replace(/\n/g,' ')
+"REVEAL_LINES=0 GUTTER=0 STATUS=工作区 13.3 KB / 200 MB 行 30，列 1 java 1.7 KB 已同步 事件流 已连接 会话 #10"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\04-citation-jump.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\04-citation-jump.png
+
+$ agent-browser fill .composer-input 把这个类改成构造器注入
+✓ Done
+
+$ agent-browser click .composer-actions .btn-primary
+✓ Done
+
+$ sleep 16000
+
+$ agent-browser eval 'RISK=' + (document.querySelector('.risk-bar') ? document.querySelector('.risk-bar').className + ' :: ' + document.querySelector('.risk-bar').innerText.replace(/\n/g,' | ') : 'NO_RISK_BAR')
+"RISK=risk-bar risk-medium :: 风险 中 | 改动 UserService：+18 / -16 行，1 个成员，5 处引用，4 个测试文件覆盖 | ▸ 5 处引用 | · | 4 个测试文件覆盖 | · | 触碰 1 个成员"
+
+$ agent-browser eval document.querySelector('.risk-bar') ? String(document.querySelector('.risk-bar').scrollIntoView({block:'center'})) : 'none'
+"[object Promise]"
+
+$ sleep 500
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\05-blast-radius.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\05-blast-radius.png
+
+$ agent-browser eval (function(){var b=document.querySelector('.risk-foot .link-btn');if(!b)return 'NO_TOGGLE';b.click();return 'expanded ' + b.innerText})()
+"expanded ▸ 5 处引用"
+
+$ sleep 700
+
+$ agent-browser eval document.querySelector('.risk-refs') ? document.querySelector('.risk-refs').innerText.replace(/\n/g,' | ').slice(0,320) : 'NO_REFS'
+"README.md | :15 | | `UserService` | `@Autowired` 字段注入 | 「把 UserService 改成构造器注入」 | | README.md | :17 | | `UserService.countActive` | 用下标 `for` 循环累加，可读性差 | 「countActive 用 Stream 重写」 | | README.md | :18 | | `UserService.rename` | 不校验用户名是否已被占用 | 「rename 也要做重名校验」 | | README.md | :35 | UserService.java 领域服务（含待重构点） | src/main"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\06-callers.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\06-callers.png
+
+$ agent-browser eval (function(){var b=document.querySelector('.patch-actions .btn-primary');if(!b)return 'NO_APPLY_BTN';b.click();return 'apply clicked'})()
+"apply clicked"
+
+$ sleep 3500
+
+$ agent-browser eval 'STRIP=' + (document.querySelector('.compile-strip') ? document.querySelector('.compile-strip').className : 'NO_STRIP')
+"STRIP=compile-strip compile-warn"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\07-compiling.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\07-compiling.png
+
+$ sleep 40000
+
+$ agent-browser eval document.querySelector('.compile-strip') ? document.querySelector('.compile-strip').innerText.replace(/\n/g,' | ').slice(0,420) : 'NO_STRIP'
+"未执行编译（工作区里没找到可用的构建工具） | 无法启动构建进程：Cannot run program \"D:\\maven\\apache-maven-3.8.2\\bin\\mvn\" (in directory \"C:\\Users\\AMBITIOUS_YUAN\\Projects\\web-code-assistant\\data\\workspaces\\11\\40924b24-demo-java\"): CreateProcess error=193, %1 不是有效的 Win32 应用程序。 | D:\\maven\\apache-maven-3.8.2\\bin\\mvn -B -q -Dstyle.color=never -s C:\\Users\\AMBITIOUS_YUAN\\Projects\\web-code-assistant\\tools\\maven-self-test-settings.xml compile | 查看原始输出"
+
+$ agent-browser eval document.querySelector('.compile-strip') ? String(document.querySelector('.compile-strip').scrollIntoView({block:'center'})) : 'none'
+"[object Promise]"
+
+$ sleep 500
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\08-compile-result.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\08-compile-result.png
+
+$ agent-browser eval (function(){var w=location.hash.split('/')[2];var t=localStorage.getItem('patchforge.token');var x=new XMLHttpRequest();x.open('GET','/api/workspaces/'+w+'/files?path=src%2Fmain%2Fjava%2Fcom%2Fdemo%2FUserService.java',false);x.setRequestHeader('Authorization','Bearer '+t);x.send();var d=JSON.parse(x.responseText);return 'DISK status='+x.status+' atAutowired='+String(d.content.indexOf('@Autowired')>=0)+' hasFinalField='+String(d.content.indexOf('private final UserRepository')>=0)+' hasCtor='+String(d.content.indexOf('public UserService(UserRepository userRepository)')>=0)})()
+"DISK status=200 atAutowired=false hasFinalField=true hasCtor=true"
+
+$ agent-browser eval (function(){var bs=document.querySelectorAll('.mode-btn');for(var i=0;i<bs.length;i++){if(bs[i].innerText.indexOf('教学')>=0){bs[i].click();return 'switched to teach'}}return 'NO_TEACH_BTN'})()
+"switched to teach"
+
+$ sleep 800
+
+$ agent-browser eval 'MODE_NOW=' + (document.querySelector('.mode-btn.active')||{innerText:'NONE'}).innerText + ' LS=' + localStorage.getItem('patchforge.mode') + ' PH=' + document.querySelector('.composer-input').placeholder.slice(0,28)
+"MODE_NOW=教学 LS=teach PH=描述你想理解什么。Ctrl/⌘ + Enter 发送。（"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\09-mode-teach.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\09-mode-teach.png
+
+$ agent-browser reload
+http://127.0.0.1:5173/#/ide/10
+
+$ sleep 8000
+
+$ agent-browser eval 'AFTER_RELOAD mode=' + localStorage.getItem('patchforge.mode') + ' activeBtn=' + (document.querySelector('.mode-btn.active')||{innerText:'NONE'}).innerText + ' citeChips=' + document.querySelectorAll('.cite-chip').length + ' msgMeta=' + document.querySelectorAll('.msg-meta').length
+"AFTER_RELOAD mode=teach activeBtn=教学 citeChips=8 msgMeta=10"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\10-after-reload.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\10-after-reload.png
+
+# ui-probe done

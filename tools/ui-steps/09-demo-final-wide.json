@@ -1,0 +1,67 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2500 },
+  ["screenshot", "docs/self-test/01-login.png"],
+
+  ["find", "text", "一键随机演示账号", "click"],
+  { "sleep": 3500 },
+  ["get", "url"],
+  ["eval", "document.body.innerText.slice(0,240)"],
+  ["screenshot", "docs/self-test/02-workspaces.png"],
+
+  ["click", ".form-stack .btn-primary"],
+  { "sleep": 9000 },
+  ["get", "url"],
+  ["eval", "document.body.innerText.slice(0,240)"],
+  ["screenshot", "docs/self-test/03-ide.png"],
+
+  ["click", "[title=\"src/main/java/com/demo/UserService.java\"]"],
+  { "sleep": 3000 },
+  ["eval", "document.querySelector('.composer-context').innerText"],
+  ["screenshot", "docs/self-test/04-file-open.png"],
+
+  ["fill", ".composer-input", "解释一下这个类"],
+  ["click", ".composer-actions .btn-primary"],
+  { "sleep": 3800 },
+  ["eval", "document.querySelector('.tool-card') ? 'CARD ' + document.querySelector('.tool-card').innerText : 'NO_TOOL_CARD'"],
+  ["eval", "document.querySelector('.tool-card') ? String(document.querySelector('.tool-card').scrollIntoView({block:'center'})) : 'none'"],
+  { "sleep": 500 },
+  ["screenshot", "docs/self-test/05-toolcard.png"],
+
+  { "sleep": 5000 },
+  ["eval", "document.querySelector('.chat-scroll').innerText.slice(-300)"],
+  ["eval", "document.querySelector('.chat-scroll').scrollTop = document.querySelector('.chat-scroll').scrollHeight"],
+  { "sleep": 400 },
+  ["screenshot", "docs/self-test/06-explain.png"],
+
+  ["fill", ".composer-input", "把这个类改成构造器注入"],
+  ["click", ".composer-actions .btn-primary"],
+  { "sleep": 15000 },
+  ["eval", "document.querySelector('.chat-scroll').innerText.slice(-300)"],
+  ["eval", "(function(){var w=location.hash.split('/')[2];var t=localStorage.getItem('wca.token');var x=new XMLHttpRequest();x.open('GET','/api/workspaces/'+w+'/files?path=src%2Fmain%2Fjava%2Fcom%2Fdemo%2FUserService.java',false);x.setRequestHeader('Authorization','Bearer '+t);x.send();var d=JSON.parse(x.responseText);return 'DISK_BEFORE status='+x.status+' atAutowired='+String(d.content.indexOf('@Autowired')>=0)+' hasFinalField='+String(d.content.indexOf('private final UserRepository')>=0)+' size='+d.sizeBytes})()"],
+  ["screenshot", "docs/self-test/07-patch-pending.png"],
+
+  ["click", ".patch-actions .btn"],
+  { "sleep": 3500 },
+  ["eval", "String(document.querySelectorAll('.modal-backdrop').length)+' modal(s)'"],
+  ["eval", "document.querySelector('.modal-head') ? document.querySelector('.modal-head').innerText : 'NO_MODAL'"],
+  ["screenshot", "docs/self-test/08-diff-modal.png"],
+
+  ["eval", "(function(){var b=document.querySelector('.modal-foot .btn-primary');if(!b)return 'NO_APPLY_BTN';b.click();return 'apply clicked'})()"],
+  { "sleep": 5000 },
+  ["eval", "document.querySelector('.chat-scroll').innerText.slice(-120)"],
+  ["eval", "(function(){var w=location.hash.split('/')[2];var t=localStorage.getItem('wca.token');var x=new XMLHttpRequest();x.open('GET','/api/workspaces/'+w+'/files?path=src%2Fmain%2Fjava%2Fcom%2Fdemo%2FUserService.java',false);x.setRequestHeader('Authorization','Bearer '+t);x.send();var d=JSON.parse(x.responseText);return 'DISK_AFTER status='+x.status+' atAutowired='+String(d.content.indexOf('@Autowired')>=0)+' hasFinalField='+String(d.content.indexOf('private final UserRepository')>=0)+' hasCtor='+String(d.content.indexOf('public UserService(UserRepository userRepository)')>=0)+' size='+d.sizeBytes})()"],
+  ["screenshot", "docs/self-test/09-applied.png"],
+
+  ["reload"],
+  { "sleep": 7000 },
+  ["eval", "'PERSISTED url='+location.href+' appliedStatusVisible='+String(document.body.innerText.indexOf('已应用')>=0)+' messages='+String(document.querySelectorAll('.msg').length)"],
+  ["screenshot", "docs/self-test/10-persisted-after-reload.png"],
+
+  ["open", "http://127.0.0.1:5173/#/workspaces"],
+  { "sleep": 3500 },
+  ["eval", "document.body.innerText.slice(0,200)"],
+  ["screenshot", "docs/self-test/11-workspace-list.png"]
+]

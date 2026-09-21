@@ -1,0 +1,114 @@
+# ui-probe start  steps=44
+
+$ agent-browser set viewport 1512 950
+✓ Done
+
+$ agent-browser open http://127.0.0.1:5173/#/login
+✓ Patchforge · 网页版编码助手
+  http://127.0.0.1:5173/#/login
+
+$ sleep 2500
+
+$ agent-browser find text 一键随机演示账号 click
+✓ Done
+
+$ sleep 3500
+
+$ agent-browser click .form-stack .btn-primary
+✓ Done
+
+$ sleep 9000
+
+$ agent-browser eval location.hash
+"#/ide/11"
+
+$ agent-browser click [title="src/main/java/com/demo/UserService.java"]
+✓ Done
+
+$ sleep 3000
+
+$ agent-browser fill .composer-input 解释一下这个类
+✓ Done
+
+$ agent-browser click .composer-actions .btn-primary
+✓ Done
+
+$ sleep 10000
+
+$ agent-browser eval 'CITE_CHIPS=' + document.querySelectorAll('.cite-chip').length + ' BAD=' + document.querySelectorAll('.cite-chip-bad').length
+"CITE_CHIPS=7 BAD=0"
+
+$ agent-browser eval (function(){var b=document.querySelectorAll('.cite-chip')[1];if(!b)return 'NO_CHIP';b.click();return 'clicked [' + b.innerText + ']'})()
+"clicked [src/main/java/com/demo/UserService.java:30]"
+
+$ sleep 900
+
+$ agent-browser eval 'REVEAL_LINES=' + document.querySelectorAll('.cite-line').length + ' GUTTER=' + document.querySelectorAll('.cite-line-gutter').length + ' STATUS=' + (document.querySelector('.statusbar')||{innerText:''}).innerText.replace(/\n/g,' ')
+"REVEAL_LINES=1 GUTTER=1 STATUS=工作区 13.3 KB / 200 MB 行 30，列 1 java 1.7 KB 已同步 事件流 已连接 会话 #11"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\11-citation-highlight.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\11-citation-highlight.png
+
+$ agent-browser fill .composer-input 把这个类改成构造器注入
+✓ Done
+
+$ agent-browser click .composer-actions .btn-primary
+✓ Done
+
+$ sleep 16000
+
+$ agent-browser eval 'RISK=' + (document.querySelector('.risk-bar') ? document.querySelector('.risk-bar').className + ' :: ' + document.querySelector('.risk-bar').innerText.replace(/\n/g,' | ') : 'NO_RISK_BAR')
+"RISK=risk-bar risk-medium :: 风险 中 | 改动 UserService：+18 / -16 行，1 个成员，5 处引用，1 个测试文件覆盖 | ▸ 5 处引用 | · | 1 个测试文件覆盖 | · | 触碰 1 个成员"
+
+$ agent-browser eval document.querySelector('.risk-bar') ? String(document.querySelector('.risk-bar').scrollIntoView({block:'center'})) : 'none'
+"[object Promise]"
+
+$ sleep 500
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\12-risk-bar-fixed.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\12-risk-bar-fixed.png
+
+$ agent-browser eval (function(){var b=document.querySelector('.risk-foot .link-btn');if(!b)return 'NO_TOGGLE';b.click();return 'expanded'})()
+"expanded"
+
+$ sleep 700
+
+$ agent-browser eval document.querySelector('.risk-refs') ? document.querySelector('.risk-refs').innerText.replace(/\n/g,' | ').slice(0,420) : 'NO_REFS'
+"README.md | :15 | | `UserService` | `@Autowired` 字段注入 | 「把 UserService 改成构造器注入」 | | README.md | :17 | | `UserService.countActive` | 用下标 `for` 循环累加，可读性差 | 「countActive 用 Stream 重写」 | | README.md | :18 | | `UserService.rename` | 不校验用户名是否已被占用 | 「rename 也要做重名校验」 | | README.md | :35 | UserService.java 领域服务（含待重构点） | src/main/java/com/demo/UserController.java | :23 | private UserService userService; | 测试引用 | src/test/java/c"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\13-callers-fixed.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\13-callers-fixed.png
+
+$ agent-browser eval (function(){var b=document.querySelector('.patch-actions .btn-primary');if(!b)return 'NO_APPLY_BTN';b.click();return 'apply clicked'})()
+"apply clicked"
+
+$ sleep 3000
+
+$ agent-browser eval 'STRIP_RUNNING=' + (document.querySelector('.compile-strip') ? document.querySelector('.compile-strip').className : 'NO_STRIP')
+"STRIP_RUNNING=compile-strip compile-ok"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\14-compiling-fixed.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\14-compiling-fixed.png
+
+$ sleep 60000
+
+$ agent-browser eval document.querySelector('.compile-strip') ? document.querySelector('.compile-strip').innerText.replace(/\n/g,' | ').slice(0,420) : 'NO_STRIP'
+"编译通过 · maven · 3.0 s | 编译通过。 | cmd.exe /c D:\\maven\\apache-maven-3.8.2\\bin\\mvn.cmd -B -q -Dstyle.color=never -s C:\\Users\\AMBITIOUS_YUAN\\Projects\\web-code-assistant\\tools\\maven-self-test-settings.xml compile | 查看原始输出"
+
+$ agent-browser eval document.querySelector('.compile-strip') ? String(document.querySelector('.compile-strip').scrollIntoView({block:'center'})) : 'none'
+"[object Promise]"
+
+$ sleep 500
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\15-compile-result-fixed.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\15-compile-result-fixed.png
+
+$ agent-browser eval (function(){var w=location.hash.split('/')[2];var t=localStorage.getItem('patchforge.token');var x=new XMLHttpRequest();x.open('GET','/api/workspaces/'+w+'/files?path=src%2Fmain%2Fjava%2Fcom%2Fdemo%2FUserService.java',false);x.setRequestHeader('Authorization','Bearer '+t);x.send();var d=JSON.parse(x.responseText);return 'DISK status='+x.status+' atAutowired='+String(d.content.indexOf('@Autowired')>=0)+' hasFinalField='+String(d.content.indexOf('private final UserRepository')>=0)+' hasCtor='+String(d.content.indexOf('public UserService(UserRepository userRepository)')>=0)})()
+"DISK status=200 atAutowired=false hasFinalField=true hasCtor=true"
+
+$ sleep 500
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\16-applied-fixed.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v2\16-applied-fixed.png
+
+# ui-probe done

@@ -1,0 +1,90 @@
+# ---------------------------------------------------------------------------
+# 一键起全栈：PostgreSQL + Redis + 后端 + 前端
+#
+#   cd deploy && docker compose up --build
+#   打开 http://localhost:5173
+#
+# 两个说明：
+#   1. Redis 是可降级的 —— 它只承载限流与配额计数，挂了后端会自动退回进程内实现。
+#      所以这里没有把它设成 backend 的强依赖。
+#   2. LLM 相关变量必须自己填（.env 或 shell 环境），仓库里不放任何 Key。
+#      没填也能启动，只是对话会提示「模型未配置」，文件浏览与编辑仍可用。
+# ---------------------------------------------------------------------------
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: wca-postgres
+    environment:
+      POSTGRES_DB: webcode
+      POSTGRES_USER: webcode
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-webcode}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U webcode -d webcode"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: wca-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ../backend
+    container_name: wca-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/webcode
+      DB_USER: webcode
+      DB_PASSWORD: ${DB_PASSWORD:-webcode}
+      REDIS_URL: redis://redis:6379
+      WORKSPACE_ROOT: /data/workspaces
+
+      # 必填：任何 OpenAI 兼容服务
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.2}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-8192}
+
+      # 上线前务必替换（至少 32 字节）
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-please-override-with-32-bytes-at-least}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - workspaces:/data/workspaces
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend
+    container_name: wca-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  workspaces:

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  仅用于本地 / 离线自测的 Maven settings。
+
+  背景：本机全局 settings（apache-maven-3.8.2/conf/settings.xml）里有一条
+    <mirrorOf>external:*</mirrorOf> → http://nexus.svr:9090/repository/maven-public/
+  的镜像，指向内网 Nexus。在没有内网的环境（例如这台机器上的沙盒、CI）里，
+  所有依赖下载都会失败，于是「补丁应用后跑一次编译」这个闭环永远走不通。
+
+  这里用**同一个 id**（imoveMirror）把它重定向到 Maven Central：
+  Maven 合并全局与用户 settings 时按 id 去重、用户侧优先，所以这一条会覆盖掉全局那条。
+
+  用法（后端启动时）：
+    COMPILE_MVN_SETTINGS=<绝对路径>/tools/maven-self-test-settings.xml
+
+  注意：这是**开发自测**用的，不要带进生产镜像。
+-->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+  <!-- 复用已有的本地仓库，避免自测时再把依赖下一遍 -->
+  <localRepository>D:\maven\apache-maven-3.8.2\repository</localRepository>
+
+  <mirrors>
+    <mirror>
+      <id>imoveMirror</id>
+      <mirrorOf>external:*</mirrorOf>
+      <name>Self-test mirror: Maven Central instead of the unreachable internal Nexus</name>
+      <url>https://repo.maven.apache.org/maven2</url>
+    </mirror>
+  </mirrors>
+</settings>
