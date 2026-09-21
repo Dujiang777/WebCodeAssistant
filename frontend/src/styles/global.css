@@ -2197,3 +2197,385 @@ button.risk-chip:hover {
     display: none;
   }
 }
+
+/* ==================== 功能 5-8：宪法 / PR 预演 / Spring 地图 / 测试 ==================== */
+
+/* 宪法面板 */
+
+.modal-wide {
+  width: min(920px, calc(100vw - 48px));
+  max-height: min(82vh, 760px);
+}
+
+.constitution-lead {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--fg-2);
+}
+
+.constitution-lead b {
+  color: var(--fg-0);
+}
+
+.constitution-editor {
+  width: 100%;
+  min-height: 320px;
+  margin-top: 10px;
+  resize: vertical;
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--signal);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  color: var(--fg-0);
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.65;
+  outline: none;
+}
+
+.constitution-editor:focus {
+  border-color: var(--signal-line);
+  box-shadow: 0 0 0 2px rgba(58, 240, 166, 0.12);
+}
+
+.constitution-foot {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.chip-warn {
+  color: var(--amber);
+  border-color: var(--amber-line);
+}
+
+/* PR 预演 */
+
+.pr-preview {
+  margin-top: 10px;
+}
+
+.pr-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg-1);
+  padding: 6px 10px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.pr-toggle:hover {
+  border-color: var(--signal-line);
+  color: var(--fg-0);
+  background: rgba(58, 240, 166, 0.04);
+}
+
+.pr-body {
+  margin-top: 8px;
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--violet);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  padding: 10px 12px;
+}
+
+.pr-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-0);
+}
+
+.pr-branch {
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--fg-2);
+}
+
+.pr-branch span:first-of-type {
+  color: var(--violet);
+}
+
+.pr-stats {
+  margin-left: 10px;
+  color: var(--fg-3);
+}
+
+.pr-checklist {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.pr-checklist-head {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+}
+
+.pr-check {
+  display: grid;
+  grid-template-columns: 44px 110px 1fr;
+  gap: 8px;
+  align-items: baseline;
+  border: 1px solid var(--line);
+  border-left-width: 2px;
+  border-radius: var(--radius);
+  padding: 5px 9px;
+  background: var(--bg-1);
+  font-size: 11px;
+}
+
+.pr-check-state {
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.pr-check-text {
+  color: var(--fg-0);
+  font-weight: 600;
+}
+
+.pr-check-detail {
+  color: var(--fg-3);
+  line-height: 1.5;
+}
+
+.pr-mdetails {
+  margin-top: 10px;
+}
+
+.pr-mdetails summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.06em;
+}
+
+.pr-mdetails summary:hover {
+  color: var(--fg-1);
+}
+
+.pr-md {
+  margin: 8px 0 0;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  padding: 10px 12px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--fg-2);
+  white-space: pre-wrap;
+}
+
+/* Spring 地图 */
+
+.springmap-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--fg-2);
+}
+
+.springmap-empty {
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  padding: 18px 16px;
+  font-size: 12px;
+  color: var(--fg-3);
+  line-height: 1.7;
+}
+
+.springmap-layers {
+  display: grid;
+  gap: 14px;
+}
+
+.springmap-layer-head {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 5px;
+  margin-bottom: 8px;
+}
+
+.springmap-nodes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+}
+
+.springmap-node {
+  border: 1px solid var(--line-strong);
+  border-top-width: 2px;
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  padding: 8px 10px;
+  display: grid;
+  gap: 5px;
+}
+
+.springmap-node-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.springmap-node-name {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg-0);
+  cursor: pointer;
+}
+
+.springmap-node-name:hover {
+  color: var(--signal);
+  text-decoration: underline;
+}
+
+.springmap-node-stereo {
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  flex: none;
+}
+
+.springmap-endpoints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.springmap-endpoint {
+  border: 1px solid var(--signal-line);
+  border-radius: var(--radius);
+  padding: 1px 6px;
+  font-size: 10px;
+  color: var(--signal);
+  background: rgba(58, 240, 166, 0.05);
+}
+
+.springmap-deps {
+  font-size: 10.5px;
+  color: var(--fg-3);
+}
+
+.springmap-file {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font-size: 10px;
+  color: var(--fg-3);
+  cursor: pointer;
+}
+
+.springmap-file:hover {
+  color: var(--signal);
+  text-decoration: underline;
+}
+
+/* 测试面板 */
+
+.tests-status {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 3px 8px;
+  color: var(--fg-1);
+}
+
+.tests-status.tests-ok {
+  color: var(--signal);
+  border-color: var(--signal-line);
+}
+
+.tests-status.tests-fail {
+  color: var(--rose);
+  border-color: rgba(255, 110, 127, 0.45);
+}
+
+.tests-status.tests-warn {
+  color: var(--amber);
+  border-color: var(--amber-line);
+}
+
+.tests-totals {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-size: 11.5px;
+  color: var(--fg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  padding: 7px 11px;
+  margin-bottom: 10px;
+}
+
+.tests-failures {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.tests-failure {
+  border: 1px solid rgba(255, 110, 127, 0.35);
+  border-left: 3px solid var(--rose);
+  border-radius: var(--radius);
+  background: rgba(255, 110, 127, 0.05);
+  padding: 7px 10px;
+  display: grid;
+  gap: 3px;
+}
+
+.tests-failure-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rose);
+}
+
+.tests-failure-msg {
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.tests-output {
+  margin-top: 4px;
+}
+
+.tests-output summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.06em;
+}
+
+.tests-output summary:hover {
+  color: var(--fg-1);
+}

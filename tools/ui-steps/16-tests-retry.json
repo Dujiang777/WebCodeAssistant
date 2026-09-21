@@ -1,0 +1,13 @@
+[
+  ["set", "viewport", "1512", "950"],
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2500 },
+  ["find", "text", "一键随机演示账号", "click"],
+  { "sleep": 3500 },
+  ["click", ".form-stack .btn-primary"],
+  { "sleep": 9000 },
+  ["click", "[title*=\"运行测试套件\"]"],
+  { "sleep": 75000 },
+  ["eval", "'TESTS_STATUS=' + (document.querySelector('.tests-status')||{innerText:'NO'} ).innerText + ' FAILURES=' + document.querySelectorAll('.tests-failure').length + ' TOTALS=' + (document.querySelector('.tests-totals')||{innerText:''}).innerText.replace(/\\n/g,' | ')"],
+  ["screenshot", "docs/self-test/v3/32-tests.png"]
+]

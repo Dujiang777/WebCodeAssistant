@@ -13,10 +13,14 @@ interface TopBarProps {
   dirty: boolean;
   health: HealthInfo | null;
   username: string;
+  constitutionExists: boolean;
   onBack: () => void;
   onLogout: () => void;
   onToggleTree: () => void;
   onToggleChat: () => void;
+  onOpenConstitution: () => void;
+  onOpenSpringMap: () => void;
+  onOpenTests: () => void;
   treeVisible: boolean;
   chatVisible: boolean;
   pendingPatches: number;
@@ -28,10 +32,14 @@ export function TopBar({
   dirty,
   health,
   username,
+  constitutionExists,
   onBack,
   onLogout,
   onToggleTree,
   onToggleChat,
+  onOpenConstitution,
+  onOpenSpringMap,
+  onOpenTests,
   treeVisible,
   chatVisible,
   pendingPatches,
@@ -81,6 +89,20 @@ export function TopBar({
         <PlugIcon size={11} />
         {health?.grepEngine ?? '—'}
       </span>
+
+      <button
+        className={`btn btn-ghost btn-sm${constitutionExists ? '' : ' muted'}`}
+        onClick={onOpenConstitution}
+        title={constitutionExists ? '查看 / 编辑仓库宪法（已生效）' : '配置仓库宪法 —— 最高优先级的硬规则'}
+      >
+        宪法{constitutionExists ? '' : '·'}
+      </button>
+      <button className="btn btn-ghost btn-sm" onClick={onOpenSpringMap} title="Spring 组件地图（Bean / 端点 / 依赖注入）">
+        地图
+      </button>
+      <button className="btn btn-ghost btn-sm" onClick={onOpenTests} title="运行测试套件，失败可一键交给 AI 修复">
+        测试
+      </button>
 
       <button
         className={`btn btn-ghost btn-sm${treeVisible ? '' : ' muted'}`}

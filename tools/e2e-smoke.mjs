@@ -426,6 +426,117 @@ async function main() {
   check('新增了构造器', /public UserService\(UserRepository userRepository\)/.test(afterText));
   check('文件内容确实发生了变化', afterText !== beforeText, `${beforeText.length} → ${afterText.length} 字符`);
 
+  section('15. 仓库宪法（读 / 模板 / 存 / 撤回 / 再存）');
+  const c0 = await call(`/api/workspaces/${workspaceId}/constitution`, { token });
+  check('GET constitution 可用', c0.status === 200, `HTTP ${c0.status}`);
+  check('新工作区没有宪法（exists=false）', c0.data?.exists === false, `exists=${c0.data?.exists}`);
+  const tpl = await call(`/api/workspaces/${workspaceId}/constitution/template`, { token });
+  check('宪法模板可取', tpl.status === 200 && (tpl.data?.content ?? '').includes('仓库宪法'), `${(tpl.data?.content ?? '').length} 字符`);
+  const cSaved = await call(`/api/workspaces/${workspaceId}/constitution`, {
+    method: 'PUT',
+    token,
+    body: { content: '# 仓库宪法\n\n- 统一构造器注入，禁止字段 @Autowired\n- 任何行为变更必须附带测试\n' },
+  });
+  check('宪法保存成功', cSaved.status === 200 && cSaved.data?.exists === true, `exists=${cSaved.data?.exists}`);
+  const c1 = await call(`/api/workspaces/${workspaceId}/constitution`, { token });
+  check('宪法回读一致', (c1.data?.content ?? '').includes('禁止字段 @Autowired'));
+  const cCleared = await call(`/api/workspaces/${workspaceId}/constitution`, {
+    method: 'PUT',
+    token,
+    body: { content: '   ' },
+  });
+  check('空内容保存 = 撤回宪法', cCleared.data?.exists === false, `exists=${cCleared.data?.exists}`);
+  await call(`/api/workspaces/${workspaceId}/constitution`, {
+    method: 'PUT',
+    token,
+    body: { content: tpl.data?.content ?? '# 仓库宪法\n' },
+  });
+  note('已用模板内容恢复宪法（供后续人工查看）');
+
+  section('16. Spring 地图（Bean / 端点 / 依赖注入）');
+  const smap = await call(`/api/workspaces/${workspaceId}/spring-map`, { token });
+  check('GET spring-map 可用', smap.status === 200, `HTTP ${smap.status}`);
+  const sm = smap.data ?? {};
+  check('扫描到了 Java 文件', (sm.scannedFiles ?? 0) > 0, `${sm.scannedFiles} 个`);
+  const nodeNames = (sm.nodes ?? []).map((node) => node.name);
+  check('识别出至少 3 个 Bean', nodeNames.length >= 3, nodeNames.join('、'));
+  const controllerNode = (sm.nodes ?? []).find((node) => node.name === 'UserController');
+  check('UserController 被识别为 Controller', controllerNode?.stereotype === 'Controller');
+  check(
+    'Controller 的 HTTP 端点已拼出类级前缀',
+    (controllerNode?.endpoints ?? []).some((endpoint) => endpoint.startsWith('GET /api/users')),
+    (controllerNode?.endpoints ?? []).join(' ; ').slice(0, 160),
+  );
+  check(
+    '依赖注入边存在（UserService → UserRepository）',
+    (sm.edges ?? []).some((edge) => edge.from === 'UserService' && edge.to === 'UserRepository'),
+    `${(sm.edges ?? []).length} 条边`,
+  );
+
+  section('17. 变更预演 PR');
+  if (!patchEvent) {
+    note('没有补丁可预演，跳过。');
+  } else {
+    const pr = await call(`/api/patches/${patchEvent.id}/pr-preview`, { token });
+    check('GET pr-preview 可用', pr.status === 200, `HTTP ${pr.status}`);
+    const preview = pr.data ?? {};
+    check('PR 标题非空且含变更字样', (preview.title ?? '').includes('变更'), preview.title ?? '');
+    check('分支建议非空', Boolean(preview.branch), preview.branch ?? '');
+    check('正文包含变更内容小节', (preview.body ?? '').includes('## 变更内容'));
+    check(
+      '审查清单 ≥ 3 项且状态合法',
+      (preview.checklist ?? []).length >= 3 &&
+        (preview.checklist ?? []).every((item) => ['ok', 'warn', 'bad', 'info'].includes(item.state)),
+      `${(preview.checklist ?? []).length} 项`,
+    );
+    check(
+      '清单包含宪法项（工作区已配置宪法）',
+      (preview.checklist ?? []).some((item) => item.text === '仓库宪法' && item.state === 'ok'),
+    );
+    note(`标题：${preview.title}`);
+  }
+
+  section('18. 测试运行（测试失败驱动改代码的事实来源）');
+  const testRun = await call(`/api/workspaces/${workspaceId}/test-run`, { method: 'POST', token });
+  const tStatus = testRun.data?.status;
+  check(
+    'test-run 返回明确状态',
+    ['ok', 'failed', 'timeout', 'unavailable', 'disabled'].includes(tStatus),
+    `status=${tStatus}`,
+  );
+  if (tStatus === 'ok') {
+    check(
+      '示例项目测试通过且统计可见',
+      (testRun.data?.totals?.run ?? 0) > 0,
+      `run=${testRun.data?.totals?.run} failures=${testRun.data?.totals?.failures} errors=${testRun.data?.totals?.errors}`,
+    );
+    check('失败用例列表为空', (testRun.data?.failures ?? []).length === 0);
+  } else if (tStatus === 'failed') {
+    // 失败有两种形态，都算结构化输出：
+    // a) surefire 跑了且有失败用例 → failures 非空；
+    // b) 测试代码编译不过（如补丁改了构造器签名）→ failures 为空、issues 给出编译诊断。
+    const failCount = (testRun.data?.failures ?? []).length;
+    const issueCount = (testRun.data?.issues ?? []).length;
+    check(
+      '失败时给出了结构化明细（失败用例或编译诊断）',
+      failCount > 0 || issueCount > 0,
+      failCount > 0
+        ? (testRun.data?.failures ?? []).map((failure) => failure.displayName).join('、').slice(0, 160)
+        : `编译诊断 ${issueCount} 条：${(testRun.data?.issues ?? [])
+            .map((issue) => `${issue.file}${issue.line ? ':' + issue.line : ''}`)
+            .join('、')
+            .slice(0, 140)}`,
+    );
+    if (failCount > 0) {
+      note('示例测试本身失败了 —— 需要修样例或环境，请看报告');
+    } else {
+      note('补丁改了构造器签名导致测试代码编译不过 —— issues 已给出诊断，符合「测试驱动修代码」的输入形态');
+    }
+  } else {
+    check('未执行时说明了原因', Boolean(testRun.data?.note), testRun.data?.note ?? '');
+    note(`测试未执行：${testRun.data?.note ?? ''}`);
+  }
+
   stream.close();
 
   section('14. 会话历史已持久化');

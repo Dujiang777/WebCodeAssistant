@@ -4,6 +4,7 @@ import com.webcode.assistant.agent.BlastRadius;
 import com.webcode.assistant.agent.BlastRadiusService;
 import com.webcode.assistant.agent.Patch;
 import com.webcode.assistant.agent.PatchService;
+import com.webcode.assistant.agent.PrPreviewService;
 import com.webcode.assistant.build.BuildResult;
 import com.webcode.assistant.build.BuildService;
 import com.webcode.assistant.build.CompileIssue;
@@ -39,15 +40,18 @@ public class PatchController {
 
     private final PatchService patchService;
     private final BlastRadiusService blastRadiusService;
+    private final PrPreviewService prPreviewService;
     private final BuildService buildService;
     private final CurrentUser currentUser;
 
     public PatchController(PatchService patchService,
                            BlastRadiusService blastRadiusService,
+                           PrPreviewService prPreviewService,
                            BuildService buildService,
                            CurrentUser currentUser) {
         this.patchService = patchService;
         this.blastRadiusService = blastRadiusService;
+        this.prPreviewService = prPreviewService;
         this.buildService = buildService;
         this.currentUser = currentUser;
     }
@@ -75,6 +79,18 @@ public class PatchController {
         Workspace workspace = patchService.workspaceOf(userId, patchId);
         BlastRadius radius = blastRadiusService.compute(workspace, patch.filePath(), patch.diffText());
         return toView(radius);
+    }
+
+    /**
+     * 变更预演 PR：把「假如这是一次真实团队协作」的标题 / 正文 / 审查清单预演出来。
+     * 纯只读、随时可看；它不做新分析，只是把影响面与宪法的既有事实组织成审查者视角。
+     */
+    @GetMapping("/{patchId}/pr-preview")
+    public ApiModels.PrPreviewView prPreview(@PathVariable UUID patchId) {
+        long userId = currentUser.requireId();
+        Patch patch = patchService.require(userId, patchId);
+        Workspace workspace = patchService.workspaceOf(userId, patchId);
+        return prPreviewService.build(workspace, patch);
     }
 
     /**

@@ -49,6 +49,11 @@ public final class SystemPrompts {
             - `read_file`：读文件，**返回内容带行号**（形如 `   42| 代码`），可能被截断（会标 truncated）。
             - `grep`：在工作区内按正则搜索，结果是文件路径 + 行号 + 该行内容。
             - `propose_patch`：产出待确认的补丁。
+            - `spring_map`：扫描 Spring 组件与依赖注入关系（Bean / HTTP 端点 / 谁依赖谁）。
+              问「有哪些接口 / 这个 Service 被谁用」时先调它，不要靠 grep 猜。
+            - `run_tests`：运行测试套件并返回每个失败用例的明细。
+              修复测试失败时：run_tests 拿到真实失败 → read_file 定位 → propose_patch 最小修复；
+              修 bug 时优先先写/改一个能复现问题的测试，再改实现。
 
             宁可多调用一次工具，也不要凭记忆写代码。
             """;

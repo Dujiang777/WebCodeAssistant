@@ -1,7 +1,11 @@
 package com.webcode.assistant.agent;
 
+import com.webcode.assistant.build.BuildService;
+import com.webcode.assistant.build.CompileIssue;
+import com.webcode.assistant.build.TestRunResult;
 import com.webcode.assistant.common.ApiException;
 import com.webcode.assistant.config.AppProperties;
+import com.webcode.assistant.map.SpringMapService;
 import com.webcode.assistant.workspace.FileContent;
 import com.webcode.assistant.workspace.FileNode;
 import com.webcode.assistant.workspace.Workspace;
@@ -48,6 +52,8 @@ public class AgentToolbox {
     private final GrepService grepService;
     private final PatchService patchService;
     private final BlastRadiusService blastRadiusService;
+    private final BuildService buildService;
+    private final SpringMapService springMapService;
     private final AppProperties appProperties;
     private final long sessionId;
     private final int maxToolSteps;
@@ -64,6 +70,8 @@ public class AgentToolbox {
                         GrepService grepService,
                         PatchService patchService,
                         BlastRadiusService blastRadiusService,
+                        BuildService buildService,
+                        SpringMapService springMapService,
                         AppProperties appProperties,
                         long sessionId,
                         int maxToolSteps) {
@@ -73,6 +81,8 @@ public class AgentToolbox {
         this.grepService = grepService;
         this.patchService = patchService;
         this.blastRadiusService = blastRadiusService;
+        this.buildService = buildService;
+        this.springMapService = springMapService;
         this.appProperties = appProperties;
         this.sessionId = sessionId;
         this.maxToolSteps = maxToolSteps;
@@ -296,6 +306,129 @@ public class AgentToolbox {
                     summary == null || summary.isBlank() ? "（未提供）" : summary, impact);
             return outcome(modelResult, uiSummary);
         });
+    }
+
+    // ------------------------------------------------------------ run_tests
+
+    @Tool(name = "run_tests", value = """
+            在工作区里运行测试套件（Maven `test` / Gradle `test`，按项目构建方式自动选择，你无法指定其他 goal）。
+            返回：每个失败用例的类名 / 方法 / 行号 / 失败信息，以及通过数与失败数的汇总。
+            典型用法（测试失败驱动改代码）：先 run_tests 拿到真实失败 → read_file 打开相关源码与测试
+            → propose_patch 给出最小修复 → 建议用户应用后再跑一次测试确认。
+            注意：首次运行可能要下载依赖，耗时较长；工作区没有测试时会明确告诉你。
+            """)
+    public String runTests() {
+        return guard("run_tests", Map.of(), () -> {
+            TestRunResult result = buildService.runTests(workspace);
+            StringBuilder out = new StringBuilder();
+            out.append("状态: ").append(result.status())
+                    .append(" | 构建系统: ").append(result.buildSystem())
+                    .append(" | 退出码: ").append(result.exitCode() == null ? "未执行" : result.exitCode())
+                    .append(" | 耗时: ").append(result.durationMs() / 1000.0).append("s\n");
+            out.append("命令: ").append(result.command()).append('\n');
+            if (result.totals() != null) {
+                out.append("用例统计: 共 ").append(result.totals().run())
+                        .append(" 个，失败 ").append(result.totals().failures())
+                        .append("，错误 ").append(result.totals().errors())
+                        .append(result.totals().skipped() == null ? "" :
+                                "，跳过 " + result.totals().skipped())
+                        .append('\n');
+            }
+            if (result.failures().isEmpty() && !result.issues().isEmpty()) {
+                out.append("测试代码编译不过（").append(result.issues().size())
+                        .append(" 条诊断），测试套件没有执行：\n");
+                for (CompileIssue issue : result.issues()) {
+                    out.append("- ").append(issue.file());
+                    if (issue.line() != null) {
+                        out.append(':').append(issue.line());
+                    }
+                    out.append("  ").append(issue.message()).append('\n');
+                }
+                out.append("\n这些是编译错误而不是断言失败 —— 通常是你改了主代码签名、"
+                        + "测试代码还没跟上。请先 read_file 打开出错的测试文件，"
+                        + "用 propose_patch 让它适配新的构造器/方法签名。");
+            } else if (result.failures().isEmpty()) {
+                out.append("失败用例: 无");
+                out.append(TestRunResult.OK.equals(result.status())
+                        ? "。所有测试通过。" : "（没有解析到具体用例，请看输出尾部）");
+                out.append('\n');
+            } else {
+                out.append("失败用例（").append(result.failures().size()).append(" 个）：\n");
+                for (TestRunResult.TestFailure failure : result.failures()) {
+                    out.append("- ").append(failure.displayName());
+                    if (failure.line() != null) {
+                        out.append(':').append(failure.line());
+                    }
+                    out.append("  ").append(failure.message()).append('\n');
+                }
+                out.append("\n请先 read_file 打开上面列出的测试与其测试的源码类，"
+                        + "确认是「实现错了」还是「测试断言过时」，再用 propose_patch 修复。"
+                        + "修复后建议用户再跑一次测试验证。");
+            }
+            out.append('\n').append(result.note());
+            String uiSummary = TestRunResult.OK.equals(result.status())
+                    ? (result.totals() == null ? "测试通过" : result.totals().run() + " 个用例全部通过")
+                    : result.failures().size() + " 个测试失败";
+            return outcome(out.toString(), uiSummary
+                    + (TestRunResult.OK.equals(result.status()) ? "" : "（exit=" + result.exitCode() + "）"));
+        });
+    }
+
+    // ------------------------------------------------------------ spring_map
+
+    @Tool(name = "spring_map", value = """
+            扫描工作区里的 Spring 构造型组件（@RestController / @Controller / @Service / @Repository /
+            @Component / @Configuration / @Entity 等），返回每个 Bean 的类型、所在文件与行号、
+            暴露的 HTTP 端点（类级前缀 + 方法级映射拼接），以及构造器注入形成的依赖关系。
+            用于回答「这个项目有哪些接口」「某个 Service 被谁注入」「请求从哪个 Controller 进来」
+            这类全局结构问题。所有节点都带 文件:行号，可以直接引用给用户。
+            非 Spring 项目会明确返回「没有发现组件」，不要对这类项目编造地图。
+            """)
+    public String springMap() {
+        return guard("spring_map", Map.of(), () -> {
+            SpringMapService.SpringMapData data = springMapService.scan(workspace);
+            StringBuilder out = new StringBuilder();
+            out.append("Spring 地图 | 扫描 ").append(data.scannedFiles()).append(" 个 Java 文件")
+                    .append(data.truncated() ? "（已截断）" : "")
+                    .append(" | ").append(data.note()).append('\n');
+            if (data.nodes().isEmpty()) {
+                return outcome(out.toString(), "未发现 Spring 组件");
+            }
+            String currentLayer = null;
+            for (SpringMapService.Node node : data.nodes()) {
+                if (!node.layer().equals(currentLayer)) {
+                    currentLayer = node.layer();
+                    out.append("\n== ").append(layerLabel(currentLayer)).append(" ==\n");
+                }
+                out.append(node.name()).append("  (").append(node.file()).append(':').append(node.line()).append(')');
+                if (node.endpoints().isEmpty()) {
+                    out.append("  [无 HTTP 端点]");
+                } else {
+                    out.append("  [").append(String.join("; ", node.endpoints())).append(']');
+                }
+                List<String> deps = data.edges().stream()
+                        .filter(edge -> edge.from().equals(node.name()))
+                        .map(SpringMapService.Edge::to)
+                        .toList();
+                if (!deps.isEmpty()) {
+                    out.append("  依赖: ").append(String.join("、", deps));
+                }
+                out.append('\n');
+            }
+            return outcome(out.toString(), data.nodes().size() + " 个 Bean / "
+                    + data.edges().size() + " 条依赖");
+        });
+    }
+
+    private static String layerLabel(String layer) {
+        return switch (layer) {
+            case "0-config" -> "配置";
+            case "1-web" -> "Web 层（Controller）";
+            case "2-service" -> "服务层（Service）";
+            case "3-repository" -> "数据访问层（Repository）";
+            case "4-model" -> "模型（Entity）";
+            default -> "其他组件";
+        };
     }
 
     // ------------------------------------------------------------ 内部机制

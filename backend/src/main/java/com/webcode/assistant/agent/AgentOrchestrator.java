@@ -1,6 +1,7 @@
 package com.webcode.assistant.agent;
 
 import com.webcode.assistant.common.ApiException;
+import com.webcode.assistant.build.BuildService;
 import com.webcode.assistant.context.Citation;
 import com.webcode.assistant.context.CitationVerifier;
 import com.webcode.assistant.context.ContextAssembler;
@@ -9,6 +10,7 @@ import com.webcode.assistant.config.ExecutorConfig;
 import com.webcode.assistant.llm.ChatModelConfig;
 import com.webcode.assistant.llm.LlmProperties;
 import com.webcode.assistant.llm.UsageGuard;
+import com.webcode.assistant.map.SpringMapService;
 import com.webcode.assistant.workspace.Workspace;
 import com.webcode.assistant.workspace.WorkspaceFileService;
 import com.webcode.assistant.workspace.WorkspaceService;
@@ -68,6 +70,8 @@ public class AgentOrchestrator {
     private final GrepService grepService;
     private final PatchService patchService;
     private final BlastRadiusService blastRadiusService;
+    private final BuildService buildService;
+    private final SpringMapService springMapService;
     private final ContextAssembler contextAssembler;
     private final CitationVerifier citationVerifier;
     private final UsageGuard usageGuard;
@@ -85,6 +89,8 @@ public class AgentOrchestrator {
                              GrepService grepService,
                              PatchService patchService,
                              BlastRadiusService blastRadiusService,
+                             BuildService buildService,
+                             SpringMapService springMapService,
                              ContextAssembler contextAssembler,
                              CitationVerifier citationVerifier,
                              UsageGuard usageGuard,
@@ -101,6 +107,8 @@ public class AgentOrchestrator {
         this.grepService = grepService;
         this.patchService = patchService;
         this.blastRadiusService = blastRadiusService;
+        this.buildService = buildService;
+        this.springMapService = springMapService;
         this.contextAssembler = contextAssembler;
         this.citationVerifier = citationVerifier;
         this.usageGuard = usageGuard;
@@ -160,7 +168,8 @@ public class AgentOrchestrator {
 
             AgentToolbox toolbox = new AgentToolbox(
                     workspace, publisher, fileService, grepService, patchService,
-                    blastRadiusService, appProperties, request.sessionId(), llmProperties.maxToolSteps());
+                    blastRadiusService, buildService, springMapService,
+                    appProperties, request.sessionId(), llmProperties.maxToolSteps());
 
             Assistant assistant = AiServices.builder(Assistant.class)
                     .streamingChatModel(modelGateway.require())

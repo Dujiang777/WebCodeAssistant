@@ -1,6 +1,7 @@
 package com.webcode.assistant.context;
 
 import com.webcode.assistant.agent.AgentRequest;
+import com.webcode.assistant.constitution.ConstitutionService;
 import com.webcode.assistant.llm.LlmProperties;
 import com.webcode.assistant.workspace.FileContent;
 import com.webcode.assistant.workspace.Workspace;
@@ -33,15 +34,21 @@ public class ContextAssembler {
 
     private static final Logger log = LoggerFactory.getLogger(ContextAssembler.class);
 
+    /** 宪法注入 prompt 的字符预算：约束要全文生效，超长只能截断并明示。 */
+    private static final int CONSTITUTION_BUDGET = 6000;
+
     private final WorkspaceFileService fileService;
     private final ProjectProbe projectProbe;
+    private final ConstitutionService constitutionService;
     private final LlmProperties llmProperties;
 
     public ContextAssembler(WorkspaceFileService fileService,
-                           ProjectProbe projectProbe,
-                           LlmProperties llmProperties) {
+                            ProjectProbe projectProbe,
+                            ConstitutionService constitutionService,
+                            LlmProperties llmProperties) {
         this.fileService = fileService;
         this.projectProbe = projectProbe;
+        this.constitutionService = constitutionService;
         this.llmProperties = llmProperties;
     }
 
@@ -54,6 +61,7 @@ public class ContextAssembler {
         prompt.append(SystemPrompts.modeBlock(request.normalizedMode()));
 
         appendProjectSection(prompt, summary);
+        appendConstitutionSection(prompt, workspace);
         appendRulesSection(prompt, summary);
         appendOpenFileSection(prompt, workspace, request);
         appendSelectionSection(prompt, request);
@@ -76,6 +84,32 @@ public class ContextAssembler {
         }
         if (summary.readmeExcerpt() != null) {
             prompt.append("\nREADME 开头：\n```\n").append(summary.readmeExcerpt()).append("\n```\n");
+        }
+    }
+
+    /**
+     * 注入仓库宪法。放在项目画像之后、自动探测的规则文件之前：
+     * 宪法是用户逐条写下的硬约束，地位高于一切探测出来的约定；
+     * 同时明示「冲突时以宪法为准」，避免模型拿 README 里的旧描述当挡箭牌。
+     */
+    private void appendConstitutionSection(StringBuilder prompt, Workspace workspace) {
+        ConstitutionService.ConstitutionView view = constitutionService.read(workspace);
+        if (!view.exists() || view.content() == null || view.content().isBlank()) {
+            return;
+        }
+        String text = view.content();
+        boolean clipped = text.length() > CONSTITUTION_BUDGET;
+        if (clipped) {
+            text = text.substring(0, CONSTITUTION_BUDGET);
+        }
+        prompt.append("\n## 仓库宪法（用户定义的最高优先级规则）\n\n");
+        prompt.append("以下是用户为本仓库写下的硬性规则。**你必须遵守其中每一条**；")
+                .append("它与任何其他指引（包括本提示词的默认习惯与项目 README）冲突时，以宪法为准。\n");
+        prompt.append("违反宪法的请求应当先指出冲突条款，再给出符合宪法的替代方案。\n\n");
+        prompt.append("```markdown\n").append(text).append("\n```\n");
+        if (clipped) {
+            prompt.append("\n> 注意：宪法已超过 ").append(CONSTITUTION_BUDGET)
+                    .append(" 字符被截断。请提醒用户精简宪法（截断的条款你无法遵守）。\n");
         }
     }
 
