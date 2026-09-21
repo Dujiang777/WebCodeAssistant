@@ -1,0 +1,83 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2500 },
+
+  ["find", "text", "一键随机演示账号", "click"],
+  { "sleep": 3500 },
+
+  ["click", ".form-stack .btn-primary"],
+  { "sleep": 9000 },
+  ["eval", "location.hash"],
+  ["screenshot", "docs/self-test/v2/00-ide.png"],
+
+  { "note": "打开演示文件，后面读它做引用/风险/编译" },
+  ["click", "[title=\"src/main/java/com/demo/UserService.java\"]"],
+  { "sleep": 3000 },
+  ["eval", "document.querySelector('.composer-context').innerText.replace(/\\n/g,' | ')"],
+  ["screenshot", "docs/self-test/v2/01-context.png"],
+
+  { "note": "功能 4：双模式开关默认在「交付」，且已持久化到 localStorage" },
+  ["eval", "'MODE_INIT=' + (document.querySelector('.mode-btn.active')||{innerText:'NONE'}).innerText + ' LS=' + localStorage.getItem('wca.mode') + ' BTNS=' + document.querySelectorAll('.mode-btn').length"],
+  ["eval", "document.querySelector('.mode-toggle') ? String(document.querySelector('.mode-toggle').scrollIntoView({block:'center'})) : 'none'"],
+  { "sleep": 400 },
+  ["screenshot", "docs/self-test/v2/02-mode-deliver.png"],
+
+  { "note": "功能 1：问一个需要读代码才能回答的问题，回答里应挂「路径:行号」" },
+  ["fill", ".composer-input", "解释一下这个类"],
+  ["click", ".composer-actions .btn-primary"],
+  { "sleep": 10000 },
+  ["eval", "document.querySelector('.chat-scroll').scrollTop = document.querySelector('.chat-scroll').scrollHeight"],
+  { "sleep": 500 },
+  ["eval", "'CITE_CHIPS=' + document.querySelectorAll('.cite-chip').length + ' BAD=' + document.querySelectorAll('.cite-chip-bad').length + ' MSG_HEAD=' + Array.prototype.map.call(document.querySelectorAll('.msg-meta'), function(e){return e.innerText}).join('/')"],
+  ["eval", "document.querySelector('.chat-scroll').innerText.slice(-380)"],
+  ["screenshot", "docs/self-test/v2/03-citations.png"],
+
+  { "note": "点引用 → 编辑器滚到那一行并短暂高亮（.cite-line / .cite-line-gutter）" },
+  ["eval", "(function(){var b=document.querySelectorAll('.cite-chip')[1];if(!b)return 'NO_CHIP';b.click();return 'clicked [' + b.innerText + ']'})()"],
+  { "sleep": 2200 },
+  ["eval", "'REVEAL_LINES=' + document.querySelectorAll('.cite-line').length + ' GUTTER=' + document.querySelectorAll('.cite-line-gutter').length + ' STATUS=' + (document.querySelector('.statusbar')||{innerText:''}).innerText.replace(/\\n/g,' ')"],
+  ["screenshot", "docs/self-test/v2/04-citation-jump.png"],
+
+  { "note": "功能 2：让它改代码 —— 补丁卡片上先出影响面（风险条）" },
+  ["fill", ".composer-input", "把这个类改成构造器注入"],
+  ["click", ".composer-actions .btn-primary"],
+  { "sleep": 16000 },
+  ["eval", "'RISK=' + (document.querySelector('.risk-bar') ? document.querySelector('.risk-bar').className + ' :: ' + document.querySelector('.risk-bar').innerText.replace(/\\n/g,' | ') : 'NO_RISK_BAR')"],
+  ["eval", "document.querySelector('.risk-bar') ? String(document.querySelector('.risk-bar').scrollIntoView({block:'center'})) : 'none'"],
+  { "sleep": 500 },
+  ["screenshot", "docs/self-test/v2/05-blast-radius.png"],
+
+  { "note": "展开「谁在调用」—— 引用列表本身也是可点的" },
+  ["eval", "(function(){var b=document.querySelector('.risk-foot .link-btn');if(!b)return 'NO_TOGGLE';b.click();return 'expanded ' + b.innerText})()"],
+  { "sleep": 700 },
+  ["eval", "document.querySelector('.risk-refs') ? document.querySelector('.risk-refs').innerText.replace(/\\n/g,' | ').slice(0,320) : 'NO_REFS'"],
+  ["screenshot", "docs/self-test/v2/06-callers.png"],
+
+  { "note": "功能 3：应用补丁 → 自动编译 → 结果条如实分状态" },
+  ["eval", "(function(){var b=document.querySelector('.patch-actions .btn-primary');if(!b)return 'NO_APPLY_BTN';b.click();return 'apply clicked'})()"],
+  { "sleep": 3500 },
+  ["eval", "'STRIP=' + (document.querySelector('.compile-strip') ? document.querySelector('.compile-strip').className : 'NO_STRIP')"],
+  ["screenshot", "docs/self-test/v2/07-compiling.png"],
+  { "sleep": 40000 },
+  ["eval", "document.querySelector('.compile-strip') ? document.querySelector('.compile-strip').innerText.replace(/\\n/g,' | ').slice(0,420) : 'NO_STRIP'"],
+  ["eval", "document.querySelector('.compile-strip') ? String(document.querySelector('.compile-strip').scrollIntoView({block:'center'})) : 'none'"],
+  { "sleep": 500 },
+  ["screenshot", "docs/self-test/v2/08-compile-result.png"],
+
+  { "note": "写盘后编辑器应变成构造器注入，且对话里能看到「已应用」" },
+  ["eval", "(function(){var w=location.hash.split('/')[2];var t=localStorage.getItem('wca.token');var x=new XMLHttpRequest();x.open('GET','/api/workspaces/'+w+'/files?path=src%2Fmain%2Fjava%2Fcom%2Fdemo%2FUserService.java',false);x.setRequestHeader('Authorization','Bearer '+t);x.send();var d=JSON.parse(x.responseText);return 'DISK status='+x.status+' atAutowired='+String(d.content.indexOf('@Autowired')>=0)+' hasFinalField='+String(d.content.indexOf('private final UserRepository')>=0)+' hasCtor='+String(d.content.indexOf('public UserService(UserRepository userRepository)')>=0)})()"],
+
+  { "note": "功能 4：切到教学模式，断言 active 态与持久化" },
+  ["eval", "(function(){var bs=document.querySelectorAll('.mode-btn');for(var i=0;i<bs.length;i++){if(bs[i].innerText.indexOf('教学')>=0){bs[i].click();return 'switched to teach'}}return 'NO_TEACH_BTN'})()"],
+  { "sleep": 800 },
+  ["eval", "'MODE_NOW=' + (document.querySelector('.mode-btn.active')||{innerText:'NONE'}).innerText + ' LS=' + localStorage.getItem('wca.mode') + ' PH=' + document.querySelector('.composer-input').placeholder.slice(0,28)"],
+  ["screenshot", "docs/self-test/v2/09-mode-teach.png"],
+
+  { "note": "刷新后：模式、引用、风险条状态都应仍在" },
+  ["reload"],
+  { "sleep": 8000 },
+  ["eval", "'AFTER_RELOAD mode=' + localStorage.getItem('wca.mode') + ' activeBtn=' + (document.querySelector('.mode-btn.active')||{innerText:'NONE'}).innerText + ' citeChips=' + document.querySelectorAll('.cite-chip').length + ' msgMeta=' + document.querySelectorAll('.msg-meta').length"],
+  ["screenshot", "docs/self-test/v2/10-after-reload.png"]
+]

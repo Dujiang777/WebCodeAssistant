@@ -1,0 +1,83 @@
+# ui-probe start  steps=32
+
+$ agent-browser set viewport 1512 950
+✓ Done
+
+$ agent-browser open http://127.0.0.1:5173/#/login
+✓ Web Code Assistant · 网页版编码助手
+  http://127.0.0.1:5173/#/login
+
+$ sleep 2500
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v3\20-login.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v3\20-login.png
+
+$ agent-browser find text 一键随机演示账号 click
+✓ Done
+
+$ sleep 3500
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v3\21-workspace-list.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v3\21-workspace-list.png
+
+$ agent-browser click .form-stack .btn-primary
+✓ Done
+
+$ sleep 9000
+
+$ agent-browser eval location.hash
+"#/ide/14"
+
+$ agent-browser click [title="src/main/java/com/demo/UserService.java"]
+✓ Done
+
+$ sleep 3000
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v3\22-ide.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v3\22-ide.png
+
+$ agent-browser fill .composer-input 解释一下这个类
+✓ Done
+
+$ agent-browser click .composer-actions .btn-primary
+✓ Done
+
+$ sleep 10000
+
+$ agent-browser eval 'BRAND=' + (document.querySelector('.brand-name')||{innerText:'NONE'}).innerText + ' CITE_CHIPS=' + document.querySelectorAll('.cite-chip').length + ' BAD=' + document.querySelectorAll('.cite-chip-bad').length
+"BRAND=WEB CODE ASSISTANT CITE_CHIPS=7 BAD=0"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v3\23-chat-citations.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v3\23-chat-citations.png
+
+$ agent-browser eval (function(){var b=document.querySelectorAll('.cite-chip')[1];if(!b)return 'NO_CHIP';b.click();return 'clicked [' + b.innerText + ']'})()
+"clicked [src/main/java/com/demo/UserService.java:30]"
+
+$ sleep 900
+
+$ agent-browser eval 'REVEAL_LINES=' + document.querySelectorAll('.cite-line').length + ' GUTTER=' + document.querySelectorAll('.cite-line-gutter').length
+"REVEAL_LINES=1 GUTTER=1"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v3\24-citation-jump.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v3\24-citation-jump.png
+
+$ agent-browser fill .composer-input 把这个类改成构造器注入
+✓ Done
+
+$ agent-browser click .composer-actions .btn-primary
+✓ Done
+
+$ sleep 15000
+
+$ agent-browser eval 'RISK=' + (document.querySelector('.risk-bar') ? document.querySelector('.risk-bar').className + ' :: ' + document.querySelector('.risk-bar').innerText.replace(/\n/g,' | ').slice(0,160) : 'NO_RISK_BAR')
+"RISK=risk-bar risk-medium :: 风险 中 | 改动 UserService：+18 / -16 行，1 个成员，5 处引用，1 个测试文件覆盖 | ▸ 5 处引用 | · | 1 个测试文件覆盖 | · | 触碰 1 个成员"
+
+$ agent-browser eval document.querySelector('.risk-bar') ? String(document.querySelector('.risk-bar').scrollIntoView({block:'center'})) : 'none'
+"[object Promise]"
+
+$ sleep 500
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v3\25-risk-bar.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v3\25-risk-bar.png
+
+# ui-probe done

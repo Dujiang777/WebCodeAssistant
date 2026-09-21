@@ -1,0 +1,48 @@
+[
+  ["open", "http://127.0.0.1:5173/#/login"],
+  ["set", "viewport", "1512", "950"],
+  { "sleep": 2500 },
+
+  ["find", "text", "一键随机演示账号", "click"],
+  { "sleep": 3500 },
+  ["click", ".form-stack .btn-primary"],
+  { "sleep": 9000 },
+  ["eval", "'AT ' + location.href"],
+  ["click", "[title=\"src/main/java/com/demo/UserService.java\"]"],
+  { "sleep": 3000 },
+
+  ["fill", ".composer-input", "解释一下这个类"],
+  ["click", ".composer-actions .btn-primary"],
+  { "sleep": 9500 },
+  ["eval", "document.querySelector('.chat-scroll').innerText.slice(-320)"],
+  ["screenshot", "docs/self-test/06-explain.png"],
+
+  ["fill", ".composer-input", "把这个类改成构造器注入"],
+  ["click", ".composer-actions .btn-primary"],
+  { "sleep": 15000 },
+  ["eval", "document.querySelector('.chat-scroll').innerText.slice(-200)"],
+  ["eval", "(function(){var w=location.hash.split('/')[2];var t=localStorage.getItem('wca.token');var x=new XMLHttpRequest();x.open('GET','/api/workspaces/'+w+'/files?path=src%2Fmain%2Fjava%2Fcom%2Fdemo%2FUserService.java',false);x.setRequestHeader('Authorization','Bearer '+t);x.send();var d=JSON.parse(x.responseText);return 'DISK_BEFORE status='+x.status+' atAutowired='+String(d.content.indexOf('@Autowired')>=0)+' hasFinalField='+String(d.content.indexOf('private final UserRepository')>=0)+' size='+d.sizeBytes})()"],
+  ["screenshot", "docs/self-test/07-patch-pending.png"],
+
+  ["click", ".patch-actions .btn"],
+  { "sleep": 4000 },
+  ["eval", "String(document.querySelectorAll('.modal-backdrop').length)+' modal(s)'"],
+  ["eval", "document.querySelector('.modal-head') ? document.querySelector('.modal-head').innerText : 'NO_MODAL'"],
+  ["screenshot", "docs/self-test/08-diff-modal.png"],
+
+  ["eval", "(function(){var b=document.querySelector('.modal-foot .btn-primary');if(!b)return 'NO_APPLY_BTN';b.click();return 'apply clicked'})()"],
+  { "sleep": 5500 },
+  ["eval", "document.querySelector('.chat-scroll').innerText.slice(-120)"],
+  ["eval", "(function(){var w=location.hash.split('/')[2];var t=localStorage.getItem('wca.token');var x=new XMLHttpRequest();x.open('GET','/api/workspaces/'+w+'/files?path=src%2Fmain%2Fjava%2Fcom%2Fdemo%2FUserService.java',false);x.setRequestHeader('Authorization','Bearer '+t);x.send();var d=JSON.parse(x.responseText);return 'DISK_AFTER status='+x.status+' atAutowired='+String(d.content.indexOf('@Autowired')>=0)+' hasFinalField='+String(d.content.indexOf('private final UserRepository')>=0)+' hasCtor='+String(d.content.indexOf('public UserService(UserRepository userRepository)')>=0)+' size='+d.sizeBytes})()"],
+  ["screenshot", "docs/self-test/09-applied.png"],
+
+  ["reload"],
+  { "sleep": 7500 },
+  ["eval", "'PERSISTED url='+location.href+' appliedVisible='+String(document.body.innerText.indexOf('已应用')>=0)+' msgs='+String(document.querySelectorAll('.msg').length)"],
+  ["screenshot", "docs/self-test/10-persisted-after-reload.png"],
+
+  ["open", "http://127.0.0.1:5173/#/workspaces"],
+  { "sleep": 4000 },
+  ["eval", "document.body.innerText.slice(0,160)"],
+  ["screenshot", "docs/self-test/11-workspace-list.png"]
+]

@@ -1,0 +1,112 @@
+# ui-probe start  steps=39
+
+$ agent-browser open http://127.0.0.1:5173/#/login
+✓ Patchforge · 网页版编码助手
+  http://127.0.0.1:5173/#/login
+
+$ agent-browser set viewport 1512 950
+✓ Done
+
+$ sleep 2500
+
+$ agent-browser find text 一键随机演示账号 click
+✓ Done
+
+$ sleep 3500
+
+$ agent-browser click .form-stack .btn-primary
+✓ Done
+
+$ sleep 9000
+
+$ agent-browser eval 'AT ' + location.href
+"AT http://127.0.0.1:5173/#/ide/8"
+
+$ agent-browser click [title="src/main/java/com/demo/UserService.java"]
+✓ Done
+
+$ sleep 3000
+
+$ agent-browser fill .composer-input 解释一下这个类
+✓ Done
+
+$ agent-browser click .composer-actions .btn-primary
+✓ Done
+
+$ sleep 9500
+
+$ agent-browser eval document.querySelector('.chat-scroll').innerText.slice(-320)
+"ter` 负责注册用户，并在用户名重复时抛 `IllegalArgumentException`；\n2. `getById` 找不到时抛领域异常 `UserNotFoundException`，由控制器统一转成 404；\n3. `deactivate` 只是把 `active` 置为 false；\n4. `countActive` 用传统的下标 for 循环累加；\n5. 依赖是通过 **字段注入**（`@Autowired private UserRepository`）拿到的。\n\n字段注入的问题在于：依赖关系不在构造器签名里，单元测试只能靠反射注入，而且对象可以在「依赖还没注入」的状态下被创建出来。改成构造器注入可以解决这两点。\n"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\06-explain.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\06-explain.png
+
+$ agent-browser fill .composer-input 把这个类改成构造器注入
+✓ Done
+
+$ agent-browser click .composer-actions .btn-primary
+✓ Done
+
+$ sleep 15000
+
+$ agent-browser eval document.querySelector('.chat-scroll').innerText.slice(-200)
+" @Autowired\n-\n    private UserRepository userRepository;\n+\nimport org.springframework.stereotype.Service;\n+\n \n+\nimport java.util.List;\n+\n \n+\n/**\n+\n * 用户领域服务。\n+\n *\n… 其余 14 行，点「完整对比」查看\n完整对比\n应用并写盘\n丢弃\n待确认"
+
+$ agent-browser eval (function(){var w=location.hash.split('/')[2];var t=localStorage.getItem('patchforge.token');var x=new XMLHttpRequest();x.open('GET','/api/workspaces/'+w+'/files?path=src%2Fmain%2Fjava%2Fcom%2Fdemo%2FUserService.java',false);x.setRequestHeader('Authorization','Bearer '+t);x.send();var d=JSON.parse(x.responseText);return 'DISK_BEFORE status='+x.status+' atAutowired='+String(d.content.indexOf('@Autowired')>=0)+' hasFinalField='+String(d.content.indexOf('private final UserRepository')>=0)+' size='+d.sizeBytes})()
+"DISK_BEFORE status=200 atAutowired=true hasFinalField=false size=1782"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\07-patch-pending.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\07-patch-pending.png
+
+$ agent-browser click .patch-actions .btn
+✓ Done
+
+$ sleep 4000
+
+$ agent-browser eval String(document.querySelectorAll('.modal-backdrop').length)+' modal(s)'
+"1 modal(s)"
+
+$ agent-browser eval document.querySelector('.modal-head') ? document.querySelector('.modal-head').innerText : 'NO_MODAL'
+"完整对比\nsrc/main/java/com/demo/UserService.java\n+18 / -16"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\08-diff-modal.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\08-diff-modal.png
+
+$ agent-browser eval (function(){var b=document.querySelector('.modal-foot .btn-primary');if(!b)return 'NO_APPLY_BTN';b.click();return 'apply clicked'})()
+"apply clicked"
+
+$ sleep 5500
+
+$ agent-browser eval document.querySelector('.chat-scroll').innerText.slice(-120)
+"ork.stereotype.Service;\n+\n \n+\nimport java.util.List;\n+\n \n+\n/**\n+\n * 用户领域服务。\n+\n *\n… 其余 14 行，点「完整对比」查看\n完整对比\n已应用 · 13:02:34"
+
+$ agent-browser eval (function(){var w=location.hash.split('/')[2];var t=localStorage.getItem('patchforge.token');var x=new XMLHttpRequest();x.open('GET','/api/workspaces/'+w+'/files?path=src%2Fmain%2Fjava%2Fcom%2Fdemo%2FUserService.java',false);x.setRequestHeader('Authorization','Bearer '+t);x.send();var d=JSON.parse(x.responseText);return 'DISK_AFTER status='+x.status+' atAutowired='+String(d.content.indexOf('@Autowired')>=0)+' hasFinalField='+String(d.content.indexOf('private final UserRepository')>=0)+' hasCtor='+String(d.content.indexOf('public UserService(UserRepository userRepository)')>=0)+' size='+d.sizeBytes})()
+"DISK_AFTER status=200 atAutowired=false hasFinalField=true hasCtor=true size=1819"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\09-applied.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\09-applied.png
+
+$ agent-browser reload
+http://127.0.0.1:5173/#/ide/8
+
+$ sleep 7500
+
+$ agent-browser eval 'PERSISTED url='+location.href+' appliedVisible='+String(document.body.innerText.indexOf('已应用')>=0)+' msgs='+String(document.querySelectorAll('.msg').length)
+"PERSISTED url=http://127.0.0.1:5173/#/ide/8 appliedVisible=true msgs=4"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\10-persisted-after-reload.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\10-persisted-after-reload.png
+
+$ agent-browser open http://127.0.0.1:5173/#/workspaces
+✓ Patchforge · 网页版编码助手
+  http://127.0.0.1:5173/#/workspaces
+
+$ sleep 4000
+
+$ agent-browser eval document.body.innerText.slice(0,160)
+"选择工作区\n每个工作区是服务器磁盘上的一个真实目录。当前账号：demo_jlzl\n刷新\n退出\n模型就绪 · mock-coder\n检索引擎 · java\nRedis 可用\n新建工作区\n内置示例（最快）\nGit 克隆\nZIP 上传\n名称（可选）\n创建工作区\n内置示例是一个刻意留了问题的 Spring Boot 项目：Us"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\11-workspace-list.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\11-workspace-list.png
+
+# ui-probe done

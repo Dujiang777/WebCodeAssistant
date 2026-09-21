@@ -1,0 +1,80 @@
+Patchforge 端到端自测  目标：http://127.0.0.1:8080
+
+1. 健康检查
+  ✓ GET /api/health 可用 — HTTP 200
+    模型：mock-coder｜检索：java｜Redis：可用
+
+2. 注册 / 登录
+  ✓ 注册新账号 — HTTP 201
+  ✓ 拿到 JWT
+
+3. 创建内置示例工作区
+  ✓ 创建工作区 — HTTP 201
+    工作区 #12 · smoke-39184
+
+4. 读取文件树
+  ✓ 文件树可读 — 10 个文件
+  ✓ 树里包含 UserService.java
+
+5. 读取目标文件（应用补丁前的基线）
+  ✓ 读取 UserService.java
+  ✓ 基线里存在字段注入
+    文件 1782 字节 · 语言 java
+
+6. 路径越界防护
+  ✓ 越界读取被拒绝 — HTTP 400 PATH_ESCAPE
+  ✓ 越界写入被拒绝 — HTTP 400 PATH_ESCAPE
+
+7. 建立会话与事件流
+  ✓ 创建会话 — HTTP 201
+  ✓ SSE 长连接已建立
+
+8. 第一轮：问「解释这个类」（验证引用必须带行号）
+  ✓ 消息已受理（202） — HTTP 202
+    等待模型输出…
+  ✓ 第一轮收到 done 事件
+  ✓ 收到 citations 事件 — 7 条引用
+  ✓ 引用带上了行号（不是光秃秃的路径） — src/main/java/com/demo/UserService.java:23  src/main/java/com/demo/UserService.java:30  src/main/java/com/demo/UserService.java:38  src/main/java/com/demo/UserService.java:47  src/main/java/com/demo/UserService.java:61  
+  ✓ 引用全部通过校验（文件存在 / 行号不越界） — 0 条存疑
+  ✓ 引用已落库到消息 meta — meta 里 7 条 + mode=deliver
+
+9. 第二轮：让 AI 重构 UserService（验证补丁）
+  ✓ 消息已受理（202） — HTTP 202
+  ✓ 返回用户消息 id
+  ✓ 收到 patch 事件
+    补丁 a606cfa9-9b3b-4ef5-84ee-bb1ebfc27043 · src/main/java/com/demo/UserService.java
+  ✓ 收到 done 事件 — assistant 消息 #44
+  ✓ 收到流式文本 — 21 个增量片段
+  ✓ 过程中出现了工具调用 — read_file → read_file → propose_patch
+  ✓ 先读文件再出补丁 — read_file → read_file → propose_patch
+
+10. 影响面（应用之前就能看）
+  ✓ GET blast-radius 可用 — HTTP 200
+  ✓ 给出了风险等级 — medium
+  ✓ 识别出被改动的成员 — userRepository
+  ✓ 列出了调用方或测试 — 5 处调用 / 1 个测试文件
+    风险=medium｜改动 UserService：+18 / -16 行，1 个成员，5 处引用，1 个测试文件覆盖
+  ✓ 未应用的补丁不给编译结论（disabled） — status=disabled
+
+11. 应用补丁
+  ✓ 补丁应用成功 — HTTP 200 
+  ✓ 补丁状态变为 applied
+  ✓ 重复应用被拒绝 — HTTP 409 PATCH_ALREADY_RESOLVED
+
+12. 编译验证（应用之后才跑）
+  ✓ 编译接口返回明确状态 — status=ok
+  ✓ 通过时退出码为 0 且耗时可见 — exit=0 · 3.1s · cmd.exe /c D:\maven\apache-maven-3.8.2\bin\mvn.cmd -B -q -Dstyle.color=never -s C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\tools\maven-
+
+13. 校验磁盘上的文件真的变了
+  ✓ 文件读取成功
+  ✓ 字段注入已消失 — @Autowired 已移除
+  ✓ 已是 private final 字段
+  ✓ 新增了构造器
+  ✓ 文件内容确实发生了变化 — 1606 → 1643 字符
+
+14. 会话历史已持久化
+  ✓ 历史中同时存在 user 与 assistant — user,assistant,user,assistant
+  ✓ 补丁列表可读 — 1 个补丁
+
+结果：42 通过 / 0 失败
+全部通过。

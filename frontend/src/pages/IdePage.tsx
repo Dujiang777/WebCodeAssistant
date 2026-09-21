@@ -1,0 +1,984 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+import { api, loadToken } from '../lib/api';
+import type {
+  AgentMode,
+  BlastRadius,
+  BuildResult,
+  ChatMessage,
+  ChatSession,
+  FileContent,
+  FileNode,
+  HealthInfo,
+  PatchRecord,
+  Workspace,
+} from '../lib/api';
+import { EMPTY_TURN, messageOf, nextToolId } from '../lib/chat';
+import type { LiveTurn, Selection, ToolItem } from '../lib/chat';
+import { navigate } from '../lib/router';
+import { openChatStream } from '../lib/sse';
+import type { ChatEvent, StreamStatus } from '../lib/sse';
+import { useToast } from '../lib/toast';
+import { ChatPane } from '../components/ChatPane';
+import { EditorPane } from '../components/EditorPane';
+import type { RevealTarget } from '../components/EditorPane';
+import { FileTree } from '../components/FileTree';
+import type { CreateTarget } from '../components/FileTree';
+import { PatchModal } from '../components/PatchModal';
+import { Splitter } from '../components/Splitter';
+import { StatusBar } from '../components/StatusBar';
+import { TopBar } from '../components/TopBar';
+import { TerminalMark, FolderIcon, PlusIcon, RefreshIcon } from '../components/icons';
+
+/**
+ * IDE 主页面：把「文件 + 编辑器 + 对话」三块拼起来，并持有它们共享的状态。
+ *
+ * 状态划分的依据是「谁能改变它」：
+ *   - 文件类状态由用户操作与补丁应用驱动；
+ *   - 对话类状态由 SSE 事件流驱动；
+ *   - 二者唯一的交点是「补丁应用成功 → 重新读盘 → 文件区刷新」，这一处显式写在 applyPatch 里。
+ *
+ * 关于事件流的两个细节：
+ *   1. SSE 连接只在 sessionId 变化时重建，回调通过 ref 读最新闭包，避免每次渲染重连；
+ *   2. 一轮对话结束时，以服务端落库的消息为准重取一次 —— 断线漏掉的事件在重连时
+ *      由 afterId 回放，因此本地拼出来的内容与服务端总是一致。
+ */
+const LAYOUT_KEY = 'wca.layout';
+const MODE_KEY = 'wca.mode';
+const DEFAULT_LAYOUT = { left: 252, right: 404 };
+
+interface Layout {
+  left: number;
+  right: number;
+}
+
+/** 影响面的加载状态：补丁一出现就去算，算完之前卡片上显示「正在分析…」。 */
+interface RadiusEntry {
+  loading: boolean;
+  error: string | null;
+  data: BlastRadius | null;
+}
+
+function loadMode(): AgentMode {
+  return localStorage.getItem(MODE_KEY) === 'teach' ? 'teach' : 'deliver';
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function loadLayout(): Layout {
+  try {
+    const raw = localStorage.getItem(LAYOUT_KEY);
+    if (!raw) return { ...DEFAULT_LAYOUT };
+    const parsed = JSON.parse(raw) as Partial<Layout>;
+    return {
+      left: clamp(Number(parsed.left ?? DEFAULT_LAYOUT.left), 150, 560),
+      right: clamp(Number(parsed.right ?? DEFAULT_LAYOUT.right), 280, 780),
+    };
+  } catch {
+    return { ...DEFAULT_LAYOUT };
+  }
+}
+
+const SOURCE_EXTENSIONS = [
+  'java',
+  'kt',
+  'ts',
+  'tsx',
+  'js',
+  'jsx',
+  'py',
+  'go',
+  'rs',
+  'rb',
+  'php',
+  'cs',
+  'c',
+  'cpp',
+  'h',
+];
+
+function isSourceFile(path: string): boolean {
+  const dot = path.lastIndexOf('.');
+  if (dot < 0) return false;
+  return SOURCE_EXTENSIONS.includes(path.slice(dot + 1).toLowerCase());
+}
+
+/** 优先选 src/ 下的源文件，其次任意源文件，最后任意文件。 */
+function findInterestingFile(nodes: FileNode[]): string | null {
+  const files: string[] = [];
+  const walk = (list: FileNode[]) => {
+    for (const node of list) {
+      if (node.type === 'dir') walk(node.children ?? []);
+      else files.push(node.path);
+    }
+  };
+  walk(nodes);
+  const sources = files.filter(isSourceFile);
+  return sources.find((path) => path.startsWith('src/')) ?? sources[0] ?? files[0] ?? null;
+}
+
+/**
+ * 首屏自动展开到「第一个源文件」所在目录。
+ * 目的很朴素：打开工作区就能看见一个可以点开的代码文件，
+ * 而不是面对一堆折叠的目录点五下。
+ */
+function autoExpand(root: FileNode | null): Set<string> {
+  const result = new Set<string>();
+  if (!root) return result;
+
+  const preferred = findInterestingFile(root.children ?? []);
+  if (!preferred) {
+    for (const node of root.children ?? []) {
+      if (node.type === 'dir') result.add(node.path);
+    }
+    return result;
+  }
+
+  const parts = preferred.split('/');
+  let prefix = '';
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    prefix = prefix ? `${prefix}/${parts[i]}` : parts[i];
+    result.add(prefix);
+  }
+  return result;
+}
+
+interface IdePageProps {
+  workspaceId: number;
+  username: string;
+  onLogout: () => void;
+}
+
+export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
+  const toast = useToast();
+
+  // ------------------------------------------------------------ 工作区 / 文件
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [health, setHealth] = useState<HealthInfo | null>(null);
+  const [bootError, setBootError] = useState<string | null>(null);
+  const [tree, setTree] = useState<FileNode | null>(null);
+  const [treeLoading, setTreeLoading] = useState(true);
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set<string>());
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [file, setFile] = useState<FileContent | null>(null);
+  const [docText, setDocText] = useState('');
+  const [savedText, setSavedText] = useState('');
+  const [fileLoading, setFileLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [selection, setSelection] = useState<Selection | null>(null);
+  const [cursor, setCursor] = useState<{ line: number; column: number } | null>(null);
+  const [reveal, setReveal] = useState<RevealTarget | null>(null);
+
+  const [creating, setCreating] = useState<CreateTarget | null>(null);
+  const [createBusy, setCreateBusy] = useState(false);
+
+  // ------------------------------------------------------------ 对话
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [sessionId, setSessionId] = useState<number | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [patches, setPatches] = useState<PatchRecord[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [streamStatus, setStreamStatus] = useState<StreamStatus>('closed');
+  const [turn, setTurn] = useState<LiveTurn | null>(null);
+  const [patchBusyId, setPatchBusyId] = useState<string | null>(null);
+  const [diffPatch, setDiffPatch] = useState<PatchRecord | null>(null);
+  const [mode, setMode] = useState<AgentMode>(() => loadMode());
+
+  // ------------------------------------------------- 影响面 / 编译（按补丁 id 索引）
+  const [radii, setRadii] = useState<Record<string, RadiusEntry>>({});
+  const [compiles, setCompiles] = useState<Record<string, BuildResult>>({});
+  const [compileBusyId, setCompileBusyId] = useState<string | null>(null);
+
+  // ------------------------------------------------------------ 布局
+  const [layout, setLayout] = useState<Layout>(() => loadLayout());
+  const [treeVisible, setTreeVisible] = useState(true);
+  const [chatVisible, setChatVisible] = useState(true);
+
+  // ------------------------------------------------------------ 可变引用
+  const turnRef = useRef<LiveTurn | null>(null);
+  const sessionIdRef = useRef<number | null>(null);
+  const selectedPathRef = useRef<string | null>(null);
+  const dirtyRef = useRef(false);
+  /** 已经为哪些补丁发过影响面请求 —— 防止 patches 每次变化都重发一遍。 */
+  const radiusRequested = useRef<Set<string>>(new Set());
+  const handlersRef = useRef({
+    onEvent: (_event: ChatEvent) => {},
+    onStatus: (_status: StreamStatus) => {},
+  });
+
+  const dirty = file !== null && docText !== savedText;
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+    selectedPathRef.current = selectedPath;
+    dirtyRef.current = dirty;
+  }, [sessionId, selectedPath, dirty]);
+
+  useEffect(() => {
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout));
+  }, [layout]);
+
+  useEffect(() => {
+    localStorage.setItem(MODE_KEY, mode);
+  }, [mode]);
+
+  // ------------------------------------------------- 影响面：补丁一出现就去算
+
+  useEffect(() => {
+    for (const patch of patches) {
+      if (patch.status !== 'pending' || radiusRequested.current.has(patch.id)) continue;
+      radiusRequested.current.add(patch.id);
+      setRadii((current) => ({
+        ...current,
+        [patch.id]: { loading: true, error: null, data: current[patch.id]?.data ?? null },
+      }));
+      void (async () => {
+        try {
+          const radius = await api.blastRadius(patch.id);
+          setRadii((current) => ({
+            ...current,
+            [patch.id]: { loading: false, error: null, data: radius },
+          }));
+        } catch (err) {
+          setRadii((current) => ({
+            ...current,
+            [patch.id]: { loading: false, error: messageOf(err), data: null },
+          }));
+        }
+      })();
+    }
+  }, [patches]);
+
+  // ------------------------------------------------------------ 基础加载
+
+  const refreshTree = async () => {
+    try {
+      const [root, detail] = await Promise.all([api.tree(workspaceId), api.workspace(workspaceId)]);
+      setTree(root);
+      setWorkspace(detail);
+    } catch (err) {
+      toast.error(messageOf(err));
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setTreeLoading(true);
+      setBootError(null);
+      try {
+        const [detail, info, root, sessionList] = await Promise.all([
+          api.workspace(workspaceId),
+          api.health(),
+          api.tree(workspaceId),
+          api.listSessions(workspaceId),
+        ]);
+        if (cancelled) return;
+
+        setWorkspace(detail);
+        setHealth(info);
+        setTree(root);
+        setExpanded(autoExpand(root));
+
+        if (sessionList.length > 0) {
+          setSessions(sessionList);
+          setSessionId(sessionList[0].id);
+        } else {
+          // 没有任何会话就先建一个：这样用户打开页面就能直接提问，
+          // 不必先理解「会话」这个概念。
+          const created = await api.createSession(workspaceId);
+          if (cancelled) return;
+          setSessions([created]);
+          setSessionId(created.id);
+        }
+      } catch (err) {
+        if (!cancelled) setBootError(messageOf(err));
+      } finally {
+        if (!cancelled) setTreeLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId]);
+
+  // ------------------------------------------------------------ 会话切换
+
+  const refetchChat = async () => {
+    const sid = sessionIdRef.current;
+    if (sid === null) return;
+    try {
+      const [msgs, patchList] = await Promise.all([api.listMessages(sid), api.listPatches(sid)]);
+      if (sessionIdRef.current !== sid) return;
+      setMessages(msgs);
+      setPatches(patchList);
+    } catch {
+      // 本地已有可用结果，这里失败不打断使用
+    }
+  };
+
+  useEffect(() => {
+    turnRef.current = null;
+    setTurn(null);
+    setSending(false);
+    setDiffPatch(null);
+
+    if (sessionId === null) {
+      setMessages([]);
+      setPatches([]);
+      return;
+    }
+
+    let cancelled = false;
+    setChatLoading(true);
+    void (async () => {
+      try {
+        const [msgs, patchList] = await Promise.all([
+          api.listMessages(sessionId),
+          api.listPatches(sessionId),
+        ]);
+        if (cancelled) return;
+        setMessages(msgs);
+        setPatches(patchList);
+      } catch (err) {
+        if (!cancelled) toast.error(messageOf(err));
+      } finally {
+        if (!cancelled) setChatLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
+
+  // ------------------------------------------------------------ 事件处理
+
+  const finishTurn = (assistantMessageId: number) => {
+    const finished = turnRef.current;
+    turnRef.current = null;
+    setTurn(null);
+    setSending(false);
+
+    if (finished && Number.isFinite(assistantMessageId)) {
+      setMessages((list) => {
+        if (list.some((message) => message.id === assistantMessageId)) return list;
+        return [
+          ...list,
+          {
+            id: assistantMessageId,
+            role: 'assistant',
+            content: finished.text,
+            meta: { patches: finished.patchIds, citations: finished.citations },
+            createdAt: new Date().toISOString(),
+          },
+        ];
+      });
+    }
+    // 以服务端为准重取（补丁的 messageId 关联等只有在落库后才完整）
+    void refetchChat();
+  };
+
+  const handleEvent = (event: ChatEvent) => {
+    switch (event.type) {
+      case 'text': {
+        const delta = typeof event.delta === 'string' ? event.delta : '';
+        if (!delta) return;
+        const base = turnRef.current ?? EMPTY_TURN;
+        turnRef.current = { ...base, text: base.text + delta };
+        setTurn(turnRef.current);
+        return;
+      }
+
+      case 'tool_call': {
+        const base = turnRef.current ?? EMPTY_TURN;
+        const item: ToolItem = {
+          id: nextToolId(),
+          name: String(event.name ?? 'tool'),
+          args: event.args ?? {},
+          status: 'running',
+          summary: '',
+        };
+        turnRef.current = { ...base, tools: [...base.tools, item] };
+        setTurn(turnRef.current);
+        return;
+      }
+
+      case 'tool_result': {
+        const base = turnRef.current ?? EMPTY_TURN;
+        const name = String(event.name ?? '');
+        const ok = event.ok !== false;
+        const summary = typeof event.summary === 'string' ? event.summary : '';
+        const tools = [...base.tools];
+        for (let i = tools.length - 1; i >= 0; i -= 1) {
+          if (tools[i].status === 'running' && tools[i].name === name) {
+            tools[i] = { ...tools[i], status: ok ? 'done' : 'failed', summary };
+            break;
+          }
+        }
+        turnRef.current = { ...base, tools };
+        setTurn(turnRef.current);
+        return;
+      }
+
+      case 'patch': {
+        const id = String(event.id ?? '');
+        const sid = sessionIdRef.current;
+        if (!id || sid === null) return;
+        const record: PatchRecord = {
+          id,
+          sessionId: sid,
+          messageId: null,
+          file: String(event.file ?? ''),
+          diff: String(event.diff ?? ''),
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          appliedAt: null,
+        };
+        setPatches((list) =>
+          list.some((patch) => patch.id === id)
+            ? list.map((patch) => (patch.id === id ? { ...patch, ...record, messageId: patch.messageId } : patch))
+            : [...list, record],
+        );
+        const base = turnRef.current ?? EMPTY_TURN;
+        turnRef.current = {
+          ...base,
+          patchIds: base.patchIds.includes(id) ? base.patchIds : [...base.patchIds, id],
+        };
+        setTurn(turnRef.current);
+        return;
+      }
+
+      case 'citations': {
+        const items = Array.isArray(event.items) ? event.items : [];
+        const base = turnRef.current;
+        if (!base) return;
+        turnRef.current = { ...base, citations: items as LiveTurn['citations'] };
+        setTurn(turnRef.current);
+        return;
+      }
+
+      case 'error': {
+        const message = String(event.message ?? '未知错误');
+        const base = turnRef.current;
+        if (!base || (base.text.length === 0 && base.tools.length === 0)) {
+          // 这一轮什么都没产出（例如模型没配置），直接以服务端落库的说明为准
+          turnRef.current = null;
+          setTurn(null);
+          setSending(false);
+          void refetchChat();
+        } else {
+          turnRef.current = { ...base, error: message };
+          setTurn(turnRef.current);
+          setSending(false);
+        }
+        toast.error(message);
+        return;
+      }
+
+      case 'done': {
+        finishTurn(Number(event.messageId));
+        return;
+      }
+
+      default:
+        return;
+    }
+  };
+
+  // 每次渲染后把最新闭包塞进 ref：SSE 连接本身不重建，但回调永远是最新的
+  useEffect(() => {
+    handlersRef.current = { onEvent: handleEvent, onStatus: setStreamStatus };
+  });
+
+  useEffect(() => {
+    if (sessionId === null) {
+      setStreamStatus('closed');
+      return;
+    }
+    const token = loadToken();
+    if (!token) {
+      setStreamStatus('closed');
+      return;
+    }
+    const handle = openChatStream({
+      sessionId,
+      token,
+      afterId: null,
+      onEvent: (event) => handlersRef.current.onEvent(event),
+      onStatus: (status) => handlersRef.current.onStatus(status),
+    });
+    return () => handle.close();
+  }, [sessionId]);
+
+  // ------------------------------------------------------------ 文件操作
+
+  const openFile = async (path: string, announce = false) => {
+    setSelectedPath(path);
+    setFileLoading(true);
+    setFileError(null);
+    setSelection(null);
+    try {
+      const content = await api.readFile(workspaceId, path);
+      setFile(content);
+      setDocText(content.content ?? '');
+      setSavedText(content.content ?? '');
+    } catch (err) {
+      setFile(null);
+      setDocText('');
+      setSavedText('');
+      setFileError(messageOf(err));
+      if (announce) {
+        toast.error(`打不开 ${path}：${messageOf(err)}`);
+      }
+    } finally {
+      setFileLoading(false);
+    }
+  };
+
+  /**
+   * 引用跳转：对话里点一个 `路径:行号` 时调用。
+   *
+   * 已经打开且未改动的文件不重新读盘 —— 重新读会丢掉用户正在编辑的内容；
+   * 只做「滚到那一行 + 短暂高亮」。
+   */
+  const openCitation = async (path: string, line: number | null) => {
+    if (!path) return;
+    if (selectedPathRef.current !== path) {
+      await openFile(path, true);
+    }
+    if (line != null && line > 0) {
+      setReveal({ path, line, token: Date.now() });
+    }
+  };
+
+  const saveFile = async () => {
+    const target = file;
+    if (!target || target.binary || target.truncated) return;
+    if (docText === savedText) return;
+    setSaving(true);
+    try {
+      const saved = await api.saveFile(workspaceId, target.path, docText);
+      setFile(saved);
+      setDocText(saved.content ?? docText);
+      setSavedText(saved.content ?? docText);
+      toast.success(`已保存 ${saved.path}`);
+      void refreshTree();
+    } catch (err) {
+      toast.error(messageOf(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Ctrl/Cmd + S 在窗口级别处理：编辑器未聚焦时也应该能保存
+  const saveFileRef = useRef(saveFile);
+  useEffect(() => {
+    saveFileRef.current = saveFile;
+  });
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        void saveFileRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
+
+  const createEntry = async (path: string) => {
+    const target = creating;
+    if (!target) return;
+    setCreateBusy(true);
+    try {
+      await api.createEntry(workspaceId, path, target.type);
+      setCreating(null);
+      if (target.parent) {
+        setExpanded((current) => new Set(current).add(target.parent));
+      }
+      await refreshTree();
+      if (target.type === 'file') {
+        await openFile(path);
+      }
+    } catch (err) {
+      toast.error(messageOf(err));
+    } finally {
+      setCreateBusy(false);
+    }
+  };
+
+  const deleteEntry = async (node: FileNode) => {
+    const label = node.type === 'dir' ? '目录' : '文件';
+    const confirmed = window.confirm(`确定删除${label} “${node.path}” 吗？此操作不可撤销。`);
+    if (!confirmed) return;
+    try {
+      await api.deleteEntry(workspaceId, node.path);
+      toast.success(`已删除 ${node.path}`);
+      const current = selectedPathRef.current;
+      if (current && (current === node.path || current.startsWith(`${node.path}/`))) {
+        setSelectedPath(null);
+        setFile(null);
+        setDocText('');
+        setSavedText('');
+        setSelection(null);
+        setCursor(null);
+      }
+      await refreshTree();
+    } catch (err) {
+      toast.error(messageOf(err));
+    }
+  };
+
+  // ------------------------------------------------------------ 补丁
+
+  // ------------------------------------------------------------ 编译闭环
+
+  /**
+   * 应用补丁之后自动跑一次编译 —— 「Patch → compile → 自动修」里的中间那一环。
+   *
+   * 之所以自动而不是等用户点：改完不验证等于没改完。失败时不会自动改代码，
+   * 只是把编译器输出摆出来，由用户决定要不要让 AI 接着修（人在环上，不越权）。
+   */
+  const runCompile = async (patch: PatchRecord) => {
+    setCompileBusyId(patch.id);
+    try {
+      const result = await api.compilePatch(patch.id);
+      setCompiles((current) => ({ ...current, [patch.id]: result }));
+      if (result.status === 'ok') {
+        toast.success(`编译通过（${result.buildSystem}，${(result.durationMs / 1000).toFixed(1)}s）`);
+      } else if (result.status === 'failed') {
+        toast.error(`编译失败：${result.issues.length} 条诊断，可点「让 AI 修复」`);
+      } else {
+        toast.info(result.note || '编译未执行');
+      }
+    } catch (err) {
+      toast.error(messageOf(err));
+    } finally {
+      setCompileBusyId(null);
+    }
+  };
+
+  /**
+   * 把编译器输出整个喂回 Agent，让它出第二轮补丁。
+   *
+   * 关键是**把原始输出原样带上**，而不是只给一句「编译失败」——
+   * 编译器已经把我们想知道的一切写成结构化文本了，转述只会丢信息。
+   */
+  const fixFromCompile = (patch: PatchRecord, result: BuildResult) => {
+    const issues = result.issues
+      .slice(0, 40)
+      .map((issue) => `- \`${issue.file}${issue.line ? `:${issue.line}` : ''}\` ${issue.message}`)
+      .join('\n');
+    const tail = result.output.length > 6000 ? result.output.slice(-6000) : result.output;
+
+    const content = [
+      `我把你上一个补丁应用到 \`${patch.file}\` 之后，编译失败了，请修复。`,
+      '',
+      `构建命令：\`${result.command}\`（退出码 ${result.exitCode ?? '未知'}）`,
+      issues ? `\n编译器诊断：\n${issues}` : '',
+      tail ? `\n原始输出（尾部）：\n\`\`\`text\n${tail}\n\`\`\`` : '',
+      '',
+      '请只针对这些编译错误给出最小改动的补丁，不要顺手做别的重构。改完说明你改了什么。',
+    ]
+      .filter((part) => part !== '')
+      .join('\n');
+
+    void send(content);
+  };
+
+  const applyPatch = async (patch: PatchRecord) => {
+    setPatchBusyId(patch.id);
+    try {
+      const applied = await api.applyPatch(patch.id);
+      setPatches((list) => list.map((item) => (item.id === applied.id ? applied : item)));
+      setDiffPatch((current) => (current && current.id === applied.id ? null : current));
+      toast.success(`补丁已应用：${applied.file}`);
+
+      if (selectedPathRef.current === applied.file) {
+        if (dirtyRef.current) {
+          toast.info('磁盘上的文件已更新；当前编辑器里还有未保存的修改，请先保存或手动重开该文件。');
+        } else {
+          await openFile(applied.file);
+        }
+      }
+      await refreshTree();
+      void runCompile(applied);
+    } catch (err) {
+      toast.error(messageOf(err));
+    } finally {
+      setPatchBusyId(null);
+    }
+  };
+
+  const rejectPatch = async (patch: PatchRecord) => {
+    setPatchBusyId(patch.id);
+    try {
+      const rejected = await api.rejectPatch(patch.id);
+      setPatches((list) => list.map((item) => (item.id === rejected.id ? rejected : item)));
+      toast.info(`已丢弃补丁：${rejected.file}`);
+    } catch (err) {
+      toast.error(messageOf(err));
+    } finally {
+      setPatchBusyId(null);
+    }
+  };
+
+  // ------------------------------------------------------------ 会话操作
+
+  const send = async (content: string) => {
+    const sid = sessionId;
+    if (sid === null) {
+      toast.error('会话尚未就绪，请稍后再试');
+      return;
+    }
+    setSending(true);
+    turnRef.current = { ...EMPTY_TURN };
+    setTurn(turnRef.current);
+
+    const optimisticId = -Date.now();
+    setMessages((list) => [
+      ...list,
+      { id: optimisticId, role: 'user', content, meta: null, createdAt: new Date().toISOString() },
+    ]);
+
+    try {
+      const response = await api.sendMessage(sid, {
+        content,
+        currentFile: selectedPath,
+        selection: selection
+          ? { startLine: selection.startLine, endLine: selection.endLine, text: selection.text }
+          : null,
+        mode,
+      });
+      setMessages((list) =>
+        list.map((message) => (message.id === optimisticId ? { ...message, id: response.messageId } : message)),
+      );
+    } catch (err) {
+      toast.error(messageOf(err));
+      setMessages((list) => list.filter((message) => message.id !== optimisticId));
+      turnRef.current = null;
+      setTurn(null);
+      setSending(false);
+    }
+  };
+
+  const createSession = async () => {
+    try {
+      const session = await api.createSession(workspaceId);
+      setSessions((list) => [session, ...list]);
+      setSessionId(session.id);
+    } catch (err) {
+      toast.error(messageOf(err));
+    }
+  };
+
+  // ------------------------------------------------------------ 布局
+
+  const columns = useMemo(() => {
+    const parts: string[] = [];
+    if (treeVisible) parts.push(`minmax(140px, ${layout.left}px)`, '5px');
+    parts.push('minmax(0, 1fr)');
+    if (chatVisible) parts.push('5px', `minmax(260px, ${layout.right}px)`);
+    return parts.join(' ');
+  }, [treeVisible, chatVisible, layout.left, layout.right]);
+
+  const selectionLines = selection ? selection.endLine - selection.startLine + 1 : 0;
+  const saveState: 'clean' | 'dirty' | 'saving' | 'no-file' = !file
+    ? 'no-file'
+    : saving
+      ? 'saving'
+      : dirty
+        ? 'dirty'
+        : 'clean';
+
+  if (bootError) {
+    return (
+      <div className="centered-page">
+        <div className="card">
+          <div className="card-head">
+            <TerminalMark size={22} />
+            <span className="card-title">无法打开工作区</span>
+          </div>
+          <p className="card-desc">{bootError}</p>
+          <div className="row">
+            <button className="btn btn-primary" onClick={() => navigate('/workspaces')}>
+              返回工作区列表
+            </button>
+            <button className="btn" onClick={() => window.location.reload()}>
+              重试
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="shell">
+      <TopBar
+        workspaceName={workspace?.name ?? '加载中…'}
+        filePath={selectedPath}
+        dirty={dirty}
+        health={health}
+        username={username}
+        onBack={() => navigate('/workspaces')}
+        onLogout={onLogout}
+        onToggleTree={() => setTreeVisible((value) => !value)}
+        onToggleChat={() => setChatVisible((value) => !value)}
+        treeVisible={treeVisible}
+        chatVisible={chatVisible}
+        pendingPatches={patches.filter((patch) => patch.status === 'pending').length}
+      />
+
+      <div className="workbench" style={{ gridTemplateColumns: columns }}>
+        {treeVisible && (
+          <div className="pane">
+            <div className="pane-head">
+              <span className="pane-label">文件</span>
+              <div className="topbar-spacer" />
+              <button
+                className="icon-btn"
+                title="在根目录新建文件"
+                onClick={() => setCreating({ parent: '', type: 'file' })}
+              >
+                <PlusIcon size={13} />
+              </button>
+              <button
+                className="icon-btn"
+                title="在根目录新建目录"
+                onClick={() => setCreating({ parent: '', type: 'dir' })}
+              >
+                <FolderIcon size={13} />
+              </button>
+              <button className="icon-btn" title="刷新文件树" onClick={() => void refreshTree()}>
+                <RefreshIcon size={13} />
+              </button>
+            </div>
+            <div className="pane-body">
+              <FileTree
+                nodes={tree?.children ?? []}
+                loading={treeLoading}
+                selectedPath={selectedPath}
+                expanded={expanded}
+                onToggle={(path) =>
+                  setExpanded((current) => {
+                    const next = new Set(current);
+                    if (next.has(path)) next.delete(path);
+                    else next.add(path);
+                    return next;
+                  })
+                }
+                onSelect={(node) => void openFile(node.path)}
+                onRequestCreate={(parent, type) => setCreating({ parent, type })}
+                onConfirmCreate={(path) => void createEntry(path)}
+                onCancelCreate={() => setCreating(null)}
+                onDelete={(node) => void deleteEntry(node)}
+                creating={creating}
+                createBusy={createBusy}
+              />
+            </div>
+          </div>
+        )}
+
+        {treeVisible && (
+          <Splitter
+            label="调整文件树宽度"
+            onResize={(delta) =>
+              setLayout((current) => ({ ...current, left: clamp(current.left + delta, 150, 560) }))
+            }
+            onReset={() => setLayout((current) => ({ ...current, left: DEFAULT_LAYOUT.left }))}
+          />
+        )}
+
+        <EditorPane
+          file={file}
+          text={docText}
+          loading={fileLoading}
+          dirty={dirty}
+          saving={saving}
+          error={fileError}
+          reveal={reveal}
+          onChange={setDocText}
+          onSave={() => void saveFile()}
+          onSelectionChange={setSelection}
+          onCursorChange={setCursor}
+          onRequestCreate={() => setCreating({ parent: '', type: 'file' })}
+        />
+
+        {chatVisible && (
+          <Splitter
+            label="调整对话面板宽度"
+            onResize={(delta) =>
+              setLayout((current) => ({ ...current, right: clamp(current.right - delta, 280, 780) }))
+            }
+            onReset={() => setLayout((current) => ({ ...current, right: DEFAULT_LAYOUT.right }))}
+          />
+        )}
+
+        {chatVisible && (
+          <div className="pane">
+            <ChatPane
+              sessions={sessions}
+              sessionId={sessionId}
+              messages={messages}
+              turn={turn}
+              patches={patches}
+              loading={chatLoading}
+              sending={sending}
+              streamStatus={streamStatus}
+              currentFile={selectedPath}
+              selection={selection}
+              mode={mode}
+              onModeChange={setMode}
+              onSend={(content) => void send(content)}
+              onSelectSession={setSessionId}
+              onNewSession={() => void createSession()}
+              onClearSelection={() => setSelection(null)}
+              patchBusyId={patchBusyId}
+              compileBusyId={compileBusyId}
+              radiusOf={(patchId) => radii[patchId]?.data ?? null}
+              radiusLoading={(patchId) => radii[patchId]?.loading ?? false}
+              radiusErrorOf={(patchId) => radii[patchId]?.error ?? null}
+              compileOf={(patchId) => compiles[patchId] ?? null}
+              onApplyPatch={(patch) => void applyPatch(patch)}
+              onRejectPatch={(patch) => void rejectPatch(patch)}
+              onViewPatch={setDiffPatch}
+              onCompilePatch={(patch) => void runCompile(patch)}
+              onFixFromCompile={(patch, result) => fixFromCompile(patch, result)}
+              onOpenCitation={(path, line) => void openCitation(path, line)}
+            />
+          </div>
+        )}
+      </div>
+
+      <StatusBar
+        streamStatus={streamStatus}
+        language={file?.language ?? null}
+        cursor={cursor}
+        selectionLines={selectionLines}
+        saveState={saveState}
+        workspaceSize={workspace?.sizeBytes ?? 0}
+        fileSize={file?.sizeBytes ?? null}
+        truncated={file?.truncated ?? false}
+        sessionId={sessionId}
+      />
+
+      {diffPatch && (
+        <PatchModal
+          workspaceId={workspaceId}
+          patch={diffPatch}
+          busy={patchBusyId === diffPatch.id}
+          onClose={() => setDiffPatch(null)}
+          onApply={(patch) => void applyPatch(patch)}
+        />
+      )}
+    </div>
+  );
+}

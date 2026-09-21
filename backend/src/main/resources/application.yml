@@ -1,0 +1,92 @@
+# ---------------------------------------------------------------
+# Spring Boot 后端配置
+#
+# 所有敏感值（数据库密码、模型 Key）一律走环境变量，仓库里不存任何密钥。
+# 本地开发可以复制 application-local.yml.example 为 application-local.yml，
+# 该文件已在 .gitignore 中排除。
+# ---------------------------------------------------------------
+server:
+  port: ${SERVER_PORT:8080}
+  # SSE 是长连接，不能被普通的读超时切断；超时设为 0 表示不限制。
+  tomcat:
+    connection-timeout: 30s
+
+spring:
+  application:
+    name: web-code-assistant
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/webcode}
+    username: ${DB_USER:webcode}
+    password: ${DB_PASSWORD:webcode}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      pool-name: wca-pool
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+      timeout: 2s
+      connect-timeout: 2s
+
+  servlet:
+    multipart:
+      max-file-size: ${MAX_UPLOAD_SIZE:120MB}
+      max-request-size: ${MAX_UPLOAD_SIZE:120MB}
+
+  mvc:
+    async:
+      # SSE 长连接的超时；-1 表示由应用自己控制（我们按会话按需关闭）
+      request-timeout: -1
+
+app:
+  workspace-root: ${WORKSPACE_ROOT:./data/workspaces}
+  max-workspace-bytes: ${MAX_WORKSPACE_BYTES:209715200}
+  max-read-bytes: ${MAX_READ_BYTES:524288}
+  grep-max-results: ${GREP_MAX_RESULTS:50}
+  max-tree-entries: ${MAX_TREE_ENTRIES:20000}
+  max-archive-entries: ${MAX_ARCHIVE_ENTRIES:20000}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+  jwt:
+    secret: ${JWT_SECRET:dev-only-secret-please-override-with-32-bytes-at-least}
+    ttl: ${JWT_TTL:PT24H}
+  git-clone:
+    timeout: ${CLONE_TIMEOUT:PT180S}
+    depth: ${CLONE_DEPTH:1}
+  # 补丁应用后的编译验证。java-home 必须指向 JDK 17+，留空则继承进程环境。
+  compile:
+    enabled: ${COMPILE_ENABLED:true}
+    maven-command: ${COMPILE_MVN:mvn}
+    gradle-command: ${COMPILE_GRADLE:gradle}
+    java-home: ${COMPILE_JAVA_HOME:}
+    maven-settings: ${COMPILE_MVN_SETTINGS:}
+    offline: ${COMPILE_OFFLINE:false}
+    timeout: ${COMPILE_TIMEOUT:PT240S}
+    max-output-chars: ${COMPILE_MAX_OUTPUT:24000}
+
+llm:
+  base-url: ${LLM_BASE_URL:}
+  api-key: ${LLM_API_KEY:}
+  model: ${LLM_MODEL:}
+  temperature: ${LLM_TEMPERATURE:0.2}
+  max-tokens: ${LLM_MAX_TOKENS:8192}
+  timeout: ${LLM_TIMEOUT:PT120S}
+  log-requests: ${LLM_LOG_REQUESTS:true}
+  requests-per-second: ${LLM_REQUESTS_PER_SECOND:2}
+  daily-token-limit: ${LLM_DAILY_TOKEN_LIMIT:500000}
+  history-messages: ${LLM_HISTORY_MESSAGES:12}
+  max-tool-steps: ${LLM_MAX_TOOL_STEPS:12}
+
+logging:
+  level:
+    root: INFO
+    com.webcode.assistant: ${LOG_LEVEL:INFO}
+    # JGit 的进度日志很吵
+    org.eclipse.jgit: WARN

@@ -1,0 +1,40 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2500 },
+  ["screenshot", "docs/self-test/v3/20-login.png"],
+
+  { "note": "新品牌 + 新设计首屏自检" },
+  ["find", "text", "一键随机演示账号", "click"],
+  { "sleep": 3500 },
+  ["screenshot", "docs/self-test/v3/21-workspace-list.png"],
+  ["click", ".form-stack .btn-primary"],
+  { "sleep": 9000 },
+  ["eval", "location.hash"],
+
+  ["click", "[title=\"src/main/java/com/demo/UserService.java\"]"],
+  { "sleep": 3000 },
+  ["screenshot", "docs/self-test/v3/22-ide.png"],
+
+  { "note": "引用 chip + 顶栏品牌" },
+  ["fill", ".composer-input", "解释一下这个类"],
+  ["click", ".composer-actions .btn-primary"],
+  { "sleep": 10000 },
+  ["eval", "'BRAND=' + (document.querySelector('.brand-name')||{innerText:'NONE'}).innerText + ' CITE_CHIPS=' + document.querySelectorAll('.cite-chip').length + ' BAD=' + document.querySelectorAll('.cite-chip-bad').length"],
+  ["screenshot", "docs/self-test/v3/23-chat-citations.png"],
+
+  ["eval", "(function(){var b=document.querySelectorAll('.cite-chip')[1];if(!b)return 'NO_CHIP';b.click();return 'clicked [' + b.innerText + ']'})()"],
+  { "sleep": 900 },
+  ["eval", "'REVEAL_LINES=' + document.querySelectorAll('.cite-line').length + ' GUTTER=' + document.querySelectorAll('.cite-line-gutter').length"],
+  ["screenshot", "docs/self-test/v3/24-citation-jump.png"],
+
+  { "note": "风险条新样式" },
+  ["fill", ".composer-input", "把这个类改成构造器注入"],
+  ["click", ".composer-actions .btn-primary"],
+  { "sleep": 15000 },
+  ["eval", "'RISK=' + (document.querySelector('.risk-bar') ? document.querySelector('.risk-bar').className + ' :: ' + document.querySelector('.risk-bar').innerText.replace(/\\n/g,' | ').slice(0,160) : 'NO_RISK_BAR')"],
+  ["eval", "document.querySelector('.risk-bar') ? String(document.querySelector('.risk-bar').scrollIntoView({block:'center'})) : 'none'"],
+  { "sleep": 500 },
+  ["screenshot", "docs/self-test/v3/25-risk-bar.png"]
+]
