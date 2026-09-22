@@ -1,0 +1,47 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2500 },
+  ["find", "text", "一键随机演示账号", "click"],
+  { "sleep": 3500 },
+  ["click", ".form-stack .btn-primary"],
+  { "sleep": 9000 },
+
+  ["click", "[title=\"src/main/java/com/demo/UserService.java\"]"],
+  { "sleep": 2500 },
+
+  { "note": "功能9：快照与回滚（先手动建一条快照让列表可见）" },
+  ["click", "[title*=\"快照与回滚\"]"],
+  { "sleep": 2500 },
+  ["eval", "document.querySelector('.snapshots-input') ? (document.querySelector('.snapshots-input').value = '重构 UserService 之前（UI 自检）', document.querySelector('.snapshots-input').dispatchEvent(new Event('input', {bubbles:true})), 'filled') : 'no-input'"],
+  { "sleep": 500 },
+  ["eval", "document.querySelector('.snapshots-create .btn-primary') ? (document.querySelector('.snapshots-create .btn-primary').click(), 'created') : 'no-btn'"],
+  { "sleep": 2500 },
+  ["eval", "'SNAPSHOTS_ROWS=' + document.querySelectorAll('.snapshot-row').length + ' KINDS=' + Array.from(document.querySelectorAll('.snapshot-kind')).map(function(e){return e.innerText}).join(',')"],
+  ["screenshot", "docs/self-test/v3/34-snapshots.png"],
+
+  { "note": "功能11：语义检索（用 modal-foot 的关闭按钮；新工作区先建索引）" },
+  ["eval", "var btns=[].slice.call(document.querySelectorAll('.modal-foot .btn')); btns.length ? (btns[btns.length-1].click(), 'closed') : 'no-modal'"],
+  { "sleep": 800 },
+  ["click", "[title*=\"语义检索\"]"],
+  { "sleep": 2500 },
+  ["eval", "var rb=document.querySelector('[title*=\"重建语义索引\"]'); rb ? (rb.click(), 'reindexing') : 'no-reindex-btn'"],
+  { "sleep": 9000 },
+  ["fill", ".semantic-searchbar input", "user register controller service"],
+  ["eval", "document.querySelector('.semantic-searchbar .btn-primary') ? (document.querySelector('.semantic-searchbar .btn-primary').click(), 'searched') : 'no-btn'"],
+  { "sleep": 6000 },
+  ["eval", "'HITS=' + document.querySelectorAll('.semantic-hit').length + ' FIRST=' + ((document.querySelector('.semantic-hit-head')||{innerText:'none'}).innerText.slice(0,80))"],
+  ["screenshot", "docs/self-test/v3/35-semantic.png"],
+
+  { "note": "功能12：网页终端" },
+  ["eval", "var btns=[].slice.call(document.querySelectorAll('.modal-foot .btn')); btns.length ? (btns[btns.length-1].click(), 'closed') : 'no-modal'"],
+  { "sleep": 800 },
+  ["click", "[title*=\"终端\"]"],
+  { "sleep": 2500 },
+  ["fill", ".snapshots-input", "echo hello-from-wca-terminal"],
+  ["eval", "document.querySelector('.snapshots-create .btn-primary') ? (document.querySelector('.snapshots-create .btn-primary').click(), 'ran') : 'no-btn'"],
+  { "sleep": 4000 },
+  ["eval", "'TERM_OUTPUT=' + ((document.querySelector('.terminal-text')||{innerText:'NO_OUTPUT'}).innerText.slice(0,60)) + ' META=' + ((document.querySelector('.terminal-meta')||{innerText:'none'}).innerText)"],
+  ["screenshot", "docs/self-test/v3/36-terminal.png"]
+]

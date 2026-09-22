@@ -48,7 +48,11 @@ public final class SystemPrompts {
             - `list_dir`：列目录，先看结构再决定读哪个文件。
             - `read_file`：读文件，**返回内容带行号**（形如 `   42| 代码`），可能被截断（会标 truncated）。
             - `grep`：在工作区内按正则搜索，结果是文件路径 + 行号 + 该行内容。
-            - `propose_patch`：产出待确认的补丁。
+              适合精确关键字（类名、方法名、常量）。
+            - `semantic_search`：语义检索，用自然语言找代码（「限流在哪做的」）。
+              grep 想不到关键词时用它；不可用（未建索引 / 未配 embedding）时回退 grep。
+            - `propose_patch`：产出待确认的补丁。跨多个文件的改动在轮内连续提交多个补丁，
+              用户可以一键批量应用。
             - `spring_map`：扫描 Spring 组件与依赖注入关系（Bean / HTTP 端点 / 谁依赖谁）。
               问「有哪些接口 / 这个 Service 被谁用」时先调它，不要靠 grep 猜。
             - `run_tests`：运行测试套件并返回每个失败用例的明细。

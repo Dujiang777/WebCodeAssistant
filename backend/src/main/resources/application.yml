@@ -70,11 +70,18 @@ app:
     offline: ${COMPILE_OFFLINE:false}
     timeout: ${COMPILE_TIMEOUT:PT240S}
     max-output-chars: ${COMPILE_MAX_OUTPUT:24000}
+  # 网页终端（功能 12）：只给登录用户用，模型没有任何命令执行工具。
+  terminal:
+    enabled: ${TERMINAL_ENABLED:true}
+    timeout: ${TERMINAL_TIMEOUT:PT120S}
+    max-output-chars: ${TERMINAL_MAX_OUTPUT:65536}
 
 llm:
   base-url: ${LLM_BASE_URL:}
   api-key: ${LLM_API_KEY:}
   model: ${LLM_MODEL:}
+  # 语义检索用的 embedding 模型（OpenAI 兼容 /v1/embeddings）；留空 = 语义检索不可用
+  embedding-model: ${LLM_EMBED_MODEL:}
   temperature: ${LLM_TEMPERATURE:0.2}
   max-tokens: ${LLM_MAX_TOKENS:8192}
   timeout: ${LLM_TIMEOUT:PT120S}

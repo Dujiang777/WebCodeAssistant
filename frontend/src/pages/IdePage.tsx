@@ -32,6 +32,9 @@ import { Splitter } from '../components/Splitter';
 import { SpringMapModal } from '../components/SpringMapModal';
 import { StatusBar } from '../components/StatusBar';
 import { TestsModal } from '../components/TestsModal';
+import { SnapshotsModal } from '../components/SnapshotsModal';
+import { SemanticModal } from '../components/SemanticModal';
+import { TerminalModal } from '../components/TerminalModal';
 import { TopBar } from '../components/TopBar';
 import { TerminalMark, FolderIcon, PlusIcon, RefreshIcon } from '../components/icons';
 
@@ -208,6 +211,16 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const [constitutionOpen, setConstitutionOpen] = useState(false);
   const [springMapOpen, setSpringMapOpen] = useState(false);
   const [testsOpen, setTestsOpen] = useState(false);
+
+  // ------------------------------------------------- 功能 9：快照与回滚
+  const [snapshotsOpen, setSnapshotsOpen] = useState(false);
+  const [applyAllBusy, setApplyAllBusy] = useState(false);
+
+  // ------------------------------------------------- 功能 11：语义检索
+  const [semanticOpen, setSemanticOpen] = useState(false);
+
+  // ------------------------------------------------- 功能 12：终端
+  const [terminalOpen, setTerminalOpen] = useState(false);
 
   // ------------------------------------------------------------ 可变引用
   const turnRef = useRef<LiveTurn | null>(null);
@@ -796,6 +809,46 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     }
   };
 
+  /** 批量应用本会话全部待确认补丁（功能 10）。 */
+  const applyAll = async () => {
+    const sid = sessionId;
+    if (sid === null) return;
+    const pending = patches.filter((patch) => patch.status === 'pending');
+    if (pending.length < 2) return;
+    setApplyAllBusy(true);
+    try {
+      const result = await api.applyAllPatches(sid);
+      const applied = await api.listPatches(sid);
+      setPatches(applied);
+      await refreshTree();
+      if (selectedPathRef.current) {
+        await openFile(selectedPathRef.current);
+      }
+      if (result.failed === 0) {
+        toast.success(`已批量应用 ${result.applied} 个补丁（应用前已自动打快照）`);
+      } else {
+        toast.info(`已应用 ${result.applied}/${result.total} 个；${result.failed} 个失败 —— 失败补丁仍待确认，可逐个查看原因`);
+        for (const item of result.items) {
+          if (item.error) {
+            toast.error(`${item.file}：${item.error}`);
+          }
+        }
+      }
+      for (const item of result.items) {
+        if (item.status === 'applied') {
+          const patch = applied.find((entry) => entry.id === item.patchId);
+          if (patch) {
+            void runCompile(patch);
+          }
+        }
+      }
+    } catch (err) {
+      toast.error(messageOf(err));
+    } finally {
+      setApplyAllBusy(false);
+    }
+  };
+
   // ------------------------------------------------------------ 会话操作
 
   const send = async (content: string) => {
@@ -902,6 +955,9 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         onOpenConstitution={() => setConstitutionOpen(true)}
         onOpenSpringMap={() => setSpringMapOpen(true)}
         onOpenTests={() => setTestsOpen(true)}
+        onOpenSnapshots={() => setSnapshotsOpen(true)}
+        onOpenSemantic={() => setSemanticOpen(true)}
+        onOpenTerminal={() => setTerminalOpen(true)}
         treeVisible={treeVisible}
         chatVisible={chatVisible}
         pendingPatches={patches.filter((patch) => patch.status === 'pending').length}
@@ -1011,6 +1067,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               onSelectSession={setSessionId}
               onNewSession={() => void createSession()}
               onClearSelection={() => setSelection(null)}
+              onApplyAll={() => void applyAll()}
+              applyAllBusy={applyAllBusy}
               patchBusyId={patchBusyId}
               compileBusyId={compileBusyId}
               radiusOf={(patchId) => radii[patchId]?.data ?? null}
@@ -1074,6 +1132,34 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           workspaceId={workspaceId}
           onClose={() => setTestsOpen(false)}
           onFixWithAi={(result) => fixFromTests(result)}
+        />
+      )}
+
+      {snapshotsOpen && workspace && (
+        <SnapshotsModal
+          workspaceId={workspaceId}
+          onClose={() => setSnapshotsOpen(false)}
+          onRestored={() => {
+            void refreshTree();
+            if (selectedPath) {
+              void openFile(selectedPath);
+            }
+          }}
+        />
+      )}
+
+      {semanticOpen && (
+        <SemanticModal
+          workspaceId={workspaceId}
+          onClose={() => setSemanticOpen(false)}
+          onOpenHit={(hitPath, hitLine) => void openCitation(hitPath, hitLine)}
+        />
+      )}
+
+      {terminalOpen && (
+        <TerminalModal
+          workspaceId={workspaceId}
+          onClose={() => setTerminalOpen(false)}
         />
       )}
     </div>

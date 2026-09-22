@@ -119,6 +119,15 @@ public class ChatController {
                 .toList();
     }
 
+    /**
+     * 批量应用当前会话的全部待确认补丁（功能 10）。
+     * 整批打一次快照；单个失败不阻断整批，逐补丁返回明细。
+     */
+    @PostMapping("/{sid}/patches/apply-all")
+    public PatchService.BatchApplyResult applyAll(@PathVariable long sid) {
+        return patchService.applyAll(currentUser.requireId(), sid);
+    }
+
     @DeleteMapping("/{sid}")
     public ResponseEntity<Void> delete(@PathVariable long sid) {
         sessionService.delete(currentUser.requireId(), sid);

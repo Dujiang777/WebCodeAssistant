@@ -332,6 +332,58 @@ export interface PrPreview {
   checklist: PrCheckItem[];
 }
 
+/** 工作区快照（zip 存服务端，这里是元数据）。 */
+export interface SnapshotView {
+  id: string;
+  kind: 'auto' | 'manual';
+  label: string | null;
+  patchId: string | null;
+  fileCount: number;
+  sizeBytes: number;
+  createdAt: string;
+}
+
+/** 批量应用补丁的逐补丁明细。item.status: applied=成功；pending=失败（附 error）。 */
+export interface BatchApplyResult {
+  total: number;
+  applied: number;
+  failed: number;
+  items: { patchId: string; file: string; status: string; error: string | null }[];
+}
+
+/** 语义检索状态。 */
+export interface SemanticStatus {
+  available: boolean;
+  chunks: number;
+}
+
+/** 语义检索单条命中。 */
+export interface SemanticHit {
+  path: string;
+  startLine: number;
+  endLine: number;
+  content: string;
+  score: number;
+}
+
+/** 语义检索响应。status: ok / not_indexed / unavailable */
+export interface SemanticResult {
+  status: string;
+  note: string;
+  chunkCount: number;
+  hits: SemanticHit[];
+}
+
+/** 终端命令执行结果。 */
+export interface TerminalResult {
+  command: string;
+  exitCode: number | null;
+  durationMs: number;
+  output: string;
+  timedOut: boolean;
+  truncated: boolean;
+}
+
 // ------------------------------------------------------------------ 接口
 
 export const api = {
@@ -463,6 +515,57 @@ export const api = {
 
   /** 变更预演 PR（纯只读，待确认 / 已应用的补丁都能看）。 */
   prPreview: (patchId: string) => request<PrPreview>(`/api/patches/${patchId}/pr-preview`),
+
+  /** 快照列表（自动 + 手动）。 */
+  snapshots: (workspaceId: number) =>
+    request<SnapshotView[]>(`/api/workspaces/${workspaceId}/snapshots`),
+
+  /** 手动打快照，可附说明。 */
+  createSnapshot: (workspaceId: number, label: string) =>
+    request<SnapshotView>(`/api/workspaces/${workspaceId}/snapshots`, {
+      method: 'POST',
+      body: JSON.stringify({ label }),
+    }),
+
+  /** 回滚到快照（真·时点恢复：删掉快照之外的文件再解包）。 */
+  restoreSnapshot: (workspaceId: number, snapshotId: string) =>
+    request<SnapshotView>(`/api/workspaces/${workspaceId}/snapshots/${snapshotId}/restore`, {
+      method: 'POST',
+    }),
+
+  /** 删除快照。 */
+  deleteSnapshot: (workspaceId: number, snapshotId: string) =>
+    request<void>(`/api/workspaces/${workspaceId}/snapshots/${snapshotId}`, { method: 'DELETE' }),
+
+  /** 批量应用会话内全部待确认补丁（整批一次快照，逐补丁返回成败）。 */
+  applyAllPatches: (sessionId: number) =>
+    request<BatchApplyResult>(`/api/chat/sessions/${sessionId}/patches/apply-all`, {
+      method: 'POST',
+    }),
+
+  /** 语义检索状态（是否可用 / 已索引块数）。 */
+  semanticStatus: (workspaceId: number) =>
+    request<SemanticStatus>(`/api/workspaces/${workspaceId}/semantic/status`),
+
+  /** 全量重建语义索引（工作区规模下秒级）。 */
+  reindexSemantic: (workspaceId: number) =>
+    request<{ chunks: number }>(`/api/workspaces/${workspaceId}/semantic/index`, {
+      method: 'POST',
+    }),
+
+  /** 语义检索：自然语言找代码。 */
+  semanticSearch: (workspaceId: number, query: string, topK = 8) =>
+    request<SemanticResult>(`/api/workspaces/${workspaceId}/semantic/search`, {
+      method: 'POST',
+      body: JSON.stringify({ query, topK }),
+    }),
+
+  /** 终端：在工作区根执行一条命令（仅限登录用户手动触发；模型无此能力）。 */
+  runTerminal: (workspaceId: number, command: string) =>
+    request<TerminalResult>(`/api/workspaces/${workspaceId}/terminal/run`, {
+      method: 'POST',
+      body: JSON.stringify({ command }),
+    }),
 };
 
 /** 人读的字节数格式化。 */

@@ -23,6 +23,12 @@ public record LlmProperties(
         /** 例如 deepseek-chat / gpt-4o-mini / Qwen/Qwen2.5-Coder-32B-Instruct 。 */
         @DefaultValue("") String model,
 
+        /**
+         * embedding 模型名（OpenAI 兼容 /v1/embeddings）。留空表示语义检索不可用 ——
+         * 语义检索降级为明确报错而不是静默装死；正则 grep 不受影响。
+         */
+        @DefaultValue("") String embeddingModel,
+
         @DefaultValue("0.2") Double temperature,
 
         @DefaultValue("8192") Integer maxTokens,
