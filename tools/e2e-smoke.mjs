@@ -537,6 +537,114 @@ async function main() {
     note(`测试未执行：${testRun.data?.note ?? ''}`);
   }
 
+  section('19. 快照与回滚（应用补丁前自动打点）');
+  const snapList = await call(`/api/workspaces/${workspaceId}/snapshots`, { token });
+  check('GET snapshots 可用', snapList.status === 200, `HTTP ${snapList.status}`);
+  const snaps = snapList.data ?? [];
+  // 取「最早」的自动快照 —— 它才是真正的补丁应用前时点
+  const autoSnap = snaps
+    .filter((snapshot) => snapshot.kind === 'auto' && snapshot.patchId)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
+  check(
+    '应用补丁时产生了自动快照',
+    Boolean(autoSnap),
+    autoSnap ? `${autoSnap.label} · ${autoSnap.fileCount} 文件` : '没有 auto 快照',
+  );
+  const manualSnap = await call(`/api/workspaces/${workspaceId}/snapshots`, {
+    method: 'POST',
+    token,
+    body: { label: 'e2e 手动快照' },
+  });
+  check(
+    '手动快照可创建',
+    manualSnap.status === 200 && manualSnap.data?.kind === 'manual',
+    `kind=${manualSnap.data?.kind}`,
+  );
+  if (autoSnap) {
+    // 回滚到「补丁应用前」→ 补丁的修改应当消失
+    const restored = await call(`/api/workspaces/${workspaceId}/snapshots/${autoSnap.id}/restore`, {
+      method: 'POST',
+      token,
+    });
+    check('回滚到自动快照成功', restored.status === 200, `HTTP ${restored.status}`);
+    const reverted = await call(`/api/workspaces/${workspaceId}/files?path=${encodeURIComponent('src/main/java/com/demo/UserService.java')}`, { token });
+    const revertedText = typeof reverted.data === 'string' ? reverted.data : (reverted.data?.content ?? '');
+    check('回滚后补丁的修改已消失（@Autowired 回来了）', revertedText.includes('@Autowired'), '');
+    // 再回到手动快照（补丁已应用的状态），恢复工作区
+    const restored2 = await call(`/api/workspaces/${workspaceId}/snapshots/${manualSnap.data?.id}/restore`, {
+      method: 'POST',
+      token,
+    });
+    check('回滚到手动快照成功', restored2.status === 200, `HTTP ${restored2.status}`);
+    const again = await call(`/api/workspaces/${workspaceId}/files?path=${encodeURIComponent('src/main/java/com/demo/UserService.java')}`, { token });
+    const againText = typeof again.data === 'string' ? again.data : (again.data?.content ?? '');
+    check('恢复后补丁的修改重新生效', !againText.includes('@Autowired'), '');
+    const deleted = await call(`/api/workspaces/${workspaceId}/snapshots/${manualSnap.data?.id}`, {
+      method: 'DELETE',
+      token,
+    });
+    check('快照可删除', [200, 204].includes(deleted.status), `HTTP ${deleted.status}`);
+  }
+
+  section('20. 批量应用（多文件自动改的落地点）');
+  const applyAllEmpty = await call(`/api/chat/sessions/${sessionId}/patches/apply-all`, { method: 'POST', token });
+  check(
+    '没有待确认补丁时明确拒绝',
+    applyAllEmpty.status === 400,
+    `HTTP ${applyAllEmpty.status} ${(applyAllEmpty.data?.message ?? '').slice(0, 60)}`,
+  );
+
+  section('21. 语义检索（建索引 → 检索 → 命中）');
+  const semStatus = await call(`/api/workspaces/${workspaceId}/semantic/status`, { token });
+  check(
+    '语义检索可用（embedding 模型已配置）',
+    semStatus.status === 200 && semStatus.data?.available === true,
+    `available=${semStatus.data?.available}`,
+  );
+  const reindexed = await call(`/api/workspaces/${workspaceId}/semantic/index`, { method: 'POST', token });
+  check(
+    '重建索引成功且块数 > 0',
+    reindexed.status === 200 && (reindexed.data?.chunks ?? 0) > 0,
+    `${reindexed.data?.chunks} 块`,
+  );
+  const searched = await call(`/api/workspaces/${workspaceId}/semantic/search`, {
+    method: 'POST',
+    token,
+    body: { query: 'user register controller service', topK: 5 },
+  });
+  check('检索返回 ok', searched.data?.status === 'ok', `status=${searched.data?.status}`);
+  const hits = searched.data?.hits ?? [];
+  check('命中 ≥ 1 且带路径行号', hits.length >= 1 && Boolean(hits[0].path) && hits[0].startLine > 0, hits.map((hit) => `${hit.path}:${hit.startLine}`).join('、').slice(0, 120));
+  check('分数按降序排列', hits.every((hit, index) => index === 0 || hits[index - 1].score >= hit.score));
+
+  section('22. 网页终端（受限执行，模型无此能力）');
+  const termRun = await call(`/api/workspaces/${workspaceId}/terminal/run`, {
+    method: 'POST',
+    token,
+    body: { command: 'echo hello-wca' },
+  });
+  check(
+    'echo 命令执行成功',
+    termRun.status === 200 && termRun.data?.exitCode === 0 && (termRun.data?.output ?? '').includes('hello-wca'),
+    `exit=${termRun.data?.exitCode} output=${(termRun.data?.output ?? '').trim().slice(0, 40)}`,
+  );
+  const termChain = await call(`/api/workspaces/${workspaceId}/terminal/run`, {
+    method: 'POST',
+    token,
+    body: { command: 'echo a && echo b' },
+  });
+  check(
+    '命令链（&&）被拒绝',
+    termChain.status === 400,
+    `HTTP ${termChain.status}`,
+  );
+  const termMeta = await call(`/api/workspaces/${workspaceId}/terminal/run`, {
+    method: 'POST',
+    token,
+    body: { command: 'echo %PATH%' },
+  });
+  check('环境变量展开（%）被拒绝', termMeta.status === 400, `HTTP ${termMeta.status}`);
+
   stream.close();
 
   section('14. 会话历史已持久化');

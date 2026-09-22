@@ -54,6 +54,8 @@ interface ChatPaneProps extends PatchDeps {
   onSelectSession: (id: number) => void;
   onNewSession: () => void;
   onClearSelection: () => void;
+  onApplyAll: () => void;
+  applyAllBusy: boolean;
 }
 
 function patchesOfMessage(message: ChatMessage, patches: PatchRecord[]): PatchRecord[] {
@@ -91,6 +93,8 @@ export function ChatPane({
   onSelectSession,
   onNewSession,
   onClearSelection,
+  onApplyAll,
+  applyAllBusy,
   patchBusyId,
   compileBusyId,
   radiusOf,
@@ -327,6 +331,16 @@ export function ChatPane({
           {pendingCount > 0 && (
             <span className="chip" style={{ color: 'var(--violet)' }}>
               待确认补丁 {pendingCount}
+              {pendingCount > 1 && (
+                <button
+                  className="chip-btn"
+                  disabled={applyAllBusy}
+                  onClick={onApplyAll}
+                  title="批量应用本会话全部待确认补丁（整批打一次快照，失败的不阻断其余）"
+                >
+                  {applyAllBusy ? '应用中…' : '全部应用'}
+                </button>
+              )}
             </span>
           )}
 

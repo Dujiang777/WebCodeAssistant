@@ -6,6 +6,7 @@ import com.webcode.assistant.build.TestRunResult;
 import com.webcode.assistant.common.ApiException;
 import com.webcode.assistant.config.AppProperties;
 import com.webcode.assistant.map.SpringMapService;
+import com.webcode.assistant.semantic.SemanticHit;
 import com.webcode.assistant.workspace.FileContent;
 import com.webcode.assistant.workspace.FileNode;
 import com.webcode.assistant.workspace.Workspace;
@@ -54,6 +55,7 @@ public class AgentToolbox {
     private final BlastRadiusService blastRadiusService;
     private final BuildService buildService;
     private final SpringMapService springMapService;
+    private final com.webcode.assistant.semantic.SemanticIndexService semanticService;
     private final AppProperties appProperties;
     private final long sessionId;
     private final int maxToolSteps;
@@ -72,6 +74,7 @@ public class AgentToolbox {
                         BlastRadiusService blastRadiusService,
                         BuildService buildService,
                         SpringMapService springMapService,
+                        com.webcode.assistant.semantic.SemanticIndexService semanticService,
                         AppProperties appProperties,
                         long sessionId,
                         int maxToolSteps) {
@@ -83,6 +86,7 @@ public class AgentToolbox {
         this.blastRadiusService = blastRadiusService;
         this.buildService = buildService;
         this.springMapService = springMapService;
+        this.semanticService = semanticService;
         this.appProperties = appProperties;
         this.sessionId = sessionId;
         this.maxToolSteps = maxToolSteps;
@@ -250,7 +254,8 @@ public class AgentToolbox {
                       上下文行（空格开头）必须与文件当前内容逐字符一致。
               summary 一句话说明这个补丁做了什么（给用户看，中文）
             约束：
-              - 一次调用只能改一个文件，改多个文件请分多次调用；
+              - 一次调用只能改一个文件；改动跨多个文件时，在本轮内连续多次调用把相关补丁
+                全部提交（例如「接口 + 实现 + 测试」三件套），用户可以在前端一键批量应用；
               - 补丁会先做一次「能否干净应用」的校验，校验不通过会把原因告诉你，
                 此时请重新 read_file 获取最新内容后再次调用，不要重复提交同样的 diff；
               - 用户点「应用」之后才会真正写盘；在用户确认前不要重复提交同一补丁。
@@ -429,6 +434,44 @@ public class AgentToolbox {
             case "4-model" -> "模型（Entity）";
             default -> "其他组件";
         };
+    }
+
+    // ------------------------------------------------------------ semantic_search
+
+    @Tool(name = "semantic_search", value = """
+            语义检索：用自然语言描述「想找哪段逻辑」，按向量相似度返回最相关的代码块（文件 + 行号 + 内容 + 分数）。
+            与 grep 的分工：grep 适合精确关键字（找 ERROR_PATTERN 这种标识符）；semantic_search 适合
+            「限流在哪做的」「哪里处理过期 token」这类说不准具体词的问题。
+            结果可以配合 read_file 查看上下文，再决定是否 propose_patch。
+            未建索引或未配置 embedding 模型时会明确返回 unavailable —— 此时改用 grep，不要凭空编造。
+            """)
+    public String semanticSearch(@P("自然语言查询，例如「数据库连接池在哪配置」") String query) {
+        Map<String, Object> args = new LinkedHashMap<>();
+        args.put("query", nullSafe(query));
+        return guard("semantic_search", args, () -> {
+            SemanticHit.Result result = semanticService.search(workspace,
+                    query == null ? "" : query, 8);
+            if (!SemanticHit.OK.equals(result.status())) {
+                return outcome("语义检索不可用（" + result.status() + "）：" + result.note()
+                        + "\n请改用 grep 按关键字检索。", "语义检索不可用");
+            }
+            if (result.hits().isEmpty()) {
+                return outcome("没有找到相关代码块。可以换一种描述再试，或改用 grep 精确关键字。",
+                        "无结果");
+            }
+            StringBuilder out = new StringBuilder("语义检索结果（余弦相似度，已按相关度排序）:\n");
+            for (SemanticHit hit : result.hits()) {
+                out.append(String.format("- %s:%d-%d (score=%.3f)%n", hit.path(), hit.startLine(),
+                        hit.endLine(), hit.score()));
+                String preview = hit.content().strip();
+                if (preview.length() > 240) {
+                    preview = preview.substring(0, 240) + "…";
+                }
+                out.append("  ").append(preview.replace("\n", "\n  ")).append('\n');
+            }
+            out.append("\n用 read_file 查看完整上下文后再决定下一步。");
+            return outcome(out.toString(), result.hits().size() + " 个相关代码块");
+        });
     }
 
     // ------------------------------------------------------------ 内部机制

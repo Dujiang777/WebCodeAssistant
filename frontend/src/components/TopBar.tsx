@@ -21,6 +21,9 @@ interface TopBarProps {
   onOpenConstitution: () => void;
   onOpenSpringMap: () => void;
   onOpenTests: () => void;
+  onOpenSnapshots: () => void;
+  onOpenSemantic: () => void;
+  onOpenTerminal: () => void;
   treeVisible: boolean;
   chatVisible: boolean;
   pendingPatches: number;
@@ -40,6 +43,9 @@ export function TopBar({
   onOpenConstitution,
   onOpenSpringMap,
   onOpenTests,
+  onOpenSnapshots,
+  onOpenSemantic,
+  onOpenTerminal,
   treeVisible,
   chatVisible,
   pendingPatches,
@@ -102,6 +108,15 @@ export function TopBar({
       </button>
       <button className="btn btn-ghost btn-sm" onClick={onOpenTests} title="运行测试套件，失败可一键交给 AI 修复">
         测试
+      </button>
+      <button className="btn btn-ghost btn-sm" onClick={onOpenSnapshots} title="快照与回滚 —— 应用补丁前自动打点">
+        快照
+      </button>
+      <button className="btn btn-ghost btn-sm" onClick={onOpenSemantic} title="语义检索 —— 用自然语言找代码">
+        检索
+      </button>
+      <button className="btn btn-ghost btn-sm" onClick={onOpenTerminal} title="终端 —— 在工作区里手动执行命令（AI 无此能力）">
+        终端
       </button>
 
       <button

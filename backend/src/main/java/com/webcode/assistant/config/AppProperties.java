@@ -45,7 +45,10 @@ public record AppProperties(
         @DefaultValue GitClone gitClone,
 
         /** 补丁应用后的编译验证（「编译闭环」的沙箱侧配置）。 */
-        @DefaultValue Compile compile
+        @DefaultValue Compile compile,
+
+        /** 网页终端（功能 12）。这是给人用的命令入口，模型永远没有 run_command 工具。 */
+        @DefaultValue Terminal terminal
 ) {
 
     public record Cors(
@@ -98,6 +101,24 @@ public record AppProperties(
 
             /** 保留的编译器输出上限，超出只留尾部（错误通常在最末尾）。 */
             @DefaultValue("24000") int maxOutputChars
+    ) {
+    }
+
+    /**
+     * 网页终端配置。
+     *
+     * <p>安全模型与 Docker 沙箱方案（V2）不同：本地部署没有 Docker 时，终端降级为
+     * 「受限的单命令执行」—— cwd 锁定工作区、拒绝 shell 元字符（无管道 / 重定向 / 命令链）、
+     * 超时杀进程、输出截断。它只由登录用户在前端手动触发，<b>永远不会暴露给模型</b>：
+     * 「模型不能执行命令」是本项目从第一天起就守住的红线。
+     */
+    public record Terminal(
+            @DefaultValue("true") boolean enabled,
+
+            @DefaultValue("PT120S") Duration timeout,
+
+            /** 保留的输出上限，超出截断并标记。 */
+            @DefaultValue("65536") int maxOutputChars
     ) {
     }
 }

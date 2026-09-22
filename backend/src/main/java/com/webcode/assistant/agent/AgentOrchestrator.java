@@ -72,6 +72,7 @@ public class AgentOrchestrator {
     private final BlastRadiusService blastRadiusService;
     private final BuildService buildService;
     private final SpringMapService springMapService;
+    private final com.webcode.assistant.semantic.SemanticIndexService semanticService;
     private final ContextAssembler contextAssembler;
     private final CitationVerifier citationVerifier;
     private final UsageGuard usageGuard;
@@ -91,6 +92,7 @@ public class AgentOrchestrator {
                              BlastRadiusService blastRadiusService,
                              BuildService buildService,
                              SpringMapService springMapService,
+                             com.webcode.assistant.semantic.SemanticIndexService semanticService,
                              ContextAssembler contextAssembler,
                              CitationVerifier citationVerifier,
                              UsageGuard usageGuard,
@@ -109,6 +111,7 @@ public class AgentOrchestrator {
         this.blastRadiusService = blastRadiusService;
         this.buildService = buildService;
         this.springMapService = springMapService;
+        this.semanticService = semanticService;
         this.contextAssembler = contextAssembler;
         this.citationVerifier = citationVerifier;
         this.usageGuard = usageGuard;
@@ -168,7 +171,7 @@ public class AgentOrchestrator {
 
             AgentToolbox toolbox = new AgentToolbox(
                     workspace, publisher, fileService, grepService, patchService,
-                    blastRadiusService, buildService, springMapService,
+                    blastRadiusService, buildService, springMapService, semanticService,
                     appProperties, request.sessionId(), llmProperties.maxToolSteps());
 
             Assistant assistant = AiServices.builder(Assistant.class)

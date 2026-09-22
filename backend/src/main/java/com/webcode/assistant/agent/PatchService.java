@@ -6,6 +6,8 @@ import com.webcode.assistant.workspace.Workspace;
 import com.webcode.assistant.workspace.WorkspaceFileService;
 import com.webcode.assistant.workspace.WorkspacePathResolver;
 import com.webcode.assistant.workspace.WorkspaceService;
+import com.webcode.assistant.workspace.snapshot.Snapshot;
+import com.webcode.assistant.workspace.snapshot.SnapshotService;
 import com.webcode.assistant.workspace.diff.FilePatch;
 import com.webcode.assistant.workspace.diff.UnifiedDiffApplier;
 import com.webcode.assistant.workspace.diff.UnifiedDiffParser;
@@ -17,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -51,17 +54,20 @@ public class PatchService {
     private final WorkspaceFileService fileService;
     private final WorkspacePathResolver pathResolver;
     private final WorkspaceService workspaceService;
+    private final SnapshotService snapshotService;
 
     public PatchService(PatchRepository patchRepository,
                         ChatSessionRepository sessionRepository,
                         WorkspaceFileService fileService,
                         WorkspacePathResolver pathResolver,
-                        WorkspaceService workspaceService) {
+                        WorkspaceService workspaceService,
+                        SnapshotService snapshotService) {
         this.patchRepository = patchRepository;
         this.sessionRepository = sessionRepository;
         this.fileService = fileService;
         this.pathResolver = pathResolver;
         this.workspaceService = workspaceService;
+        this.snapshotService = snapshotService;
     }
 
     /**
@@ -100,7 +106,7 @@ public class PatchService {
     }
 
     /**
-     * 用户确认后写盘。
+     * 用户确认后写盘（单补丁入口）。
      *
      * <p>先用 CAS 认领状态再写文件：并发两个应用请求只会有一次真正落盘；
      * 写失败则把状态退回 pending，保证界面与磁盘状态一致。
@@ -115,6 +121,83 @@ public class PatchService {
                     "该补丁状态为 " + patch.status() + "，不能再次应用");
         }
         Workspace workspace = workspaceOf(userId, patchId);
+
+        // 应用前自动打快照 —— 打点失败就终止应用：没有安全网的写入不值得发生。
+        // 快照失败时补丁保持 pending，用户重试即可。
+        // 注意：状态检查在上面已经做掉，保证「重复应用被拒」这类调用不会产生多余快照。
+        snapshotService.create(workspace, userId, Snapshot.KIND_AUTO,
+                "补丁应用前 · " + patch.filePath(), patchId);
+
+        Patch applied = applyCore(userId, patch, workspace);
+        workspaceService.refreshSize(workspace);
+        return applied;
+    }
+
+    /** 批量应用结果：逐补丁的成功 / 失败明细。 */
+    public record BatchApplyResult(int total, int applied, int failed, List<Item> items) {
+
+        public record Item(UUID patchId, String file, String status, String error) {
+        }
+    }
+
+    /**
+     * 批量应用一个会话里的全部待确认补丁（功能 10：多文件自动改的落地点）。
+     *
+     * <p>设计取舍：
+     * <ul>
+     *   <li><b>整批只打一次快照</b>（而不是每个补丁各打一次）—— 这批变更是同一个决策，
+     *       回滚也应该是一个动作；</li>
+     *   <li><b>单个失败不阻断整批</b>：补丁之间存在顺序依赖（如先改接口再改实现）时，
+     *       前面的失败意味着后面的多半也会失败，但逐个尝试能把「能落盘的都落盘」，
+     *       逐补丁的结果明细让用户清楚看到哪几个需要人工处理；</li>
+     *   <li>应用顺序按补丁生成顺序（id 升序），与模型产出顺序一致。</li>
+     * </ul>
+     */
+    public BatchApplyResult applyAll(long userId, long sessionId) {
+        requireSession(userId, sessionId);
+        List<Patch> pending = patchRepository.findBySession(sessionId).stream()
+                .filter(patch -> Patch.STATUS_PENDING.equals(patch.status()))
+                .toList();
+        if (pending.isEmpty()) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "没有待确认的补丁");
+        }
+
+        Workspace workspace = workspaceService.require(userId,
+                sessionRepository.findOwned(sessionId, userId).orElseThrow().workspaceId());
+
+        snapshotService.create(workspace, userId, Snapshot.KIND_AUTO,
+                "批量应用前 · " + pending.size() + " 个补丁", null);
+
+        List<BatchApplyResult.Item> items = new ArrayList<>(pending.size());
+        int applied = 0;
+        int failed = 0;
+        for (Patch patch : pending) {
+            try {
+                applyCore(userId, patch, workspace);
+                applied++;
+                items.add(new BatchApplyResult.Item(patch.id(), patch.filePath(), Patch.STATUS_APPLIED, null));
+            } catch (RuntimeException ex) {
+                failed++;
+                String message = ex instanceof ApiException apiException
+                        ? apiException.getMessage()
+                        : "应用失败";
+                items.add(new BatchApplyResult.Item(patch.id(), patch.filePath(), Patch.STATUS_PENDING, message));
+            }
+        }
+        if (applied > 0) {
+            workspaceService.refreshSize(workspace);
+        }
+        log.info("批量应用完成 session={} 总数={} 成功={} 失败={}", sessionId, pending.size(), applied, failed);
+        return new BatchApplyResult(pending.size(), applied, failed, items);
+    }
+
+    /** CAS 认领 + 写盘。调用方负责快照与体积刷新。 */
+    private Patch applyCore(long userId, Patch patch, Workspace workspace) {
+        UUID patchId = patch.id();
+        if (!Patch.STATUS_PENDING.equals(patch.status())) {
+            throw new ApiException(ErrorCode.PATCH_ALREADY_RESOLVED,
+                    "该补丁状态为 " + patch.status() + "，不能再次应用");
+        }
 
         if (!patchRepository.markResolved(patchId, Patch.STATUS_APPLIED)) {
             throw new ApiException(ErrorCode.PATCH_ALREADY_RESOLVED, "该补丁已被处理");
@@ -132,7 +215,6 @@ public class PatchService {
                 // writeText 内部已做过配额校验，这里不再重复统计整个工作区体积
                 fileService.writeText(workspace, patch.filePath(), updated);
             }
-            workspaceService.refreshSize(workspace);
             log.info("补丁 {} 已应用，文件 {}", patchId, patch.filePath());
         } catch (RuntimeException ex) {
             patchRepository.revertToPending(patchId);

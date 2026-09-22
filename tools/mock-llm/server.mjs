@@ -406,10 +406,51 @@ function respond(toolMessages, intent, currentFile, res) {
   return finish(res, { inputTokens: 1500, outputTokens: 20 });
 }
 
+// ---- embeddings：256 维词袋哈希向量，L2 归一化 --------------------------------
+
+const EMBED_DIM = 256;
+
+function hashEmbedding(text) {
+  const vec = new Array(EMBED_DIM).fill(0);
+  const tokens = String(text).toLowerCase().match(/[a-z0-9_]+|[\u4e00-\u9fff]/g) ?? [];
+  for (const token of tokens) {
+    let hash = 2166136261;
+    for (let i = 0; i < token.length; i++) {
+      hash ^= token.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    vec[Math.abs(hash) % EMBED_DIM] += 1;
+  }
+  let norm = Math.sqrt(vec.reduce((sum, value) => sum + value * value, 0));
+  if (norm === 0) norm = 1;
+  return vec.map((value) => value / norm);
+}
+
 const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url?.startsWith('/v1/models')) {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ object: 'list', data: [{ id: MODEL_NAME, object: 'model' }] }));
+    return;
+  }
+
+  // /v1/embeddings：确定性的词袋哈希向量（256 维）。
+  // 相同 token → 相同桶，因此「同词复现」的代码块得分更高 —— 足够让语义检索
+  // 的 e2e 断言可复现，也不需要真实 embedding 服务。
+  if (req.method === 'POST' && req.url?.startsWith('/v1/embeddings')) {
+    let raw = '';
+    req.on('data', (chunk) => { raw += chunk; });
+    req.on('end', () => {
+      let body = {};
+      try { body = JSON.parse(raw || '{}'); } catch { /* fallthrough */ }
+      const inputs = Array.isArray(body.input) ? body.input : [String(body.input ?? '')];
+      const data = inputs.map((text, index) => ({
+        object: 'embedding',
+        index,
+        embedding: hashEmbedding(String(text)),
+      }));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ object: 'list', data, model: body.model ?? 'mock-embed', usage: { prompt_tokens: 1, total_tokens: 1 } }));
+    });
     return;
   }
 
