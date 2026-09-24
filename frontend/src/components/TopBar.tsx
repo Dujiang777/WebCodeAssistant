@@ -1,11 +1,18 @@
-import { TerminalMark, ChevronIcon, PlugIcon } from './icons';
+import { TerminalMark, ChevronIcon } from './icons';
 import type { HealthInfo } from '../lib/api';
 
 /**
  * 顶栏。左侧是品牌与面包屑，右侧是「模型连接状态 + 当前用户」。
  *
+ * 这里是 2026-09-24 重构后的版本，原则是**顶栏只放「读一眼」的信息，不放工具**：
+ *   - 以前宪法 / 地图 / 测试 / 快照 / 检索 / 终端 / 平行宇宙 / 工位 / 文件 / 对话
+ *     十个按钮全挤在这里，顶栏变成了一排两字谜语，工作区名反而被挤没了；
+ *   - 现在工具全部搬去左侧工具轨道（ToolRail），顶栏只剩三件本来就该在这里的事：
+ *     我在哪（面包屑）、模型通不通（状态点）、我是谁（账号 + 退出）。
+ *
  * 把模型状态放在顶栏而不是设置页：这个工具最常见的故障就是「模型没配好」，
  * 让它常驻可见（绿点=已配置、黄点=未配置）比事后排查省事得多。
+ * 检索引擎与 Redis 属于环境细节，收进它的悬停说明里，不再各占一个 chip。
  */
 interface TopBarProps {
   workspaceName: string;
@@ -13,26 +20,8 @@ interface TopBarProps {
   dirty: boolean;
   health: HealthInfo | null;
   username: string;
-  constitutionExists: boolean;
   onBack: () => void;
   onLogout: () => void;
-  onToggleTree: () => void;
-  onToggleChat: () => void;
-  onOpenConstitution: () => void;
-  onOpenSpringMap: () => void;
-  onOpenTests: () => void;
-  onOpenSnapshots: () => void;
-  onOpenSemantic: () => void;
-  onOpenTerminal: () => void;
-  /** 功能 15：打开平行宇宙面板。 */
-  onOpenWhatIf: () => void;
-  /** 功能 13：显示 / 隐藏 Agent 工位面板。 */
-  onToggleDesk: () => void;
-  deskVisible: boolean;
-  /** 功能 14：此刻有几步正被拦下等人放行 —— 顶栏要能一眼看见。 */
-  activeGates: number;
-  treeVisible: boolean;
-  chatVisible: boolean;
   pendingPatches: number;
 }
 
@@ -42,23 +31,8 @@ export function TopBar({
   dirty,
   health,
   username,
-  constitutionExists,
   onBack,
   onLogout,
-  onToggleTree,
-  onToggleChat,
-  onOpenConstitution,
-  onOpenSpringMap,
-  onOpenTests,
-  onOpenSnapshots,
-  onOpenSemantic,
-  onOpenTerminal,
-  onOpenWhatIf,
-  onToggleDesk,
-  deskVisible,
-  activeGates,
-  treeVisible,
-  chatVisible,
   pendingPatches,
 }: TopBarProps) {
   const modelReady = health?.modelConfigured ?? false;
@@ -79,7 +53,7 @@ export function TopBar({
       </button>
 
       <div className="crumbs">
-        <span>{workspaceName}</span>
+        <span className="crumbs-ws">{workspaceName}</span>
         {filePath ? (
           <>
             <span className="crumbs-sep">/</span>
@@ -97,67 +71,17 @@ export function TopBar({
         </span>
       )}
 
-      <span className="chip" title={modelReady ? `模型：${health?.model ?? '已配置'}` : '未配置模型，仅可浏览与编辑文件'}>
+      <span
+        className="chip"
+        title={
+          modelReady
+            ? `模型：${health?.model ?? '已配置'}　·　检索引擎：${health?.grepEngine ?? '未知'}　·　Redis：${health?.redisAvailable ? '可用' : '降级'}`
+            : '未配置模型，仅可浏览与编辑文件'
+        }
+      >
         <span className={`dot ${modelReady ? 'dot-ok' : 'dot-warn'}`} />
         {modelReady ? health?.model ?? '模型已就绪' : '模型未配置'}
       </span>
-
-      <span className="chip" title={`检索引擎：${health?.grepEngine ?? '未知'}；Redis：${health?.redisAvailable ? '可用' : '降级'}`}>
-        <PlugIcon size={11} />
-        {health?.grepEngine ?? '—'}
-      </span>
-
-      <button
-        className={`btn btn-ghost btn-sm${constitutionExists ? '' : ' muted'}`}
-        onClick={onOpenConstitution}
-        title={constitutionExists ? '查看 / 编辑仓库宪法（已生效）' : '配置仓库宪法 —— 最高优先级的硬规则'}
-      >
-        宪法{constitutionExists ? '' : '·'}
-      </button>
-      <button className="btn btn-ghost btn-sm" onClick={onOpenSpringMap} title="Spring 组件地图（Bean / 端点 / 依赖注入）">
-        地图
-      </button>
-      <button className="btn btn-ghost btn-sm" onClick={onOpenTests} title="运行测试套件，失败可一键交给 AI 修复">
-        测试
-      </button>
-      <button className="btn btn-ghost btn-sm" onClick={onOpenSnapshots} title="快照与回滚 —— 应用补丁前自动打点">
-        快照
-      </button>
-      <button className="btn btn-ghost btn-sm" onClick={onOpenSemantic} title="语义检索 —— 用自然语言找代码">
-        检索
-      </button>
-      <button className="btn btn-ghost btn-sm" onClick={onOpenTerminal} title="终端 —— 在工作区里手动执行命令（AI 无此能力）">
-        终端
-      </button>
-      <button className="btn btn-ghost btn-sm" onClick={onOpenWhatIf} title="平行宇宙 What-if —— 在影子工作区里试改动，左右对比，默认不合并">
-        平行宇宙
-      </button>
-      <button
-        className={`btn btn-ghost btn-sm${deskVisible ? '' : ' muted'}${activeGates > 0 ? ' alert' : ''}`}
-        onClick={onToggleDesk}
-        title={
-          activeGates > 0
-            ? `Agent 工位 —— 有 ${activeGates} 步正被拦下等你放行`
-            : 'Agent 工位 —— 实时看它在你的仓库里打开了什么、光标在哪、草稿怎么长出来'
-        }
-      >
-        工位{activeGates > 0 ? ` ${activeGates}` : ''}
-      </button>
-
-      <button
-        className={`btn btn-ghost btn-sm${treeVisible ? '' : ' muted'}`}
-        onClick={onToggleTree}
-        title="显示 / 隐藏文件树"
-      >
-        文件
-      </button>
-      <button
-        className={`btn btn-ghost btn-sm${chatVisible ? '' : ' muted'}`}
-        onClick={onToggleChat}
-        title="显示 / 隐藏对话"
-      >
-        对话
-      </button>
 
       <span className="chip" title={`已登录：${username}`}>
         {username}

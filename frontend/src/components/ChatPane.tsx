@@ -261,17 +261,21 @@ export function ChatPane({
         ) : messages.length === 0 && !turn ? (
           <div className="empty">
             <div className="empty-title">开始一次对话</div>
-            <div className="empty-steps">
-              <div>
-                · 问我 <b>“这个项目用了什么构建方式”</b>，我会去读 pom.xml 并给出<b>带行号的出处</b>；
-              </div>
-              <div>
-                · 回答里的 <b>路径:行号</b> 是可以点的，点一下直接跳到那行代码；
-              </div>
-              <div>
-                · 让我改代码时，我会给补丁，并在卡片上标出<b>影响面</b>（谁在调用、有没有测试）——
-                应用之后还会跑一次编译。你没点确认之前，我不会动你的文件。
-              </div>
+            <p className="empty-sub">
+              问我关于这个仓库的任何事。回答里的「路径:行号」都能点开核对；要我改代码，
+              我会先给补丁 —— 你没点确认之前，我不会动你的文件。
+            </p>
+            <div className="empty-chips">
+              {['解释一下这个类', '这个项目用了什么构建方式？', '把这个类改成构造器注入'].map((item) => (
+                <button
+                  key={item}
+                  className="empty-chip"
+                  title="点一下直接发送"
+                  onClick={() => onSend(item)}
+                >
+                  {item}
+                </button>
+              ))}
             </div>
           </div>
         ) : (
@@ -458,7 +462,12 @@ export function ChatPane({
         />
 
         <div className="composer-actions">
-          <span className="composer-hint">我不会直接改你的文件 —— 每次修改都会先给出补丁，等你确认。</span>
+          <span
+            className="composer-hint"
+            title="AI 没有任何写盘权限：它只能产出补丁，必须由你点「应用」，磁盘上的文件才会真的被改写。"
+          >
+            补丁需你确认后才写盘
+          </span>
           <button className="btn btn-primary" disabled={sending || draft.trim().length === 0} onClick={submit}>
             <SendIcon size={13} />
             {sending ? '生成中…' : '发送'}

@@ -59,6 +59,8 @@
 
   --topbar-h: 46px;
   --statusbar-h: 26px;
+  /* 最左侧工具轨道的固定宽度（不参与拖拽调宽） */
+  --rail-w: 52px;
   --radius: 12px;
   --radius-s: 8px;
   --radius-pill: 999px;
@@ -541,6 +543,41 @@ a.link:hover,
   color: var(--fg-2);
 }
 
+/* 空态正文：从三大段改成一句 —— 说明文字越多，越没人看 */
+.empty-sub {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--fg-1);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+/* 可点击的示例问题：空态最该做的是让人「敢按下去」，而不是先读三段说明 */
+.empty-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.empty-chip {
+  padding: 6px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--bg-2);
+  color: var(--fg-1);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+}
+
+.empty-chip:hover {
+  color: var(--fg-0);
+  border-color: var(--signal-line);
+  background: var(--signal-dim);
+}
+
 .empty-steps {
   margin: 10px 0 0;
   padding: 0;
@@ -787,6 +824,166 @@ a.link:hover,
   overflow: hidden;
 }
 
+/* --------------------------------------------------------- 工具轨道（最左一栏）
+   2026-09-24 新增。这些工具原来平铺在顶栏上，变成一排两字按钮
+   （宪法 / 地图 / 测试 / 快照 / 检索 / 终端 / 平行宇宙 / 工位 / 文件 / 对话），
+   顶栏被占满、工作区名被挤没，而且看不出哪个是干什么的。
+   现在收成一条竖排图标栏，按性质分三组（对仓库做事 / 看 AI 做事 / 调布局），
+   组间用分隔线断开。
+
+   注意：它刻意**不是** .pane —— 自检脚本会断言 `.workbench > .pane` 的数量，
+   把它算成 pane 会让那条断言失效。 */
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 0;
+  background: var(--bg-2);
+  border-right: 1px solid var(--line);
+  overflow: visible;
+}
+
+.rail-mark {
+  color: var(--signal);
+  opacity: 0.7;
+  width: 30px;
+  display: flex;
+  justify-content: center;
+  padding-bottom: 8px;
+  margin-bottom: 3px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.rail-sep {
+  flex: none;
+  width: 22px;
+  height: 1px;
+  margin: 5px 0;
+  background: var(--line);
+}
+
+.rail-spacer {
+  flex: 1;
+}
+
+.rail-btn {
+  position: relative;
+  width: 36px;
+  height: 33px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--fg-2);
+  cursor: pointer;
+  transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease;
+}
+
+.rail-btn:hover {
+  color: var(--fg-0);
+  background: var(--bg-3);
+  border-color: var(--line);
+}
+
+/* 面板正开着：金色底 + 左侧一道刻线，跟面板标题同一套语言 */
+.rail-btn.active {
+  color: var(--fg-0);
+  background: var(--signal-dim);
+  border-color: var(--signal-line);
+}
+
+.rail-btn.active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 7px;
+  bottom: 7px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--signal);
+}
+
+/* 「未配置」这类可有可无的状态压暗，避免和「正开着」抢注意力 */
+.rail-btn.muted {
+  color: var(--fg-3);
+}
+
+/* 有步骤被拦下等人放行 —— 用玫红，跟闸门卡片的语义色一致 */
+.rail-btn.alert {
+  color: var(--rose);
+  background: var(--rose-dim);
+  border-color: rgba(255, 81, 99, 0.38);
+}
+
+/* 悬停时从按钮右侧飘出一张两行卡片：中文名 + 「什么时候该用它」。
+   只给名字不够 —— 图标栏最容易的失败就是「一堆看不懂的图标」，
+   所以这里把用途也一并交代，代价是宽度，但换来了不用点开就知道。 */
+.rail-tip {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-5px);
+  width: 214px;
+  padding: 8px 10px;
+  border-radius: var(--radius-s);
+  background: var(--bg-4);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-soft);
+  text-align: left;
+  white-space: normal;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 40;
+}
+
+.rail-btn:hover .rail-tip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+.rail-tip-name {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--fg-0);
+}
+
+.rail-tip-hint {
+  display: block;
+  margin-top: 3px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--fg-2);
+}
+
+.rail-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--rose);
+  color: #1a0d0f;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+}
+
 .topbar {
   height: var(--topbar-h);
   flex: none;
@@ -851,6 +1048,11 @@ a.link:hover,
 
 .crumbs-sep {
   color: var(--fg-3);
+}
+
+/* 工作区名压暗、文件名提亮：一条面包屑上只需一个视觉重点 */
+.crumbs-ws {
+  color: var(--fg-2);
 }
 
 .crumbs-file {
@@ -1931,22 +2133,19 @@ button.risk-chip:hover {
   padding: 12px 14px 10px;
 }
 
+/* 输入区上方那条「上下文条」。
+   原先是 inline-flex + nowrap + overflow:hidden —— 面板一窄就把右边的开关和状态
+   **直接裁掉**（不是换行，是切掉，用户在界面上看不到自己还有哪些开关）。
+   改成可换行：窄面板下开关掉到第二行，而不是凭空消失。 */
 .composer-context {
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   margin-bottom: 8px;
-  padding: 2px 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--bg-1);
   font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--fg-2);
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .context {

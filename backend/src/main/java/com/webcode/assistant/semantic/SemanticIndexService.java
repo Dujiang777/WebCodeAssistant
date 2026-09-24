@@ -239,7 +239,8 @@ public class SemanticIndexService {
 
     /** 调 OpenAI 兼容 /v1/embeddings，批量取向量。 */
     private List<float[]> embed(List<String> inputs) {
-        String url = llmProperties.baseUrl().replaceAll("/+$", "") + "/embeddings";
+        // embedding 可以指向跟对话不同的服务（DeepSeek 就没有 embeddings 端点）
+        String url = llmProperties.resolvedEmbeddingBaseUrl().replaceAll("/+$", "") + "/embeddings";
         String body;
         try {
             body = objectMapper.writeValueAsString(Map.of(
@@ -252,7 +253,7 @@ public class SemanticIndexService {
                 .uri(URI.create(url))
                 .timeout(Duration.ofSeconds(60))
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + llmProperties.apiKey())
+                .header("Authorization", "Bearer " + llmProperties.resolvedEmbeddingApiKey())
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
         HttpResponse<String> response;

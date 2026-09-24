@@ -40,6 +40,7 @@ import { TestsModal } from '../components/TestsModal';
 import { SnapshotsModal } from '../components/SnapshotsModal';
 import { SemanticModal } from '../components/SemanticModal';
 import { TerminalModal } from '../components/TerminalModal';
+import { ToolRail } from '../components/ToolRail';
 import { TopBar } from '../components/TopBar';
 import { WhatIfPanel } from '../components/WhatIfPanel';
 import { TerminalMark, FolderIcon, PlusIcon, RefreshIcon } from '../components/icons';
@@ -1115,6 +1116,9 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
 
   const columns = useMemo(() => {
     const parts: string[] = [];
+    // 第一列永远是最左侧的工具轨道（固定宽，不可拖拽）——
+    // 它不属于 .pane，所以不会影响「.workbench > .pane / .splitter」这类自检断言。
+    parts.push('var(--rail-w)');
     if (treeVisible) parts.push(`minmax(140px, ${layout.left}px)`, '5px');
     parts.push('minmax(0, 1fr)');
     if (chatVisible) parts.push('5px', `minmax(260px, ${layout.right}px)`);
@@ -1161,27 +1165,29 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         dirty={dirty}
         health={health}
         username={username}
-        constitutionExists={constitution?.exists ?? false}
         onBack={() => navigate('/workspaces')}
         onLogout={onLogout}
-        onToggleTree={() => setTreeVisible((value) => !value)}
-        onToggleChat={() => setChatVisible((value) => !value)}
-        onOpenConstitution={() => setConstitutionOpen(true)}
-        onOpenSpringMap={() => setSpringMapOpen(true)}
-        onOpenTests={() => setTestsOpen(true)}
-        onOpenSnapshots={() => setSnapshotsOpen(true)}
-        onOpenSemantic={() => setSemanticOpen(true)}
-        onOpenTerminal={() => setTerminalOpen(true)}
-        onOpenWhatIf={() => setWhatIfOpen(true)}
-        onToggleDesk={() => setDeskVisible((value) => !value)}
-        deskVisible={deskVisible}
-        activeGates={gates.length}
-        treeVisible={treeVisible}
-        chatVisible={chatVisible}
         pendingPatches={patches.filter((patch) => patch.status === 'pending').length}
       />
 
       <div className="workbench" style={{ gridTemplateColumns: columns }}>
+        <ToolRail
+          constitutionExists={constitution?.exists ?? false}
+          deskVisible={deskVisible}
+          treeVisible={treeVisible}
+          chatVisible={chatVisible}
+          activeGates={gates.length}
+          onOpenConstitution={() => setConstitutionOpen(true)}
+          onOpenSpringMap={() => setSpringMapOpen(true)}
+          onOpenTests={() => setTestsOpen(true)}
+          onOpenSnapshots={() => setSnapshotsOpen(true)}
+          onOpenSemantic={() => setSemanticOpen(true)}
+          onOpenTerminal={() => setTerminalOpen(true)}
+          onOpenWhatIf={() => setWhatIfOpen(true)}
+          onToggleDesk={() => setDeskVisible((value) => !value)}
+          onToggleTree={() => setTreeVisible((value) => !value)}
+          onToggleChat={() => setChatVisible((value) => !value)}
+        />
         {treeVisible && (
           <div className="pane">
             <div className="pane-head">

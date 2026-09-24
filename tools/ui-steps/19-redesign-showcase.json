@@ -1,0 +1,36 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2500 },
+  ["find", "text", "一键随机演示账号", "click"],
+  { "sleep": 3500 },
+  ["click", ".form-stack .btn-primary"],
+  { "sleep": 9000 },
+  ["click", "[title=\"src/main/java/com/demo/UserService.java\"]"],
+  { "sleep": 2500 },
+
+  { "note": "重构后整体：顶栏只剩「我在哪/模型通不通/我是谁」，工具全部收进左侧轨道" },
+  ["eval", "'TOPBAR_CTRLS=' + document.querySelectorAll('.topbar > .btn, .topbar > .chip').length + ' RAIL_BTNS=' + document.querySelectorAll('.rail-btn').length + ' PANES=' + document.querySelectorAll('.workbench > .pane').length + ' SPLITTERS=' + document.querySelectorAll('.workbench > .splitter').length"],
+  ["eval", "'RAIL_GROUPS=' + document.querySelectorAll('.rail-group').length + ' SEPS=' + document.querySelectorAll('.rail-sep').length + ' TIPS=' + document.querySelectorAll('.rail-tip').length"],
+  ["screenshot", "docs/self-test/v5-redesign/01-after-overall.png"],
+
+  { "note": "轨道悬停卡片：第一行中文名，第二行「什么时候该用它」" },
+  ["click", "[title*=\"Agent 工位\"]"],
+  { "sleep": 1600 },
+  ["eval", "'TIP_NAME=' + ((document.querySelector('.rail-btn:hover .rail-tip-name')||{innerText:'none'}).innerText) + ' TIP_HINT_LEN=' + ((document.querySelector('.rail-btn:hover .rail-tip-hint')||{innerText:''}).innerText.length)"],
+  ["screenshot", "docs/self-test/v5-redesign/02-rail-tip.png"],
+
+  { "note": "从轨道开一个工具（组件地图）—— 证明入口都通，且不再占顶栏" },
+  ["click", "[title*=\"组件地图\"]"],
+  { "sleep": 1800 },
+  ["eval", "'MODAL_TITLE=' + ((document.querySelector('.modal-title')||{innerText:'none'}).innerText)"],
+  ["screenshot", "docs/self-test/v5-redesign/03-tool-from-rail.png"],
+  ["eval", "(function(){document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));return 'esc'})()"],
+  { "sleep": 1000 },
+
+  { "note": "对话区空态：从一大段说明文字改成可点的示例芯片 + 一行输入提示" },
+  ["eval", "'EMPTY_TITLE=' + ((document.querySelector('.empty-title')||{innerText:'none'}).innerText) + ' CHIPS=' + document.querySelectorAll('.empty-chip').length + ' HINT=' + ((document.querySelector('.composer-hint')||{innerText:'none'}).innerText)"],
+  ["screenshot", "docs/self-test/v5-redesign/04-chat-empty.png"],
+  ["eval", "'CTX_WRAP=' + getComputedStyle(document.querySelector('.composer-context')).flexWrap"]
+]
