@@ -203,6 +203,108 @@ export function BoltIcon({ size = 14, className }: IconProps) {
   );
 }
 
+/* ------------------------------------------------------------------ *
+ * 工具轨道（ToolRail）用的图标。
+ *
+ * 这些工具过去是顶栏上一排两字按钮（「宪法」「地图」「测试」…），
+ * 既看不出是什么、也不知道该在什么时候用。改成左侧图标条之后，
+ * 每个工具需要一枚一眼能认出来的图形，所以在这里补齐。
+ * ------------------------------------------------------------------ */
+
+/** 文档条款：仓库宪法。 */
+export function ScrollDocIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} strokeWidth={1.5}>
+      <rect x="3" y="2.4" width="10" height="11.2" rx="1.6" />
+      <path d="M5.6 5.6h4.8M5.6 8h4.8M5.6 10.4h3" />
+    </svg>
+  );
+}
+
+/** 节点网络：Spring 组件地图（Bean / 端点 / 注入边）。 */
+export function MapIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} strokeWidth={1.4}>
+      <circle cx="4.1" cy="4.2" r="1.8" />
+      <circle cx="11.9" cy="5.4" r="1.8" />
+      <circle cx="7.2" cy="12" r="1.8" />
+      <path d="M5.7 5.3l4.7.1M4.9 5.9l1.7 4.4M11.2 7.1l-2.8 3.3" />
+    </svg>
+  );
+}
+
+/** 烧瓶：测试套件。 */
+export function FlaskIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} strokeWidth={1.5}>
+      <path d="M6.4 2.2v4.1L3.1 11.6a1.4 1.4 0 001.2 2.2h7.4a1.4 1.4 0 001.2-2.2L9.6 6.3V2.2" />
+      <path d="M5.6 2.2h4.8M4.6 9.7h6.8" />
+    </svg>
+  );
+}
+
+/** 时钟回拨：快照与回滚。 */
+export function HistoryIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} strokeWidth={1.5}>
+      <path d="M2.7 8a5.3 5.3 0 105.3-5.3 5.3 5.3 0 00-4.2 2.1" />
+      <path d="M2.4 3.3v2.6h2.6" />
+      <path d="M8 5.5V8l1.8 1.1" />
+    </svg>
+  );
+}
+
+/** 终端窗口：手动执行命令（AI 无此能力）。 */
+export function TerminalIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} strokeWidth={1.5}>
+      <rect x="1.9" y="2.9" width="12.2" height="10.2" rx="2" />
+      <path d="M4.9 6.5l1.9 1.9-1.9 1.9M8.6 10.4h2.9" />
+    </svg>
+  );
+}
+
+/** 分叉：平行宇宙 What-if（两条走向并排推演）。 */
+export function ForkIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} strokeWidth={1.5}>
+      <circle cx="4.3" cy="3.7" r="1.7" />
+      <circle cx="11.7" cy="3.7" r="1.7" />
+      <circle cx="8" cy="12.3" r="1.7" />
+      <path d="M4.3 5.4c0 3.1 3.7 2.4 3.7 5.2M11.7 5.4c0 3.1-3.7 2.4-3.7 5.2" />
+    </svg>
+  );
+}
+
+/** 观察之眼：Agent 工位（看它在你的仓库里做了什么）。 */
+export function EyeIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} strokeWidth={1.5}>
+      <path d="M1.8 8S4.3 3.9 8 3.9 14.2 8 14.2 8 11.7 12.1 8 12.1 1.8 8 1.8 8z" />
+      <circle cx="8" cy="8" r="1.9" />
+    </svg>
+  );
+}
+
+/** 左栏：切换文件树。 */
+export function PanelLeftIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} strokeWidth={1.5}>
+      <rect x="2.2" y="2.8" width="11.6" height="10.4" rx="1.8" />
+      <path d="M6.4 2.8v10.4" />
+    </svg>
+  );
+}
+
+/** 对话气泡：切换 AI 对话面板。 */
+export function ChatIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} strokeWidth={1.5}>
+      <path d="M13.4 8.4c0 2.6-2.4 4.7-5.4 4.7-.7 0-1.4-.1-2-.3l-3 1.1.9-2.4a4.5 4.5 0 01-1.3-3.1C2.6 5.8 5 3.7 8 3.7s5.4 2.1 5.4 4.7z" />
+    </svg>
+  );
+}
+
 /**
  * 由文件扩展名取一个短标签 + 颜色，用于文件树上的语言标识。
  * 颜色只在少数几种语言上区分，避免变成圣诞树。

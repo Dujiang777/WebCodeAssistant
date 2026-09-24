@@ -1,0 +1,72 @@
+# ui-probe start  steps=29
+
+$ agent-browser set viewport 1512 950
+✓ Done
+
+$ agent-browser open http://127.0.0.1:5173/#/login
+✓ Web Code Assistant · 网页版编码助手
+  http://127.0.0.1:5173/#/workspaces
+
+$ sleep 2500
+
+$ agent-browser find text 一键随机演示账号 click
+STDERR: ✗ Element not found. Verify the selector is correct and the element exists in the DOM.
+
+$ sleep 3500
+
+$ agent-browser click .form-stack .btn-primary
+✓ Done
+
+$ sleep 9000
+
+$ agent-browser click [title="src/main/java/com/demo/UserService.java"]
+✓ Done
+
+$ sleep 2500
+
+$ agent-browser eval 'TOPBAR_CTRLS=' + document.querySelectorAll('.topbar > .btn, .topbar > .chip').length + ' RAIL_BTNS=' + document.querySelectorAll('.rail-btn').length + ' PANES=' + document.querySelectorAll('.workbench > .pane').length + ' SPLITTERS=' + document.querySelectorAll('.workbench > .splitter').length
+"TOPBAR_CTRLS=4 RAIL_BTNS=10 PANES=3 SPLITTERS=2"
+
+$ agent-browser eval 'RAIL_GROUPS=' + document.querySelectorAll('.rail-group').length + ' SEPS=' + document.querySelectorAll('.rail-sep').length + ' TIPS=' + document.querySelectorAll('.rail-tip').length
+"RAIL_GROUPS=3 SEPS=2 TIPS=10"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v5-redesign\01-after-overall.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v5-redesign\01-after-overall.png
+
+$ agent-browser click [title*="Agent 工位"]
+✓ Done
+
+$ sleep 1600
+
+$ agent-browser eval 'TIP_NAME=' + ((document.querySelector('.rail-btn:hover .rail-tip-name')||{innerText:'none'}).innerText) + ' TIP_HINT_LEN=' + ((document.querySelector('.rail-btn:hover .rail-tip-hint')||{innerText:''}).innerText.length)
+"TIP_NAME=Agent 工位 TIP_HINT_LEN=40"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v5-redesign\02-rail-tip.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v5-redesign\02-rail-tip.png
+
+$ agent-browser click [title*="组件地图"]
+✓ Done
+
+$ sleep 1800
+
+$ agent-browser eval 'MODAL_TITLE=' + ((document.querySelector('.modal-title')||{innerText:'none'}).innerText)
+"MODAL_TITLE=Spring 地图"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v5-redesign\03-tool-from-rail.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v5-redesign\03-tool-from-rail.png
+
+$ agent-browser eval (function(){document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));return 'esc'})()
+"esc"
+
+$ sleep 1000
+
+$ agent-browser eval 'EMPTY_TITLE=' + ((document.querySelector('.empty-title')||{innerText:'none'}).innerText) + ' CHIPS=' + document.querySelectorAll('.empty-chip').length + ' HINT=' + ((document.querySelector('.composer-hint')||{innerText:'none'}).innerText)
+"EMPTY_TITLE=开始一次对话 CHIPS=3 HINT=补丁需你确认后才写盘"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v5-redesign\04-chat-empty.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v5-redesign\04-chat-empty.png
+
+$ agent-browser eval 'CTX_WRAP=' + getComputedStyle(document.querySelector('.composer-context')).flexWrap
+"CTX_WRAP=wrap"
+
+# ui-probe done

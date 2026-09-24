@@ -5,12 +5,12 @@ $ agent-browser set viewport 1512 950
 
 $ agent-browser open http://127.0.0.1:5173/#/login
 ✓ Web Code Assistant · 网页版编码助手
-  http://127.0.0.1:5173/#/login
+  http://127.0.0.1:5173/#/workspaces
 
 $ sleep 2500
 
 $ agent-browser find text 一键随机演示账号 click
-✓ Done
+STDERR: ✗ Element not found. Verify the selector is correct and the element exists in the DOM.
 
 $ sleep 3500
 

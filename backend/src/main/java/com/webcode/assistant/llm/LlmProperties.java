@@ -29,6 +29,18 @@ public record LlmProperties(
          */
         @DefaultValue("") String embeddingModel,
 
+        /**
+         * embedding 专用地址，留空则复用 baseUrl。
+         *
+         * <p>为什么需要单独一个：DeepSeek 官方**没有** /v1/embeddings 端点。
+         * 「对话接 DeepSeek、语义检索接另一个服务」是极常见的组合，
+         * 共用一个 baseUrl 会让语义检索直接 404 —— 所以这里允许拆开。
+         */
+        @DefaultValue("") String embeddingBaseUrl,
+
+        /** embedding 专用密钥，留空则复用 apiKey。 */
+        @DefaultValue("") String embeddingApiKey,
+
         @DefaultValue("0.2") Double temperature,
 
         @DefaultValue("8192") Integer maxTokens,
@@ -68,5 +80,19 @@ public record LlmProperties(
         return baseUrl != null && !baseUrl.isBlank()
                 && apiKey != null && !apiKey.isBlank()
                 && model != null && !model.isBlank();
+    }
+
+    /** embedding 实际要打的地址：没单独配就跟着对话走。 */
+    public String resolvedEmbeddingBaseUrl() {
+        return isBlank(embeddingBaseUrl) ? baseUrl : embeddingBaseUrl;
+    }
+
+    /** embedding 实际要用的密钥：没单独配就跟着对话走。 */
+    public String resolvedEmbeddingApiKey() {
+        return isBlank(embeddingApiKey) ? apiKey : embeddingApiKey;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

@@ -1,0 +1,140 @@
+[1mWeb Code Assistant 端到端自测[0m  目标：http://127.0.0.1:8080
+
+[1m1. 健康检查[0m
+  [32m✓[0m GET /api/health 可用 [90m— HTTP 200[0m
+    模型：mock-coder｜检索：java｜Redis：可用
+
+[1m2. 注册 / 登录[0m
+  [32m✓[0m 注册新账号 [90m— HTTP 201[0m
+  [32m✓[0m 拿到 JWT
+
+[1m3. 创建内置示例工作区[0m
+  [32m✓[0m 创建工作区 [90m— HTTP 201[0m
+    工作区 #29 · smoke-96122
+
+[1m4. 读取文件树[0m
+  [32m✓[0m 文件树可读 [90m— 10 个文件[0m
+  [32m✓[0m 树里包含 UserService.java
+
+[1m5. 读取目标文件（应用补丁前的基线）[0m
+  [32m✓[0m 读取 UserService.java
+  [32m✓[0m 基线里存在字段注入
+    文件 1782 字节 · 语言 java
+
+[1m6. 路径越界防护[0m
+  [32m✓[0m 越界读取被拒绝 [90m— HTTP 400 PATH_ESCAPE[0m
+  [32m✓[0m 越界写入被拒绝 [90m— HTTP 400 PATH_ESCAPE[0m
+
+[1m7. 建立会话与事件流[0m
+  [32m✓[0m 创建会话 [90m— HTTP 201[0m
+  [32m✓[0m SSE 长连接已建立
+
+[1m8. 第一轮：问「解释这个类」（验证引用必须带行号）[0m
+  [32m✓[0m 消息已受理（202） [90m— HTTP 202[0m
+    等待模型输出…
+  [32m✓[0m 第一轮收到 done 事件
+  [32m✓[0m 收到 citations 事件 [90m— 7 条引用[0m
+  [32m✓[0m 引用带上了行号（不是光秃秃的路径） [90m— src/main/java/com/demo/UserService.java:23  src/main/java/com/demo/UserService.java:30  src/main/java/com/demo/UserService.java:38  src/main/java/com/demo/UserService.java:47  src/main/java/com/demo/UserService.java:61  [0m
+  [32m✓[0m 引用全部通过校验（文件存在 / 行号不越界） [90m— 0 条存疑[0m
+  [32m✓[0m 引用已落库到消息 meta [90m— meta 里 7 条 + mode=deliver[0m
+
+[1m9. 第二轮：让 AI 重构 UserService（验证补丁）[0m
+  [32m✓[0m 消息已受理（202） [90m— HTTP 202[0m
+  [32m✓[0m 返回用户消息 id
+  [32m✓[0m 收到 patch 事件
+    补丁 0bbf1d35-e053-4d1d-a7a3-dad87b2d9786 · src/main/java/com/demo/UserService.java
+  [32m✓[0m 收到 done 事件 [90m— assistant 消息 #63[0m
+  [32m✓[0m 收到流式文本 [90m— 21 个增量片段[0m
+  [32m✓[0m 过程中出现了工具调用 [90m— read_file → read_file → propose_patch[0m
+  [32m✓[0m 先读文件再出补丁 [90m— read_file → read_file → propose_patch[0m
+
+[1m10. 影响面（应用之前就能看）[0m
+  [32m✓[0m GET blast-radius 可用 [90m— HTTP 200[0m
+  [32m✓[0m 给出了风险等级 [90m— medium[0m
+  [32m✓[0m 识别出被改动的成员 [90m— userRepository[0m
+  [32m✓[0m 列出了调用方或测试 [90m— 5 处调用 / 1 个测试文件[0m
+    风险=medium｜改动 UserService：+18 / -16 行，1 个成员，5 处引用，1 个测试文件覆盖
+  [32m✓[0m 未应用的补丁不给编译结论（disabled） [90m— status=disabled[0m
+
+[1m11. 应用补丁（含特性开关闸门）[0m
+  [32m✓[0m 能查到补丁的特性开关信息 [90m— HTTP 200[0m
+  [32m✓[0m 该补丁被判定为需要开关 [90m— required=true[0m
+  [32m✓[0m 给出了开 / 关两种运行说明 [90m— 关=【关闭】保持 `wca.feature.user-ser[0m
+  [32m✓[0m 没确认开关时应用被拦下 [90m— HTTP 409 FLAG_ACK_REQUIRED[0m
+  [32m✓[0m 确认开关后应用成功 [90m— HTTP 200 [0m
+  [32m✓[0m 补丁状态变为 applied
+  [32m✓[0m 重复应用被拒绝 [90m— HTTP 409 PATCH_ALREADY_RESOLVED[0m
+
+[1m12. 编译验证（应用之后才跑）[0m
+  [32m✓[0m 编译接口返回明确状态 [90m— status=ok[0m
+  [32m✓[0m 通过时退出码为 0 且耗时可见 [90m— exit=0 · 2.7s · cmd.exe /c D:\maven\apache-maven-3.8.2\bin\mvn.cmd -B -Dstyle.color=never -s C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\tools\maven-sel[0m
+
+[1m13. 校验磁盘上的文件真的变了[0m
+  [32m✓[0m 文件读取成功
+  [32m✓[0m 字段注入已消失 [90m— @Autowired 已移除[0m
+  [32m✓[0m 已是 private final 字段
+  [32m✓[0m 新增了构造器
+  [32m✓[0m 文件内容确实发生了变化 [90m— 1606 → 1643 字符[0m
+
+[1m15. 仓库宪法（读 / 模板 / 存 / 撤回 / 再存）[0m
+  [32m✓[0m GET constitution 可用 [90m— HTTP 200[0m
+  [32m✓[0m 新工作区没有宪法（exists=false） [90m— exists=false[0m
+  [32m✓[0m 宪法模板可取 [90m— 609 字符[0m
+  [32m✓[0m 宪法保存成功 [90m— exists=true[0m
+  [32m✓[0m 宪法回读一致
+  [32m✓[0m 空内容保存 = 撤回宪法 [90m— exists=false[0m
+    已用模板内容恢复宪法（供后续人工查看）
+
+[1m16. Spring 地图（Bean / 端点 / 依赖注入）[0m
+  [32m✓[0m GET spring-map 可用 [90m— HTTP 200[0m
+  [32m✓[0m 扫描到了 Java 文件 [90m— 7 个[0m
+  [32m✓[0m 识别出至少 3 个 Bean [90m— UserController、UserService、UserRepository[0m
+  [32m✓[0m UserController 被识别为 Controller
+  [32m✓[0m Controller 的 HTTP 端点已拼出类级前缀 [90m— GET /api/users ; GET /api/users/{id} ; GET /api/users/stats/active ; POST /api/users ; DELETE /api/users/{id}[0m
+  [32m✓[0m 依赖注入边存在（UserService → UserRepository） [90m— 2 条边[0m
+
+[1m17. 变更预演 PR[0m
+  [32m✓[0m GET pr-preview 可用 [90m— HTTP 200[0m
+  [32m✓[0m PR 标题非空且含变更字样 [90m— patch: 变更 UserService（+18 / -16）[0m
+  [32m✓[0m 分支建议非空 [90m— patch/userservice[0m
+  [32m✓[0m 正文包含变更内容小节
+  [32m✓[0m 审查清单 ≥ 3 项且状态合法 [90m— 3 项[0m
+  [32m✓[0m 清单包含宪法项（工作区已配置宪法）
+    标题：patch: 变更 UserService（+18 / -16）
+
+[1m18. 测试运行（测试失败驱动改代码的事实来源）[0m
+  [32m✓[0m test-run 返回明确状态 [90m— status=failed[0m
+  [32m✓[0m 失败时给出了结构化明细（失败用例或编译诊断） [90m— 编译诊断 1 条：Users/AMBITIOUS_YUAN/Projects/web-code-assistant/data/workspaces/33/cd4fcc7a-smoke-96122/src/test/java/com/demo/UserServiceTest.java:19[0m
+    补丁改了构造器签名导致测试代码编译不过 —— issues 已给出诊断，符合「测试驱动修代码」的输入形态
+
+[1m19. 快照与回滚（应用补丁前自动打点）[0m
+  [32m✓[0m GET snapshots 可用 [90m— HTTP 200[0m
+  [32m✓[0m 应用补丁时产生了自动快照 [90m— 补丁应用前 · src/main/java/com/demo/UserService.java · 10 文件[0m
+  [32m✓[0m 手动快照可创建 [90m— kind=manual[0m
+  [32m✓[0m 回滚到自动快照成功 [90m— HTTP 200[0m
+  [32m✓[0m 回滚后补丁的修改已消失（@Autowired 回来了）
+  [32m✓[0m 回滚到手动快照成功 [90m— HTTP 200[0m
+  [32m✓[0m 恢复后补丁的修改重新生效
+  [32m✓[0m 快照可删除 [90m— HTTP 200[0m
+
+[1m20. 批量应用（多文件自动改的落地点）[0m
+  [32m✓[0m 没有待确认补丁时明确拒绝 [90m— HTTP 400 没有待确认的补丁[0m
+
+[1m21. 语义检索（建索引 → 检索 → 命中）[0m
+  [32m✓[0m 语义检索可用（embedding 模型已配置） [90m— available=true[0m
+  [32m✓[0m 重建索引成功且块数 > 0 [90m— 16 块[0m
+  [32m✓[0m 检索返回 ok [90m— status=ok[0m
+  [32m✓[0m 命中 ≥ 1 且带路径行号 [90m— src/main/java/com/demo/UserRepository.java:1、src/main/java/com/demo/UserService.java:51、src/test/java/com/demo/UserServi[0m
+  [32m✓[0m 分数按降序排列
+
+[1m22. 网页终端（受限执行，模型无此能力）[0m
+  [32m✓[0m echo 命令执行成功 [90m— exit=0 output=hello-wca[0m
+  [32m✓[0m 命令链（&&）被拒绝 [90m— HTTP 400[0m
+  [32m✓[0m 环境变量展开（%）被拒绝 [90m— HTTP 400[0m
+
+[1m14. 会话历史已持久化[0m
+  [32m✓[0m 历史中同时存在 user 与 assistant [90m— user,assistant,user,assistant[0m
+  [32m✓[0m 补丁列表可读 [90m— 1 个补丁[0m
+
+[1m结果：83 通过 / 0 失败[0m
+[32m全部通过。[0m
