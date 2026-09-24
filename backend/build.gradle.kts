@@ -29,10 +29,12 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
 
     // --- persistence -------------------------------------------------------
+    // 数据库是 MySQL 8（8.0.13+）。驱动用 MySQL 官方 Connector/J；
+    // Flyway 的方言支持在 10 之后拆成了独立模块，MySQL 对应 flyway-mysql。
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.flywaydb:flyway-core:${property("flywayVersion")}")
-    runtimeOnly("org.flywaydb:flyway-database-postgresql:${property("flywayVersion")}")
-    runtimeOnly("org.postgresql:postgresql")
+    runtimeOnly("org.flywaydb:flyway-mysql:${property("flywayVersion")}")
+    runtimeOnly("com.mysql:mysql-connector-j")
 
     // --- redis（限流 / 用量计数，缺失时自动降级为进程内实现）------------------
     implementation("org.springframework.boot:spring-boot-starter-data-redis")

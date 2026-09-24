@@ -74,7 +74,7 @@ Spring Boot 3.5 (Java 21, 虚拟线程)
   ├── context/     system prompt 组装（项目画像 / 规则文件 / 引用规则 / 当前模式）+ 引用校验
   └── llm/         LangChain4j 流式模型、限流与配额
         │
-        ├── PostgreSQL 16（Flyway 管迁移：5 张表）
+        ├── MySQL 8（Flyway 管迁移：7 张表）
         └── Redis 7（限流 / 配额，可降级）
                   │
                   ▼
@@ -105,17 +105,17 @@ docker compose up --build
 
 ### 方式 B：本机跑（不用 Docker）
 
-前置：JDK 21、Node 20+、PostgreSQL 16（或 Docker 只跑 PG）。
+前置：JDK 21、Node 20+、MySQL 8.0.13+（或 Docker 只跑 MySQL）。
 
 ```bash
-# 1. 准备数据库
-createdb webcode
-# 表结构由 Flyway 自动迁移，不需要手工建表
+# 1. 准备数据库（表结构由 Flyway 自动迁移，不需要手工建表）
+mysql -h 127.0.0.1 -P 3306 -u root -p \
+  -e "create database if not exists webcode character set utf8mb4 collate utf8mb4_0900_ai_ci;"
 
 # 2. 后端
 cd backend
-export DB_URL="jdbc:postgresql://localhost:5432/webcode"
-export DB_USER=webcode DB_PASSWORD=webcode
+export DB_URL="jdbc:mysql://127.0.0.1:3306/webcode?useUnicode=true&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B08:00&forceConnectionTimeZoneToSession=true"
+export DB_USER=root DB_PASSWORD=你的密码
 export JWT_SECRET="dev-only-secret-please-override-with-32-bytes-at-least"
 export LLM_BASE_URL="http://127.0.0.1:8787/v1"   # 见下面「没有 API Key 也能自测」
 export LLM_API_KEY=mock
@@ -237,7 +237,7 @@ node tools/mock-llm/server.mjs --port 8787
 **6｜验证持久化与隔离**
 刷新整个页面。
 
-> 预期：文件树、对话历史、补丁状态全部还在（都在 PostgreSQL 里）。
+> 预期：文件树、对话历史、补丁状态全部还在（都在 MySQL 里）。
 > 顶栏的「待确认补丁」计数只在有 pending 补丁时出现。
 > 顺手试一下越界：在浏览器地址栏访问
 > `http://localhost:8080/api/workspaces/1/files?path=../../../etc/passwd`

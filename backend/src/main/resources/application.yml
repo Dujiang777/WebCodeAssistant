@@ -16,9 +16,22 @@ spring:
     name: web-code-assistant
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/webcode}
-    username: ${DB_USER:webcode}
-    password: ${DB_PASSWORD:webcode}
+    # MySQL 8（8.0.13+）。连接串里的参数都不是「可选优化」，逐个说明为什么必需：
+    #   - characterEncoding=UTF-8 —— Connector/J 8 会把它落成 utf8mb4，中文/emoji 不会变问号；
+    #   - allowPublicKeyRetrieval  —— MySQL 8 默认 caching_sha2_password，明文连接下取公钥要用它；
+    #   - connectionTimeZone=+08:00
+    #                              —— 注意这里写的是**数字偏移**而不是 'Asia/Shanghai'。
+    #                                 MySQL 的命名时区依赖 mysql.time_zone_name 表，而 Windows 下的
+    #                                 MySQL 默认不灌这张表，用名字会直接抛
+    #                                 "Unknown or incorrect time zone"。偏移形式不需要时区表。
+    #                                 中国无夏令时，+08:00 与 'Asia/Shanghai' 精确等价。
+    #   - forceConnectionTimeZoneToSession
+    #                              —— 把会话时区也钉死。否则数据库跑在别的时区（比如官方
+    #                                 mysql 镜像默认 UTC）时，NOW() 写进去的墙钟时间和
+    #                                 getTimestamp() 的解读会整体差 8 小时。
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/webcode?useUnicode=true&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B08:00&forceConnectionTimeZoneToSession=true}
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:root}
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2

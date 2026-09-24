@@ -1,5 +1,6 @@
 package com.webcode.assistant.workspace.snapshot;
 
+import com.webcode.assistant.common.Uuids;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -10,16 +11,18 @@ import java.util.UUID;
 
 /**
  * snapshots 表访问。
+ *
+ * <p>{@code id} 与可空的 {@code patch_id} 都是 {@code char(36)}，读写经 {@link Uuids} 转换。
  */
 @Repository
 public class SnapshotRepository {
 
     private static final RowMapper<Snapshot> MAPPER = (rs, rowNum) -> new Snapshot(
-            (UUID) rs.getObject("id"),
+            Uuids.fromRaw(rs.getString("id")),
             rs.getLong("workspace_id"),
             rs.getString("kind"),
             rs.getString("label"),
-            (UUID) rs.getObject("patch_id"),
+            Uuids.fromRaw(rs.getString("patch_id")),
             rs.getInt("file_count"),
             rs.getLong("size_bytes"),
             rs.getTimestamp("created_at").toInstant());
@@ -40,12 +43,12 @@ public class SnapshotRepository {
                         insert into snapshots (id, workspace_id, user_id, kind, label, patch_id, file_count, size_bytes)
                         values (:id, :workspaceId, :userId, :kind, :label, :patchId, :fileCount, :sizeBytes)
                         """)
-                .param("id", id)
+                .param("id", Uuids.toRaw(id))
                 .param("workspaceId", workspaceId)
                 .param("userId", userId)
                 .param("kind", kind)
                 .param("label", label)
-                .param("patchId", patchId)
+                .param("patchId", Uuids.toRaw(patchId))
                 .param("fileCount", fileCount)
                 .param("sizeBytes", sizeBytes)
                 .update();
@@ -54,7 +57,7 @@ public class SnapshotRepository {
 
     public Optional<Snapshot> findById(UUID id) {
         return jdbc.sql("select " + COLUMNS + " from snapshots where id = :id")
-                .param("id", id)
+                .param("id", Uuids.toRaw(id))
                 .query(MAPPER)
                 .optional();
     }
@@ -75,7 +78,7 @@ public class SnapshotRepository {
 
     public void delete(UUID id) {
         jdbc.sql("delete from snapshots where id = :id")
-                .param("id", id)
+                .param("id", Uuids.toRaw(id))
                 .update();
     }
 }

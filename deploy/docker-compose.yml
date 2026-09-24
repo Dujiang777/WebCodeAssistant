@@ -1,33 +1,43 @@
 # ---------------------------------------------------------------------------
-# 一键起全栈：PostgreSQL + Redis + 后端 + 前端
+# 一键起全栈：MySQL + Redis + 后端 + 前端
 #
 #   cd deploy && docker compose up --build
 #   打开 http://localhost:5173
 #
-# 两个说明：
+# 三个说明：
 #   1. Redis 是可降级的 —— 它只承载限流与配额计数，挂了后端会自动退回进程内实现。
 #      所以这里没有把它设成 backend 的强依赖。
 #   2. LLM 相关变量必须自己填（.env 或 shell 环境），仓库里不放任何 Key。
 #      没填也能启动，只是对话会提示「模型未配置」，文件浏览与编辑仍可用。
+#   3. MySQL 必须显式指定时区（--default-time-zone）。官方镜像默认跑在 UTC，
+#      而应用按 +08:00 读写 datetime —— 不钉死的话所有时间戳会整体差 8 小时。
+#      这里用数字偏移而不是 'Asia/Shanghai'：命名时区要求 mysql.time_zone_name
+#      表有数据，很多环境（尤其 Windows 本地装的 MySQL）是空的，用名字会直接启动失败。
 # ---------------------------------------------------------------------------
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: wca-postgres
+  mysql:
+    image: mysql:8.0
+    container_name: wca-mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+08:00
     environment:
-      POSTGRES_DB: webcode
-      POSTGRES_USER: webcode
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-webcode}
+      MYSQL_DATABASE: webcode
+      MYSQL_USER: webcode
+      MYSQL_PASSWORD: ${DB_PASSWORD:-webcode}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - mysqldata:/var/lib/mysql
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${DB_PORT:-3306}:3306"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U webcode -d webcode"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
       interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 30
+      start_period: 30s
     restart: unless-stopped
 
   redis:
@@ -48,10 +58,10 @@ services:
       context: ../backend
     container_name: wca-backend
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/webcode
+      DB_URL: "jdbc:mysql://mysql:3306/webcode?useUnicode=true&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B08:00&forceConnectionTimeZoneToSession=true"
       DB_USER: webcode
       DB_PASSWORD: ${DB_PASSWORD:-webcode}
       REDIS_URL: redis://redis:6379
@@ -86,5 +96,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  pgdata:
+  mysqldata:
   workspaces:
