@@ -1,10 +1,11 @@
 # ---------------------------------------------------------------------------
 # 一键起全栈：MySQL + Redis + 后端 + 前端
 #
-#   cd deploy && docker compose up --build
+#   cp ../.env.example .env      # 先把上线必改的三项（DB_PASSWORD / JWT_SECRET / LLM_*）填掉
+#   docker compose up --build
 #   打开 http://localhost:5173
 #
-# 三个说明：
+# 四个说明：
 #   1. Redis 是可降级的 —— 它只承载限流与配额计数，挂了后端会自动退回进程内实现。
 #      所以这里没有把它设成 backend 的强依赖。
 #   2. LLM 相关变量必须自己填（.env 或 shell 环境），仓库里不放任何 Key。
@@ -13,6 +14,8 @@
 #      而应用按 +08:00 读写 datetime —— 不钉死的话所有时间戳会整体差 8 小时。
 #      这里用数字偏移而不是 'Asia/Shanghai'：命名时区要求 mysql.time_zone_name
 #      表有数据，很多环境（尤其 Windows 本地装的 MySQL）是空的，用名字会直接启动失败。
+#   4. 完整的变量清单与逐条说明在仓库根目录的 .env.example，那份是部署说明书，
+#      这份 compose 只负责把变量透传进容器。**新增配置别只改一边。**
 # ---------------------------------------------------------------------------
 
 services:
@@ -74,8 +77,47 @@ services:
       LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.2}
       LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-8192}
 
+      # 语义检索可以指向另一个服务：DeepSeek 官方没有 /v1/embeddings 端点。
+      # 三项目全留空 = 复用上面的对话配置。
+      LLM_EMBED_BASE_URL: ${LLM_EMBED_BASE_URL:-}
+      LLM_EMBED_API_KEY: ${LLM_EMBED_API_KEY:-}
+      LLM_EMBED_MODEL: ${LLM_EMBED_MODEL:-}
+
       # 上线前务必替换（至少 32 字节）
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-please-override-with-32-bytes-at-least}
+      JWT_TTL: ${JWT_TTL:-PT2H}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-PT720H}
+
+      # 账号体系。FRONTEND_BASE_URL 用来拼邮件里的验证 / 重置链接 ——
+      # 不改的话用户收到的链接会指向 localhost，点开就废。
+      AUTH_MAX_FAILED: ${AUTH_MAX_FAILED:-5}
+      AUTH_LOCK_DURATION: ${AUTH_LOCK_DURATION:-PT15M}
+      AUTH_TOKEN_TTL: ${AUTH_TOKEN_TTL:-PT30M}
+      AUTH_RESEND_COOLDOWN: ${AUTH_RESEND_COOLDOWN:-PT60S}
+      AUTH_REQUIRE_VERIFIED_EMAIL: ${AUTH_REQUIRE_VERIFIED_EMAIL:-false}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
+      # 管理员引导名单：留空 = 不引导。上线前填一次造出首位管理员，之后清空。
+      ADMIN_USERNAMES: ${ADMIN_USERNAMES:-}
+
+      # 邮件通道。dev 不发真邮件（令牌落库 + 写日志 + 接口回显），能离线跑通验证链路；
+      # 上线必须切 smtp 并填 host / username / password。
+      MAIL_MODE: ${MAIL_MODE:-dev}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@webcode.local}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SSL: ${MAIL_SSL:-false}
+
+      # AI 用量积分
+      CREDIT_SIGNUP_BONUS: ${CREDIT_SIGNUP_BONUS:-300}
+      CREDIT_PER_1K_INPUT: ${CREDIT_PER_1K_INPUT:-1}
+      CREDIT_PER_1K_OUTPUT: ${CREDIT_PER_1K_OUTPUT:-3}
+      CREDIT_MIN_PER_TURN: ${CREDIT_MIN_PER_TURN:-1}
+      CREDIT_HOLD: ${CREDIT_HOLD:-30}
+      CREDIT_LOW_THRESHOLD: ${CREDIT_LOW_THRESHOLD:-50}
+      CREDIT_ENFORCE: ${CREDIT_ENFORCE:-true}
+
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     volumes:

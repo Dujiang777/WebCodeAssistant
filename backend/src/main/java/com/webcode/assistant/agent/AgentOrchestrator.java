@@ -10,7 +10,11 @@ import com.webcode.assistant.config.ExecutorConfig;
 import com.webcode.assistant.llm.ChatModelConfig;
 import com.webcode.assistant.llm.LlmProperties;
 import com.webcode.assistant.llm.UsageGuard;
+import com.webcode.assistant.credit.CreditService;
+import com.webcode.assistant.security.AuthService;
+import com.webcode.assistant.security.UserAccount;
 import com.webcode.assistant.map.SpringMapService;
+import com.webcode.assistant.common.ErrorCode;
 import com.webcode.assistant.workspace.Workspace;
 import com.webcode.assistant.workspace.WorkspaceFileService;
 import com.webcode.assistant.workspace.WorkspaceService;
@@ -80,6 +84,8 @@ public class AgentOrchestrator {
     private final AppProperties appProperties;
     private final AgentDeskService deskService;
     private final ToolGateService gateService;
+    private final CreditService creditService;
+    private final AuthService authService;
     private final ExecutorConfig.AppExecutors executors;
     private final ObjectMapper objectMapper;
 
@@ -102,6 +108,8 @@ public class AgentOrchestrator {
                              AppProperties appProperties,
                              AgentDeskService deskService,
                              ToolGateService gateService,
+                             CreditService creditService,
+                             AuthService authService,
                              ExecutorConfig.AppExecutors executors,
                              ObjectMapper objectMapper) {
         this.modelGateway = modelGateway;
@@ -123,8 +131,66 @@ public class AgentOrchestrator {
         this.appProperties = appProperties;
         this.deskService = deskService;
         this.gateService = gateService;
+        this.creditService = creditService;
+        this.authService = authService;
         this.executors = executors;
         this.objectMapper = objectMapper;
+    }
+
+    /**
+     * 本轮的计费凭据。
+     *
+     * <p>为什么需要一个小对象而不是两个局部变量：预扣发生在 {@link #start}（HTTP 线程），
+     * 结算发生在 {@link #finish}（流式回调线程），而「失败了要全额退回预扣」这件事
+     * 必须由一个地方统一兜底 —— 就是 {@link #run} 外面的 finally。
+     * 三处都要知道「这轮到底预扣了多少、结没结算过」，用可变状态表达最直接。
+     *
+     * <p>两个标志位各管一件事，缺一个都会退错钱：
+     * <ul>
+     *   <li>{@code settled}：结算已发生，兜底退回不能再执行
+     *       （否则「先扣 30、结算退 12、兜底再退 30」会退重）；</li>
+     *   <li>{@code handedOff}：回合已经交给事件流，生命周期归
+     *       {@code onCompleteResponse} / {@code onError}。
+     *       <b>这一位是必须的</b>：LangChain4j 的 {@code stream.start()} 是<b>异步</b>的，
+     *       {@link #run} 会在模型刚开始生成时就返回，外层 finally 若照旧退款，
+     *       就会在用户还在等回答的时候把预扣退回去 —— 预扣彻底失效，
+     *       余额闸门也就成了摆设。</li>
+     * </ul>
+     */
+    private static final class Charge {
+        private final String refId;
+        private final long held;
+        private boolean settled;
+        private boolean handedOff;
+
+        Charge(String refId, long held) {
+            this.refId = refId;
+            this.held = held;
+        }
+
+        String refId() {
+            return refId;
+        }
+
+        long held() {
+            return held;
+        }
+
+        void settleDone() {
+            this.settled = true;
+        }
+
+        boolean settled() {
+            return settled;
+        }
+
+        void handOff() {
+            this.handedOff = true;
+        }
+
+        boolean handedOff() {
+            return handedOff;
+        }
     }
 
     /**
@@ -142,17 +208,69 @@ public class AgentOrchestrator {
                     "workspaceId 与所属会话不一致");
         }
 
+        // 两道闸门都在写库之前：邮箱未验证 / 积分不足时，不该在会话里留下一条
+        // 「永远等不到回答」的用户消息。宁可让客户端拿一个明确的错误码。
+        requireVerifiedEmail(request.userId());
+        creditService.requireAffordable(request.userId());
+
         // 先把用户消息落库，保证「已发送」的消息立刻可见（刷新页面也不会丢）
         long userMessageId = messageRepository.insert(request.sessionId(),
                 ChatMessageRecord.ROLE_USER, request.content(), userMessageMeta(request));
         sessionRepository.touch(request.sessionId());
 
+        // 预扣：refId 用刚生成的用户消息 id —— 它天然唯一，结算与退款都靠它对账。
+        String refId = "msg:" + userMessageId;
+        long held;
+        try {
+            held = creditService.hold(request.userId(), refId);
+        } catch (ApiException ex) {
+            // 并发下余额被另一轮抢光：把这条消息补一句失败说明，避免它悬在那里没人管
+            persistAssistantError(request.sessionId(), ex.getMessage());
+            throw ex;
+        }
+        Charge charge = new Charge(refId, held);
+
         ChatEventPublisher publisher = eventHub.publisher(request.sessionId());
-        executors.agent().submit(() -> run(request, workspace, publisher));
+        executors.agent().submit(() -> {
+            try {
+                run(request, workspace, publisher, charge);
+            } finally {
+                // 兜底退款只覆盖「回合根本没跑起来」的路径（被限额拦下、模型未配置、装配异常）。
+                // 一旦事件流接手（handedOff），退款就只能由结算或 onError 负责 ——
+                // 见 Charge 上关于 handedOff 的说明，这里踩过一次真坑。
+                if (!charge.handedOff() && !charge.settled()) {
+                    try {
+                        creditService.release(request.userId(), charge.refId(), charge.held(),
+                                "本轮未启动，退还预扣");
+                    } catch (RuntimeException refundFailure) {
+                        log.error("退还预扣失败 userId={} refId={}", request.userId(), charge.refId(),
+                                refundFailure);
+                    }
+                }
+            }
+        });
         return userMessageId;
     }
 
-    private void run(AgentRequest request, Workspace workspace, ChatEventPublisher publisher) {
+    /**
+     * 邮箱验证闸门（默认关闭，见 {@code AUTH_REQUIRE_VERIFIED_EMAIL}）。
+     *
+     * <p>默认关是有意的：存量账号与演示账号都没有邮箱，一上来就硬拦会把老用户锁在门外。
+     * 开启后只挡「调用模型」这一件事 —— 文件浏览、编辑、快照全都照常，
+     * 因为「不让用 AI」和「不让用产品」是两回事。
+     */
+    private void requireVerifiedEmail(long userId) {
+        if (!appProperties.auth().requireVerifiedEmail()) {
+            return;
+        }
+        UserAccount account = authService.require(userId);
+        if (!account.emailVerified()) {
+            throw new ApiException(ErrorCode.EMAIL_NOT_VERIFIED,
+                    "邮箱尚未验证，请先在「账号」里完成邮箱验证再使用 AI 功能");
+        }
+    }
+
+    private void run(AgentRequest request, Workspace workspace, ChatEventPublisher publisher, Charge charge) {
         try {
             usageGuard.checkRequestAllowed(request.userId());
         } catch (ApiException ex) {
@@ -192,15 +310,21 @@ public class AgentOrchestrator {
                         publisher.text(delta);
                     })
                     .onCompleteResponse(response -> {
-                        assistantMessageId[0] = finish(request, workspace, answer, response, toolbox, publisher);
+                        assistantMessageId[0] = finish(request, workspace, answer, response, toolbox,
+                                publisher, charge);
                     })
                     .onError(error -> {
                         log.warn("Agent 回合失败 session={}", request.sessionId(), error);
                         String message = describe(error);
                         persistAssistantError(request.sessionId(), message);
                         publisher.error(message);
+                        // 回合失败 = 没花掉 token = 必须退钱。事件流接手之后，退款责任在这里，
+                        // 不在外层的兜底（那时候模型可能还在生成，见 Charge.handedOff）。
+                        refundFailedTurn(request, charge);
                     })
                     .start();
+            // start() 是异步的：从这里开始，本轮的收尾（结算或退款）归事件流回调负责
+            charge.handOff();
         } catch (RuntimeException ex) {
             log.error("Agent 启动异常 session={}", request.sessionId(), ex);
             String message = describe(ex);
@@ -246,9 +370,10 @@ public class AgentOrchestrator {
         return memory;
     }
 
-    /** 回合结束：落库回答、挂上补丁、校验引用、记录用量、推送 done。 */
+    /** 回合结束：结算积分、落库回答、挂上补丁、校验引用、记录用量、推送 done。 */
     private long finish(AgentRequest request, Workspace workspace, StringBuilder answer,
-                        ChatResponse response, AgentToolbox toolbox, ChatEventPublisher publisher) {
+                        ChatResponse response, AgentToolbox toolbox, ChatEventPublisher publisher,
+                        Charge charge) {
         String text = answer.length() > 0
                 ? answer.toString()
                 : (response.aiMessage() == null ? "" : response.aiMessage().text());
@@ -268,6 +393,14 @@ public class AgentOrchestrator {
             meta.put("outputTokens", response.tokenUsage().outputTokenCount());
             meta.put("totalTokens", response.tokenUsage().totalTokenCount());
         }
+
+        // 结算必须发生在落库之前：这样「本轮花了多少积分、还剩多少」能直接写进消息 meta，
+        // 前端不用为每个气泡再发一次请求。
+        long charged = settle(request.userId(), charge,
+                tokenOf(response, true), tokenOf(response, false));
+        meta.put("credits", charged);
+        meta.put("creditsBalance", creditService.summary(request.userId()).balance());
+
         meta.put("patches", toolbox.proposedPatches().stream().map(UUID::toString).toList());
         meta.put("citations", citations);
         meta.put("citationIssues", invalidCitations);
@@ -293,6 +426,55 @@ public class AgentOrchestrator {
         publisher.citations(citations);
         publisher.done(messageId);
         return messageId;
+    }
+
+    /**
+     * 结算积分：用真实用量取代预扣，多退少补。
+     *
+     * <p>{@code finally { charge.settleDone(); }} 是关键：<b>只要这一轮真的把答案生成出来了，
+     * 就必须标记已结算</b>（哪怕结算本身失败了）。否则外层兜底或失败退款会再把预扣退一遍，
+     * 变成「回答给你了，钱也没收」。
+     */
+    private long settle(long userId, Charge charge, long inputTokens, long outputTokens) {
+        try {
+            return creditService.settle(userId, charge.refId(), charge.held(), inputTokens, outputTokens);
+        } catch (RuntimeException ex) {
+            log.error("结算积分失败 userId={} refId={}", userId, charge.refId(), ex);
+            return charge.held();
+        } finally {
+            charge.settleDone();
+        }
+    }
+
+    /**
+     * 回合失败时退还预扣。
+     *
+     * <p>先 {@code settleDone()} 再退：这一次调用本身就是本轮的终局，
+     * 标记好之后外层兜底（以及可能的重复回调）都不会再退第二遍。
+     * {@code CreditService.release} 内部还挂着 {@code RELEASE:{userId}:{refId}} 幂等键，
+     * 是第二道保险。
+     */
+    private void refundFailedTurn(AgentRequest request, Charge charge) {
+        if (charge.settled()) {
+            return;
+        }
+        charge.settleDone();
+        try {
+            creditService.release(request.userId(), charge.refId(), charge.held(),
+                    "本轮失败，退还预扣");
+        } catch (RuntimeException refundFailure) {
+            log.error("退还预扣失败 userId={} refId={}", request.userId(), charge.refId(), refundFailure);
+        }
+    }
+
+    private static long tokenOf(ChatResponse response, boolean input) {
+        if (response == null || response.tokenUsage() == null) {
+            return 0;
+        }
+        Integer value = input
+                ? response.tokenUsage().inputTokenCount()
+                : response.tokenUsage().outputTokenCount();
+        return value == null ? 0 : value;
     }
 
     private void persistAssistantError(long sessionId, String message) {

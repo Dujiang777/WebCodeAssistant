@@ -45,6 +45,11 @@ dependencies {
     runtimeOnly("io.jsonwebtoken:jjwt-impl:${property("jjwtVersion")}")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:${property("jjwtVersion")}")
 
+    // --- mail（邮箱验证 / 找回密码）----------------------------------------
+    // 只在 app.mail.mode=smtp 时才会真正建出 JavaMailSender；dev 模式下
+    // 应用根本不碰它（见 MailConfig 的条件装配），因此本地开发不需要任何 SMTP 账号。
+    implementation("org.springframework.boot:spring-boot-starter-mail")
+
     // --- LLM / Agent -------------------------------------------------------
     // 只依赖 LangChain4j 核心 + open-ai 适配器；其官方 spring-boot-starter 仍停留在
     // 1.0.0-beta5，落后于核心 1.0.0，因此这里用显式 @Bean 配置模型（见 llm/ChatModelConfig）。

@@ -1,37 +1,106 @@
 /**
  * 与后端交互的薄封装。
  *
- * 三条约定：
- *   1. 所有请求都带上 Bearer token，token 只存在内存 + localStorage，不进 URL；
- *   2. 后端错误统一是 { code, message }，这里翻译成 HttpError 抛出，UI 只需读 message；
- *   3. 401 统一触发登出，避免每个调用点各写一遍。
+ * 五条约定：
+ *   1. 双令牌：access（2 小时，随请求发）+ refresh（30 天，只用来换新的 access）；
+ *   2. access 过期时**先静默刷新一次再重试**，用户全程无感；刷新失败才登出；
+ *   3. 「凭据错」与「令牌过期」都是 401，必须分开 —— 否则输错一次原密码就被当成掉线；
+ *   4. 后端错误统一是 { code, message }，这里翻译成 HttpError 抛出，UI 只读 message；
+ *   5. 会话变化（登录 / 刷新 / 登出 / 积分变动）经 subscribeSession 广播，
+ *      顶栏徽标与各页面不需要层层传 props。
  */
 
-const TOKEN_KEY = 'wca.token';
+const ACCESS_KEY = 'wca.access';
+const REFRESH_KEY = 'wca.refresh';
+const ACCESS_EXP_KEY = 'wca.access.exp';
 const USER_KEY = 'wca.user';
 
-// 旧品牌（patchforge.*）时代的本地存储键。读一次做迁移，避免老用户升级后被强制登出。
-const LEGACY_TOKEN_KEY = 'patchforge.token';
-const LEGACY_USER_KEY = 'patchforge.user';
+/**
+ * 旧键迁移：`patchforge.*` 是改名前的品牌，`wca.token` 是单令牌时代的 access。
+ * 读一次就搬过来，避免老用户升级后被强制登出。
+ */
+const LEGACY_KEYS: [string, string][] = [
+  ['patchforge.token', ACCESS_KEY],
+  ['patchforge.user', USER_KEY],
+  ['wca.token', ACCESS_KEY],
+];
+
+let migrated = false;
 
 function migrateLegacyKeys(): void {
+  if (migrated) return;
+  migrated = true;
   try {
-    if (localStorage.getItem(TOKEN_KEY) === null && localStorage.getItem(LEGACY_TOKEN_KEY) !== null) {
-      const token = localStorage.getItem(LEGACY_TOKEN_KEY);
-      const user = localStorage.getItem(LEGACY_USER_KEY);
-      if (token !== null) localStorage.setItem(TOKEN_KEY, token);
-      if (user !== null) localStorage.setItem(USER_KEY, user);
-      localStorage.removeItem(LEGACY_TOKEN_KEY);
-      localStorage.removeItem(LEGACY_USER_KEY);
+    for (const [legacy, current] of LEGACY_KEYS) {
+      const value = localStorage.getItem(legacy);
+      if (value === null) continue;
+      if (localStorage.getItem(current) === null) localStorage.setItem(current, value);
+      localStorage.removeItem(legacy);
     }
   } catch {
     // localStorage 不可用（隐私模式等）时静默放弃，登录流程自己会兜底
   }
 }
 
+/** 当前登录用户在本地的最小快照。积分是「会变的状态」，跟着会话一起走。 */
 export interface AuthUser {
   userId: number;
   username: string;
+  email: string | null;
+  emailVerified: boolean;
+  role: string;
+  credits: number;
+  lowBalance: boolean;
+  /** 余额闸门是否开启：开启时余额不足会直接拒绝发起对话。 */
+  enforceBalance: boolean;
+}
+
+/** 注册 / 登录 / 刷新 / 改密的统一返回体。 */
+export interface AuthResult {
+  userId: number;
+  username: string;
+  email: string | null;
+  emailVerified: boolean;
+  role: string;
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpiresIn: number;
+  refreshTokenExpiresIn: number;
+  credits: number;
+  lowBalance: boolean;
+  /** 仅在邮件通道为 dev 时非空 —— 本地没有真邮箱，靠它把验证链路走通。 */
+  devVerifyToken: string | null;
+}
+
+/** 当前用户 + 积分概览（`GET /api/auth/me`）。 */
+export interface MeInfo {
+  userId: number;
+  username: string;
+  email: string | null;
+  emailVerified: boolean;
+  role: string;
+  credits: number;
+  lowBalance: boolean;
+  enforceBalance: boolean;
+  lowBalanceThreshold: number;
+  pricingNote: string;
+  mailEchoTokens: boolean;
+}
+
+/** 「发一封信」类接口的返回体。 */
+export interface Dispatch {
+  sent: boolean;
+  target: string | null;
+  devToken: string | null;
+}
+
+/** 一台已登录的设备。刻意不含令牌本身。 */
+export interface LoginSession {
+  id: number;
+  device: string | null;
+  ip: string | null;
+  createdAt: string | null;
+  expiresAt: string | null;
 }
 
 export class HttpError extends Error {
@@ -46,13 +115,15 @@ export class HttpError extends Error {
   }
 }
 
-export function loadToken(): string | null {
-  migrateLegacyKeys();
-  return localStorage.getItem(TOKEN_KEY);
-}
+// ------------------------------------------------------------------ 会话存储
 
-export function loadUser(): AuthUser | null {
-  migrateLegacyKeys();
+type SessionListener = (user: AuthUser | null) => void;
+
+const listeners = new Set<SessionListener>();
+/** undefined = 还没读过 localStorage；null = 确定没登录。 */
+let cached: AuthUser | null | undefined;
+
+function readStoredUser(): AuthUser | null {
   const raw = localStorage.getItem(USER_KEY);
   if (!raw) return null;
   try {
@@ -62,36 +133,182 @@ export function loadUser(): AuthUser | null {
   }
 }
 
-export function saveSession(token: string, user: AuthUser): void {
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+export function loadUser(): AuthUser | null {
+  migrateLegacyKeys();
+  if (cached === undefined) cached = readStoredUser();
+  return cached;
+}
+
+export function loadAccessToken(): string | null {
+  migrateLegacyKeys();
+  return localStorage.getItem(ACCESS_KEY);
+}
+
+export function loadRefreshToken(): string | null {
+  migrateLegacyKeys();
+  return localStorage.getItem(REFRESH_KEY);
+}
+
+function emit(user: AuthUser | null): void {
+  cached = user;
+  for (const listener of [...listeners]) listener(user);
+}
+
+/**
+ * 订阅登录态。注册时会**立刻回调一次当前值** —— 否则页面首帧会先按「未登录」渲染，
+ * 再被下一帧纠正，出现一下登录页的闪烁。
+ */
+export function subscribeSession(listener: SessionListener): () => void {
+  listeners.add(listener);
+  listener(loadUser());
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/** 认证成功后落盘并广播。返回组装好的用户对象，调用方通常直接拿它设置状态。 */
+export function adoptAuth(result: AuthResult): AuthUser {
+  const user: AuthUser = {
+    userId: result.userId,
+    username: result.username,
+    email: result.email,
+    emailVerified: result.emailVerified,
+    role: result.role,
+    credits: result.credits,
+    lowBalance: result.lowBalance,
+    enforceBalance: loadUser()?.enforceBalance ?? true,
+  };
+  try {
+    localStorage.setItem(ACCESS_KEY, result.accessToken);
+    localStorage.setItem(REFRESH_KEY, result.refreshToken);
+    localStorage.setItem(ACCESS_EXP_KEY, String(Date.now() + result.accessTokenExpiresIn * 1000));
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  } catch {
+    // 落盘失败不影响本次会话（内存里仍然可用），下次刷新页面需要重新登录
+  }
+  emit(user);
+  return user;
+}
+
+/** 补齐 `me` 才知道的字段（闸门开关、支付通道），不碰令牌。 */
+export function patchUser(patch: Partial<AuthUser>): AuthUser | null {
+  const current = loadUser();
+  if (!current) return null;
+  const next = { ...current, ...patch };
+  try {
+    localStorage.setItem(USER_KEY, JSON.stringify(next));
+  } catch {
+    // 同上
+  }
+  emit(next);
+  return next;
+}
+
+/** 对话结算后刷新余额：只改积分，不重发 `/me`。 */
+export function updateCredits(credits: number, lowBalance: boolean): void {
+  patchUser({ credits, lowBalance });
 }
 
 export function clearSession(): void {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+  try {
+    localStorage.removeItem(ACCESS_KEY);
+    localStorage.removeItem(REFRESH_KEY);
+    localStorage.removeItem(ACCESS_EXP_KEY);
+    localStorage.removeItem(USER_KEY);
+  } catch {
+    // 忽略：清不掉也会被 emit(null) 覆盖掉内存中的登录态
+  }
+  emit(null);
 }
 
-let onUnauthorized: (() => void) | null = null;
+// ------------------------------------------------------------------ 静默刷新
 
-export function setUnauthorizedHandler(handler: (() => void) | null): void {
-  onUnauthorized = handler;
+/**
+ * 同一时刻只允许有一个刷新在飞。
+ *
+ * 首屏常常一次并发好几个请求，access 一旦过期它们会同时收到 401；
+ * 没有这个闸门的话会连发多个刷新请求，而 refresh 是**轮换**的 ——
+ * 第二个请求拿着已经被换掉的旧令牌，会被后端的重放检测判定为「令牌泄露」，
+ * 直接把该用户所有会话全部吊销。这条不是优化，是正确性。
+ */
+let refreshing: Promise<string | null> | null = null;
+
+function refreshAccessToken(): Promise<string | null> {
+  if (refreshing) return refreshing;
+  const refreshToken = loadRefreshToken();
+  if (!refreshToken) return Promise.resolve(null);
+
+  refreshing = (async () => {
+    try {
+      const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!response.ok) return null;
+      const body = (await response.json()) as AuthResult;
+      adoptAuth(body);
+      return body.accessToken;
+    } catch {
+      return null;
+    } finally {
+      refreshing = null;
+    }
+  })();
+  return refreshing;
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = loadToken();
+/**
+ * 给 SSE 用：拿一个「确定还没过期」的 access。
+ *
+ * 长会话里连接会重连很多次，直接复用内存里的 access 迟早撞上过期时刻，
+ * 表现成「聊到一半事件流就断了」。这里留 60 秒余量提前换新。
+ */
+export async function ensureAccessToken(): Promise<string | null> {
+  const token = loadAccessToken();
+  if (!token) return null;
+  const expiresAt = Number(localStorage.getItem(ACCESS_EXP_KEY) ?? 0);
+  if (expiresAt > 0 && Date.now() > expiresAt - 60_000) {
+    return (await refreshAccessToken()) ?? token;
+  }
+  return token;
+}
+
+// ------------------------------------------------------------------ 请求
+
+interface RequestOptions {
+  /**
+   * 401 时是否尝试静默刷新再重试。
+   *
+   * 登录 / 注册 / 改密这类接口必须传 false：它们的 401 表示「凭据不对」，
+   * 而不是「令牌过期」。不区分的话，用户在设置页输错一次原密码，
+   * 就会被当成掉线踢回登录页 —— 这是很典型的“顺手写错”型 bug。
+   */
+  retryOn401?: boolean;
+}
+
+async function send(path: string, init: RequestInit): Promise<Response> {
   const headers = new Headers(init.headers);
+  const token = loadAccessToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
-  if (init.body && !(init.body instanceof FormData)) {
+  if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
+  return fetch(path, { ...init, headers });
+}
 
-  const response = await fetch(path, { ...init, headers });
+async function request<T>(path: string, init: RequestInit = {}, options: RequestOptions = {}): Promise<T> {
+  const retryOn401 = options.retryOn401 ?? true;
+  let response = await send(path, init);
 
-  if (response.status === 401) {
-    clearSession();
-    onUnauthorized?.();
-    throw new HttpError(401, 'UNAUTHORIZED', '登录已过期，请重新登录');
+  if (response.status === 401 && retryOn401) {
+    const fresh = await refreshAccessToken();
+    if (fresh) response = await send(path, init);
+    if (response.status === 401) {
+      // 刷新之后还是 401：refresh 也被吊销或过期了，只能回登录页
+      clearSession();
+      throw new HttpError(401, 'UNAUTHORIZED', '登录已过期，请重新登录');
+    }
   }
   if (response.status === 204) {
     return undefined as T;
@@ -389,19 +606,120 @@ export interface TerminalResult {
 export const api = {
   health: () => request<HealthInfo>('/api/health'),
 
-  register: (username: string, password: string) =>
-    request<{ userId: number; username: string; token: string }>('/api/auth/register', {
+  // ---------------------------------------------------------------- 账号
+
+  register: (username: string, email: string, password: string) =>
+    request<AuthResult>(
+      '/api/auth/register',
+      { method: 'POST', body: JSON.stringify({ username, email, password }) },
+      { retryOn401: false },
+    ),
+
+  /** `identifier` 一个框同时收用户名和邮箱 —— 用户不该被迫记住自己当初填的是哪个。 */
+  login: (identifier: string, password: string) =>
+    request<AuthResult>(
+      '/api/auth/login',
+      { method: 'POST', body: JSON.stringify({ username: identifier, password }) },
+      { retryOn401: false },
+    ),
+
+  /** 显式刷新。一般不用手动调：request 内部遇到 401 会自动走一遍。 */
+  refresh: (refreshToken: string) =>
+    request<AuthResult>(
+      '/api/auth/refresh',
+      { method: 'POST', body: JSON.stringify({ refreshToken }) },
+      { retryOn401: false },
+    ),
+
+  logout: (refreshToken: string) =>
+    request<Dispatch>(
+      '/api/auth/logout',
+      { method: 'POST', body: JSON.stringify({ refreshToken }) },
+      { retryOn401: false },
+    ),
+
+  me: () => request<MeInfo>('/api/auth/me'),
+
+  verifyEmail: (token: string) =>
+    request<Dispatch>(
+      '/api/auth/verify-email',
+      { method: 'POST', body: JSON.stringify({ token }) },
+      { retryOn401: false },
+    ),
+
+  resendVerification: () => request<Dispatch>('/api/auth/resend-verification', { method: 'POST' }),
+
+  /** 无论邮箱是否存在都会返回 sent=true（防账号枚举），页面文案必须体现这一点。 */
+  forgotPassword: (email: string) =>
+    request<Dispatch>(
+      '/api/auth/forgot-password',
+      { method: 'POST', body: JSON.stringify({ email }) },
+      { retryOn401: false },
+    ),
+
+  resetPassword: (token: string, password: string) =>
+    request<Dispatch>(
+      '/api/auth/reset-password',
+      { method: 'POST', body: JSON.stringify({ token, password }) },
+      { retryOn401: false },
+    ),
+
+  /** 改密返回新的一对令牌：其他设备被踢掉，当前设备继续用。 */
+  changePassword: (oldPassword: string, newPassword: string) =>
+    request<AuthResult>(
+      '/api/auth/change-password',
+      { method: 'POST', body: JSON.stringify({ oldPassword, newPassword }) },
+      { retryOn401: false },
+    ),
+
+  loginSessions: () => request<LoginSession[]>('/api/auth/sessions'),
+
+  revokeSession: (id: number) =>
+    request<Dispatch>(`/api/auth/sessions/${id}`, { method: 'DELETE' }),
+
+  // ---------------------------------------------------------------- 积分
+
+  creditSummary: () => request<CreditSummary>('/api/credits/summary'),
+
+  creditLedger: (limit = 20, offset = 0) =>
+    request<LedgerPage>(`/api/credits/ledger?limit=${limit}&offset=${offset}`),
+
+  creditPlans: () => request<CreditPlan[]>('/api/credits/plans'),
+
+  creditOrders: (limit = 20) => request<CreditOrder[]>(`/api/credits/orders?limit=${limit}`),
+
+  /** 下单。返回体里带支付参数（模拟通道是一次性 payToken）。 */
+  createOrder: (planCode: string) =>
+    request<OrderResponse>('/api/credits/orders', {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ planCode }),
     }),
 
-  login: (username: string, password: string) =>
-    request<{ userId: number; username: string; token: string }>('/api/auth/login', {
+  /**
+   * 给一张待支付订单重新取支付参数。
+   *
+   * 用户关掉收银台再回来时必须走这里，而不是复用上次的 payToken ——
+   * 真实通道的预支付会话会过期，旧凭证再用一定是失败的。
+   */
+  reissuePayment: (orderNo: string) =>
+    request<OrderResponse>(`/api/credits/orders/${encodeURIComponent(orderNo)}/payment`, {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
     }),
 
-  me: () => request<AuthUser>('/api/auth/me'),
+  /** 支付回调。可以重复调用，第二次起不会有任何副作用（幂等）。 */
+  payOrder: (orderNo: string, payToken: string) =>
+    request<CreditOrder>(`/api/credits/orders/${encodeURIComponent(orderNo)}/pay`, {
+      method: 'POST',
+      body: JSON.stringify({ payToken }),
+    }),
+
+  cancelOrder: (orderNo: string) =>
+    request<CreditOrder>(`/api/credits/orders/${encodeURIComponent(orderNo)}/cancel`, {
+      method: 'POST',
+    }),
+
+  /** 自查对账：余额与账本累计值是否一致。 */
+  reconcileCredits: () => request<ReconcileResult>('/api/credits/reconcile'),
 
   listWorkspaces: () => request<Workspace[]>('/api/workspaces'),
 
@@ -763,6 +1081,120 @@ export interface FlagView {
   addedLines: string[];
   removedLines: string[];
   notice: string;
+}
+
+// ------------------------------------------------------------------ 积分模型
+
+/** 积分概览。`holdCredits` 是每轮对话的预扣额度，`pricingNote` 是人话定价说明。 */
+export interface CreditSummary {
+  balance: number;
+  totalGranted: number;
+  totalConsumed: number;
+  lowBalance: boolean;
+  enforceBalance: boolean;
+  lowBalanceThreshold: number;
+  holdCredits: number;
+  signupBonus: number;
+  pricingNote: string;
+}
+
+/** 一条流水。`delta` 正数入账、负数出账；`balanceAfter` 是这一笔之后的余额。 */
+export interface LedgerEntry {
+  id: number;
+  kind: string;
+  delta: number;
+  balanceAfter: number;
+  reason: string | null;
+  refType: string | null;
+  refId: string | null;
+  createdAt: string | null;
+}
+
+export interface LedgerPage {
+  items: LedgerEntry[];
+  total: number;
+}
+
+/**
+ * 套餐。`totalCredits` 与 `centsPerKiloCredit` 都由后端算好 —— 让前端自己算
+ * 「每千分多少钱」是典型的把业务规则复制到两个地方。
+ */
+export interface CreditPlan {
+  code: string;
+  name: string;
+  priceCents: number;
+  credits: number;
+  bonusCredits: number;
+  totalCredits: number;
+  centsPerKiloCredit: number;
+  tag: string | null;
+  description: string | null;
+}
+
+export type OrderStatus = 'PENDING' | 'PAID' | 'CANCELLED' | string;
+
+export interface CreditOrder {
+  orderNo: string;
+  planCode: string;
+  amountCents: number;
+  credits: number;
+  status: OrderStatus;
+  provider: string;
+  createdAt: string | null;
+  paidAt: string | null;
+}
+
+export interface OrderResponse {
+  order: CreditOrder;
+  /** 支付参数。模拟通道含 payToken / mock / hint；真实通道是二维码内容或跳转 URL。 */
+  payment: Record<string, unknown>;
+}
+
+export interface ReconcileResult {
+  balance: number;
+  ledgerSum: number;
+  consistent: boolean;
+}
+
+/** 流水种类 → 中文 + 语义方向。未知 kind 兜底显示原值，不吞掉。 */
+export const LEDGER_KINDS: Record<string, { label: string; tone: 'in' | 'out' | 'hold' }> = {
+  SIGNUP_BONUS: { label: '注册赠送', tone: 'in' },
+  RECHARGE: { label: '充值到账', tone: 'in' },
+  ADJUST: { label: '人工调整', tone: 'in' },
+  HOLD: { label: '对话预扣', tone: 'hold' },
+  SETTLE: { label: '按用量结算', tone: 'out' },
+  RELEASE: { label: '失败退回', tone: 'in' },
+};
+
+/** 分 → ¥。整数分不做浮点运算，避免 0.1+0.2 那类误差。 */
+export function formatYuan(cents: number): string {
+  const sign = cents < 0 ? '-' : '';
+  const abs = Math.abs(Math.round(cents));
+  return `${sign}¥${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, '0')}`;
+}
+
+/** 带符号的积分数字，用于流水表。 */
+export function formatDelta(delta: number): string {
+  return delta > 0 ? `+${delta}` : String(delta);
+}
+
+/**
+ * ISO 时间 → 本地时间显示。
+ *
+ * 后端统一返回 `Instant`（UTC，带 Z）。**不能直接对字符串做 slice**：
+ * 那样在 +08:00 的时区里会把「15:01 的扣费」显示成「07:01」，
+ * 用户看到的每一笔时间都差 8 小时 —— 而这种偏差最容易被当成「账本错乱」。
+ * 必须交给 `Date` 做时区换算。
+ */
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  );
 }
 
 /** 人读的字节数格式化。 */

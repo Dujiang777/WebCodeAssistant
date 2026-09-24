@@ -148,9 +148,9 @@ async function main() {
   const username = `e2e_b4_${Date.now().toString(36)}`;
   const password = 'Passw0rd!23';
 
-  const reg = await call('/api/auth/register', { method: 'POST', body: { username, password } });
+  const reg = await call('/api/auth/register', { method: 'POST', body: { username, email: `${username}@example.com`, password } });
   check('注册新用户', reg.status === 201 || reg.status === 200, `HTTP ${reg.status}`);
-  const token = reg.data?.token;
+  const token = reg.data?.accessToken;
   if (!token) throw new Error('拿不到 token，后续无法继续');
 
   const ws = await call('/api/workspaces', { method: 'POST', body: { name: 'demo-java', sample: true }, token });
@@ -431,9 +431,9 @@ async function main() {
 
   const stranger = await call('/api/auth/register', {
     method: 'POST',
-    body: { username: `${username}_x`, password },
+    body: { username: `${username}_x`, email: `${username}_x@example.com`, password },
   });
-  const strangerToken = stranger.data?.token;
+  const strangerToken = stranger.data?.accessToken;
   const deskHack = await call(`/api/workspaces/${workspaceId}/desk?sessionId=${sessionId}`, { token: strangerToken });
   check('陌生人读不到别人的工位', deskHack.status >= 400, `HTTP ${deskHack.status}`);
   const whatIfHack = await call(`/api/workspaces/${workspaceId}/whatif`, { token: strangerToken });

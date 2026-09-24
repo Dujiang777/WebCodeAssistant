@@ -305,6 +305,36 @@ export function ChatIcon({ size = 16, className }: IconProps) {
   );
 }
 
+/** 积分：一枚黄铜筹码，与「黄铜是唯一主角」的配色语言一致。 */
+export function CreditIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} strokeWidth={1.5}>
+      <circle cx="8" cy="8" r="5.6" />
+      <path d="M8 4.9v6.2M6.4 6.6h2.5a1.3 1.3 0 010 2.6H6.4" />
+    </svg>
+  );
+}
+
+/** 账号与安全：一把钥匙。 */
+export function KeyIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} strokeWidth={1.5}>
+      <circle cx="5.6" cy="10.4" r="2.6" />
+      <path d="M7.5 8.5L13 3M11.2 4.8l1.5 1.5M12.4 3.6l1.5 1.5" />
+    </svg>
+  );
+}
+
+/** 登录设备：一块屏。 */
+export function DeviceIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} strokeWidth={1.5}>
+      <rect x="1.9" y="3.1" width="12.2" height="8.2" rx="1.5" />
+      <path d="M5.6 13.6h4.8" />
+    </svg>
+  );
+}
+
 /**
  * 由文件扩展名取一个短标签 + 颜色，用于文件树上的语言标识。
  * 颜色只在少数几种语言上区分，避免变成圣诞树。

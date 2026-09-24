@@ -69,7 +69,10 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
   jwt:
     secret: ${JWT_SECRET:dev-only-secret-please-override-with-32-bytes-at-least}
-    ttl: ${JWT_TTL:PT24H}
+    # access token 短、refresh token 长：客户端靠 refresh 静默续期，
+    # 所以 access 短一点不伤体验，但能显著降低「令牌泄露还能用很久」的风险。
+    ttl: ${JWT_TTL:PT2H}
+    refresh-ttl: ${JWT_REFRESH_TTL:PT720H}
   git-clone:
     timeout: ${CLONE_TIMEOUT:PT180S}
     depth: ${CLONE_DEPTH:1}
@@ -88,6 +91,43 @@ app:
     enabled: ${TERMINAL_ENABLED:true}
     timeout: ${TERMINAL_TIMEOUT:PT120S}
     max-output-chars: ${TERMINAL_MAX_OUTPUT:65536}
+
+  # 账号体系（2026-09-24）。
+  auth:
+    # 连续失败多少次锁定、锁多久。没有这个阈值，密码就能被无限次撞。
+    max-failed-attempts: ${AUTH_MAX_FAILED:5}
+    lock-duration: ${AUTH_LOCK_DURATION:PT15M}
+    # 邮箱验证 / 重置密码的令牌有效期与重发冷却。
+    token-ttl: ${AUTH_TOKEN_TTL:PT30M}
+    resend-cooldown: ${AUTH_RESEND_COOLDOWN:PT60S}
+    # true = 未验证邮箱不能调用模型（文件浏览编辑仍可用）。默认关，避免锁住老账号。
+    require-verified-email: ${AUTH_REQUIRE_VERIFIED_EMAIL:false}
+    # 前端地址，用于拼接邮件里的验证 / 重置链接。
+    frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+    # 管理员引导名单（逗号分隔）。全新部署时用它造出第一个管理员；
+    # 上线后建好管理员就清空它。留空 = 不引导。
+    admin-usernames: ${ADMIN_USERNAMES:}
+
+  # 邮件通道。mode=dev 不发真邮件（令牌落库 + 写日志 + 接口回显），上线改 smtp 并填下面几项。
+  mail:
+    mode: ${MAIL_MODE:dev}
+    from: ${MAIL_FROM:no-reply@webcode.local}
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    ssl: ${MAIL_SSL:false}
+
+  # AI 用量积分。单价按「每 1000 token 多少积分」，输入便宜、输出贵。
+  credit:
+    signup-bonus: ${CREDIT_SIGNUP_BONUS:300}
+    credits-per-1k-input: ${CREDIT_PER_1K_INPUT:1}
+    credits-per-1k-output: ${CREDIT_PER_1K_OUTPUT:3}
+    min-charge-per-turn: ${CREDIT_MIN_PER_TURN:1}
+    # 每轮预扣多少分：结束时按真实 token 结算，多退少补。
+    hold-credits: ${CREDIT_HOLD:30}
+    low-balance-threshold: ${CREDIT_LOW_THRESHOLD:50}
+    enforce-balance: ${CREDIT_ENFORCE:true}
 
 llm:
   base-url: ${LLM_BASE_URL:}
