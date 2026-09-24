@@ -1,0 +1,90 @@
+
+[1m准备：注册 + 建样例工作区 + 开会话[0m
+  [32m✓[0m 注册新用户 [90m— HTTP 201[0m
+  [32m✓[0m 创建样例工作区 [90m— HTTP 201[0m
+  [32m✓[0m 创建会话 [90m— HTTP 201[0m
+
+[1m功能 14 · 闸门策略与闸门列表[0m
+  [32m✓[0m 读取默认策略 [90m— HTTP 200[0m
+  [32m✓[0m 默认策略是 writes（只拦写操作） [90m— policy=writes[0m
+  [32m✓[0m 切到 strict 生效 [90m— policy=strict[0m
+  [32m✓[0m 非法策略被归一化成 writes [90m— policy=writes[0m
+  [32m✓[0m 初始没有等待中的闸门 [90m— count=0[0m
+
+[1m功能 13 · 工位初始态[0m
+  [32m✓[0m 工位可读 [90m— HTTP 200[0m
+  [32m✓[0m 工位初始为空闲 [90m— phase=idle[0m
+  [32m✓[0m 工位初始 0 次工具调用 [90m— toolCalls=0[0m
+  [32m✓[0m 工位带 phaseLabel 人话字段 [90m— phaseLabel=待命[0m
+  [32m✓[0m 工位接口校验工作区归属（越权返回 4xx） [90m— HTTP 404[0m
+
+[1m功能 14 · 一次真实回合：propose_patch 被拦下、改参数放行[0m
+  [32m✓[0m 发送消息被受理 [90m— HTTP 202[0m
+  [32m✓[0m 闸门事件带 gateId [90m— gateId=703830da…[0m
+  [32m✓[0m 闸门事件带人话意图（它想干什么） [90m— intent=想在 src/main/java/com/demo/UserService.java 上生成一个代码补丁（你确认后才写盘）[0m
+  [32m✓[0m 闸门事件带拦截理由 [90m— reason=写操作：这一步会生成一个待应用的代码补丁[0m
+  [32m✓[0m 闸门事件带超时时刻 [90m— expiresAt 在未来[0m
+    [90m被拦下的工具：propose_patch[0m
+  [32m✓[0m 等待中的闸门能在 REST 侧查到（刷新页面可恢复卡片） [90m— count=1[0m
+  [32m✓[0m 改参数放行成功 [90m— HTTP 200[0m
+  [32m✓[0m 放行后推送 gate_resolved [90m— decision=approved[0m
+  [32m✓[0m 回合正常结束 [90m— messageId=34[0m
+
+[1m功能 13 · 回合之后的工位状态[0m
+  [32m✓[0m 工位记录了工具调用次数 [90m— toolCalls=2[0m
+  [32m✓[0m 工位有行为时间线 [90m— timeline=2 条[0m
+  [32m✓[0m 工位时间线条目带中文动作名 [90m— label=起草补丁[0m
+  [32m✓[0m 工位展开了文件（摊在桌上） [90m— openFiles=1[0m
+  [32m✓[0m 工位草稿区记录了这次 diff [90m— drafts=1[0m
+  [32m✓[0m 工位光标落在目标文件上 [90m— cursorFile=src/main/java/com/demo/UserService.java[0m
+  [32m✓[0m desk SSE 事件在回合中推送过（整块快照） [90m— desk 事件 5 条[0m
+
+[1m功能 16 · 特性开关强制包裹[0m
+  [32m✓[0m 回合产出了待确认补丁 [90m— 1 个[0m
+  [32m✓[0m 能读到补丁的开关语义 [90m— HTTP 200[0m
+  [32m✓[0m 改动 .java 行为的补丁被判定为必须包开关 [90m— required=true / reason=往 src/main/java/com/demo/UserService.java 增加了 5 行可执行代码 —— 属于行为变化，必须能一键关掉[0m
+  [32m✓[0m 给出建议开关键名 [90m— flagKey=wca.feature.user-service-user-service[0m
+  [32m✓[0m 给出「打开时」的运行说明 [90m— 【打开】在 application.yml 里写入 `wca.fea…[0m
+  [32m✓[0m 给出「关闭时」的旧路径说明 [90m— 【关闭】保持 `wca.feature.user-service-u…[0m
+  [32m✓[0m 保留了开关关闭时的旧实现代码 [90m— 4 行[0m
+  [32m✓[0m 给出上线时要加的配置行 [90m— configLine=wca:
+  feature:
+    user-service-user-service: false[0m
+  [32m✓[0m 给出包裹后的代码骨架 [90m— 38 行骨架[0m
+  [32m✓[0m 未确认开关时应用被挡下（409 FLAG_ACK_REQUIRED） [90m— HTTP 409 / code=FLAG_ACK_REQUIRED[0m
+  [32m✓[0m 挡下时给出可读原因 [90m— message=这个补丁改动了运行行为（开关 wca.feature.user-service-user-service，往 src/main/java/com/demo/UserService.java 增加了 5 行可执行代码 —— 属于行为变化，必须能一键关掉）。请先确认「关闭开关时跑旧路径」，并在应用请求里带上 acknowledgeFlag=true。[0m
+    [90m真正带 acknowledgeFlag 的应用放到脚本末尾 —— 它会改写文件，得先让 What-if 在原始文件上做实验[0m
+
+[1m功能 15 · 平行宇宙（丢弃与采纳两条结局）[0m
+  [32m✓[0m 平行宇宙列表可读且初始为空 [90m— count=0[0m
+  [32m✓[0m 开一个平行宇宙 [90m— HTTP 200[0m
+  [32m✓[0m 分支带状态 [90m— status=ready[0m
+  [32m✓[0m 推演产出了 diff [90m— diff 943 字符[0m
+  [32m✓[0m 左右两栏内容不同（真的改了东西） [90m— 主线 1606 字符 → 影子 1643 字符[0m
+  [32m✓[0m 改动量是真重构级别（不是贴一行注释糊弄） [90m— +18 / -16[0m
+  [32m✓[0m 影子文本里确实换成了构造器注入 [90m— 左栏还是 @Autowired 字段，右栏已经是构造器[0m
+  [32m✓[0m 平行宇宙没有碰主线文件 [90m— 主线内容原样返回，改动只存在于影子里[0m
+    [90m分支 id = c71ed8a0[0m
+  [32m✓[0m 能按 id 回查分支 [90m— HTTP 200[0m
+  [32m✓[0m 丢弃分支（默认结局） [90m— status=discarded[0m
+  [32m✓[0m 再开一个平行宇宙 [90m— HTTP 200[0m
+  [32m✓[0m 采纳到主线 [90m— HTTP 200[0m
+  [32m✓[0m 采纳产出一条待确认补丁（不直接写盘） [90m— patchId=5fb66e2f…[0m
+  [32m✓[0m 采纳出的补丁确实落在主线待确认区 [90m— status=pending[0m
+  [32m✓[0m 分支状态变为 adopted [90m— status=adopted[0m
+  [32m✓[0m 清场：拒绝采纳出的补丁 [90m— HTTP 200[0m
+  [32m✓[0m 平行宇宙列表记录了两次实验 [90m— count=2[0m
+
+[1m收尾 · 带确认地应用补丁，并验证磁盘真的变了[0m
+  [32m✓[0m 带 acknowledgeFlag=true 可以应用 [90m— HTTP 200[0m
+  [32m✓[0m 应用后状态是 applied [90m— status=applied[0m
+  [32m✓[0m 磁盘上的文件真的变了（@Autowired 已消失） [90m— 69 行[0m
+  [32m✓[0m 改成了构造器注入 [90m— 落盘内容含构造器[0m
+
+[1m越权：四个新接口都必须按用户隔离[0m
+  [32m✓[0m 陌生人读不到别人的工位 [90m— HTTP 404[0m
+  [32m✓[0m 陌生人读不到别人的平行宇宙 [90m— HTTP 404[0m
+  [32m✓[0m 陌生人读不到别人的闸门 [90m— HTTP 404[0m
+  [32m✓[0m 陌生人读不到别人的补丁开关 [90m— HTTP 404[0m
+
+结果：[32m65 通过[0m / [31m0 失败[0m
