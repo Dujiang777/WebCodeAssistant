@@ -182,13 +182,13 @@ async function main() {
   section('2. 注册 / 登录');
   const username = `smoke_${Math.random().toString(36).slice(2, 8)}`;
   const password = 'smoke1234';
-  let auth = await call('/api/auth/register', { method: 'POST', body: { username, password } });
+  let auth = await call('/api/auth/register', { method: 'POST', body: { username, email: `${username}@example.com`, password } });
   check('注册新账号', auth.status === 201 || auth.status === 200, `HTTP ${auth.status}`);
   if (auth.status !== 201 && auth.status !== 200) {
     auth = await call('/api/auth/login', { method: 'POST', body: { username, password } });
     check('改用登录', auth.status === 200, `HTTP ${auth.status}`);
   }
-  const token = auth.data?.token;
+  const token = auth.data?.accessToken;
   check('拿到 JWT', typeof token === 'string' && token.length > 20);
 
   section('3. 创建内置示例工作区');

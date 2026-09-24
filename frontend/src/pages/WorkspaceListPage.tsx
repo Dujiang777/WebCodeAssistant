@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { api, formatBytes } from '../lib/api';
-import type { HealthInfo, Workspace } from '../lib/api';
+import { api, formatBytes, loadUser, subscribeSession } from '../lib/api';
+import type { AuthUser, HealthInfo, Workspace } from '../lib/api';
 import { messageOf } from '../lib/chat';
 import { navigate } from '../lib/router';
 import { TerminalMark, FolderOpenIcon, PlusIcon, RefreshIcon } from '../components/icons';
@@ -25,6 +25,8 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
   const [health, setHealth] = useState<HealthInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** 积分与邮箱验证状态挂在会话上，顶栏那枚徽标与这里的入口都用它。 */
+  const [user, setUser] = useState<AuthUser | null>(() => loadUser());
 
   const [mode, setMode] = useState<CreateMode>('sample');
   const [name, setName] = useState('');
@@ -51,6 +53,8 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => subscribeSession(setUser), []);
 
   const create = async () => {
     if (busy) return;
@@ -101,6 +105,22 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
             </div>
           </div>
           <div className="topbar-spacer" />
+          {user && (
+            <button
+              className={`chip chip-btn${user.lowBalance ? ' chip-warn' : ''}`}
+              onClick={() => navigate('/credits')}
+              title="剩余积分。点开查看账单、套餐与充值。"
+            >
+              {user.lowBalance && <span className="dot dot-err" />}
+              积分 {user.credits}
+            </button>
+          )}
+          <button className="btn btn-sm" onClick={() => navigate('/credits')} title="积分中心：账单 / 套餐 / 充值">
+            积分中心
+          </button>
+          <button className="btn btn-sm" onClick={() => navigate('/account')} title="账号与安全：邮箱验证 / 改密码 / 登录设备">
+            账号
+          </button>
           <button className="btn btn-sm" onClick={() => void load()} disabled={loading}>
             <RefreshIcon size={13} />
             刷新
@@ -109,6 +129,18 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
             退出
           </button>
         </div>
+
+        {user && !user.emailVerified && (
+          <div className="banner banner-credit">
+            <span className="dot dot-warn" />
+            <span className="banner-text">
+              邮箱 <b>{user.email ?? ''}</b> 还没有验证。验证之后才能用它找回密码。
+            </span>
+            <button className="btn btn-sm" onClick={() => navigate('/account')}>
+              去验证
+            </button>
+          </div>
+        )}
 
         <div className="row" style={{ flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
           <span className="chip" title="后端是否可以调用模型">

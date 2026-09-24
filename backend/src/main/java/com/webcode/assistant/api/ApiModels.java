@@ -25,22 +25,83 @@ public final class ApiModels {
 
     // ------------------------------------------------------------- 认证
 
+    /**
+     * 注册。
+     *
+     * <p>邮箱是<b>必填</b>：找回密码、登录异常通知、风控都依赖它，
+     * 一个没有邮箱的账号在上线产品里是「找不回来的账号」。
+     * 哈希长度下限 8（且需含字母与数字）由服务端统一校验，注解这里只管长度。
+     */
     public record RegisterRequest(
             @NotBlank(message = "不能为空") @Size(min = 3, max = 64, message = "长度需在 3-64 之间") String username,
-            @NotBlank(message = "不能为空") @Size(min = 6, max = 128, message = "长度需在 6-128 之间") String password
+            @NotBlank(message = "不能为空") @Size(max = 160, message = "长度不能超过 160") String email,
+            @NotBlank(message = "不能为空") @Size(min = 8, max = 128, message = "长度需在 8-128 之间") String password
     ) {
     }
 
+    /** 登录。{@code username} 一个框同时收用户名和邮箱，字段名保持向后兼容。 */
     public record LoginRequest(
             @NotBlank(message = "不能为空") String username,
             @NotBlank(message = "不能为空") String password
     ) {
     }
 
-    public record AuthResponse(long userId, String username, String token, long expiresInSeconds) {
+    /** 用 refresh 换新令牌，或退出登录时带上它。 */
+    public record RefreshRequest(String refreshToken) {
     }
 
-    public record MeResponse(long userId, String username) {
+    /**
+     * 认证成功返回体。
+     *
+     * <p>{@code devVerifyToken} 只在 {@code MAIL_MODE=dev} 时非空 ——
+     * 本地没有真实邮箱，不回显令牌的话「验证邮箱」这条链路根本无法测试。
+     * 线上由 {@code SmtpMailService} 硬编码返回 null。
+     */
+    public record AuthResponse(long userId, String username, String email, boolean emailVerified,
+                               String role, String accessToken, String refreshToken,
+                               long accessTokenExpiresIn, long refreshTokenExpiresIn,
+                               long credits, boolean lowBalance, String devVerifyToken) {
+    }
+
+    /** 当前用户 + 积分概览。前端启动时拉一次，顶栏的积分徽标就靠它。 */
+    public record MeResponse(long userId, String username, String email, boolean emailVerified,
+                             String role, long credits, boolean lowBalance, boolean enforceBalance,
+                             long lowBalanceThreshold, String pricingNote, boolean mailEchoTokens) {
+    }
+
+    /** 邮箱验证 / 重置密码这类「发一封信」的接口返回体。 */
+    public record DispatchResponse(boolean sent, String target, String devToken) {
+    }
+
+    public record VerifyEmailRequest(@NotBlank(message = "不能为空") String token) {
+    }
+
+    /** 找回密码。无论邮箱是否存在都返回 sent=true（防账号枚举），页面上会写明这一点。 */
+    public record ForgotPasswordRequest(
+            @NotBlank(message = "不能为空") @Size(max = 160, message = "长度不能超过 160") String email
+    ) {
+    }
+
+    public record ResetPasswordRequest(
+            @NotBlank(message = "不能为空") String token,
+            @NotBlank(message = "不能为空") @Size(min = 8, max = 128, message = "长度需在 8-128 之间") String password
+    ) {
+    }
+
+    public record ChangePasswordRequest(
+            @NotBlank(message = "不能为空") String oldPassword,
+            @NotBlank(message = "不能为空") @Size(min = 8, max = 128, message = "长度需在 8-128 之间") String newPassword
+    ) {
+    }
+
+    /**
+     * 登录设备。刻意不含令牌本身，只给「能认出这是不是我」的最小信息。
+     *
+     * <p>名字带 {@code Login} 前缀是为了跟对话会话的 {@code SessionView} 区分开 ——
+     * 两个「Session」完全不是一回事（一个是登录态，一个是聊天会话），
+     * 重名会让读代码的人每次都要回头确认。
+     */
+    public record LoginSessionView(long id, String device, String ip, String createdAt, String expiresAt) {
     }
 
     // --------------------------------------------------------- 工作区
@@ -234,5 +295,62 @@ public final class ApiModels {
 
     /** 开一次 What-if 实验。 */
     public record WhatIfRequest(long sessionId, String question, String file) {
+    }
+
+    // --------------------------------------------------------------- 积分 / 计费
+
+    /**
+     * 积分概览。
+     *
+     * <p>把计价规则（{@code pricingNote}）一并下发，而不是让前端自己拼文案 ——
+     * 单价是后端的配置，前端复制一份就等于有了两个真相源，改价时必然漏一处。
+     */
+    public record CreditSummaryResponse(long balance, long totalGranted, long totalConsumed,
+                                        boolean lowBalance, boolean enforceBalance, long lowBalanceThreshold,
+                                        long holdCredits, long signupBonus, String pricingNote) {
+    }
+
+    /** 流水条目。{@code delta} 正数入账、负数出账；{@code balanceAfter} 是这一笔之后的余额。 */
+    public record LedgerEntryView(long id, String kind, long delta, long balanceAfter, String reason,
+                                  String refType, String refId, String createdAt) {
+    }
+
+    public record LedgerResponse(List<LedgerEntryView> items, long total) {
+    }
+
+    /** 套餐视图。{@code totalCredits} 与 {@code centsPerKiloCredit} 由后端算好，前端只负责显示。 */
+    public record CreditPlanView(String code, String name, int priceCents, long credits, long bonusCredits,
+                                 long totalCredits, long centsPerKiloCredit, String tag, String description) {
+    }
+
+    public record OrderView(String orderNo, String planCode, int amountCents, long credits, String status,
+                            String provider, String createdAt, String paidAt) {
+    }
+
+    /** 下单结果：订单 + 支付参数（真实通道是二维码内容或跳转 URL）。 */
+    public record OrderResponse(OrderView order, Map<String, Object> payment) {
+    }
+
+    /** 对账结果。{@code consistent=false} 表示账户快照与账本累计值对不上，属于必须排查的 bug。 */
+    public record ReconcileResponse(long balance, long ledgerSum, boolean consistent) {
+    }
+
+    public record CreateOrderRequest(@NotBlank(message = "不能为空") String planCode) {
+    }
+
+    /** 支付确认（回调形状）。{@code payToken} 模拟真实通道的支付凭证。 */
+    public record PayOrderRequest(@NotBlank(message = "不能为空") String payToken) {
+    }
+
+    /** 管理端：手动调整某人积分。 */
+    public record AdjustCreditRequest(@NotNull(message = "不能为空") Long userId,
+                                      @NotNull(message = "不能为空") Long amount,
+                                      @Size(max = 200, message = "长度不能超过 200") String reason) {
+    }
+
+    /** 管理端：账号视图，顺带带上账本累计值，便于直接看出「快照与账本是否一致」。 */
+    public record AdminAccountView(long userId, String username, String email, String role, String status,
+                                   long balance, long totalGranted, long totalConsumed,
+                                   long ledgerSum, boolean consistent) {
     }
 }

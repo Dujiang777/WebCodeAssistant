@@ -22,7 +22,14 @@ export interface StreamHandle {
 
 interface OpenOptions {
   sessionId: number;
-  token: string;
+  /**
+   * 取一个可用的 access token。
+   *
+   * 是函数而不是字符串，因为事件流会断开重连很多次，而 access 只有 2 小时：
+   * 把令牌在连接建立时固定下来，长会话重连时必然撞上过期，表现成「聊到一半流断了」。
+   * 每次建连前重新取一次，必要时顺带静默续期（见 api.ensureAccessToken）。
+   */
+  getToken: () => Promise<string | null>;
   /** 从哪个 seq 之后开始收；null 表示只要新事件 */
   afterId: number | null;
   onEvent: (event: ChatEvent) => void;
@@ -43,10 +50,17 @@ export function openChatStream(options: OpenOptions): StreamHandle {
       try {
         options.onStatus(attempt === 0 ? 'connecting' : 'reconnecting');
 
+        const token = await options.getToken();
+        if (!token) {
+          // 已经没有可用令牌（登出或 refresh 被吊销），重连没有意义
+          options.onStatus('closed');
+          return;
+        }
+
         const query = lastSeq >= 0 ? `?afterId=${lastSeq}` : '';
         const response = await fetch(`/api/chat/sessions/${options.sessionId}/events${query}`, {
           headers: {
-            Authorization: `Bearer ${options.token}`,
+            Authorization: `Bearer ${token}`,
             Accept: 'text/event-stream',
           },
           signal: controller.signal,

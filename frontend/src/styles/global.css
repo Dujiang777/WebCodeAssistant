@@ -4288,3 +4288,661 @@ button.risk-chip:hover {
   color: var(--fg-3);
 }
 
+/* ============================================================================
+   商业级账号 + 积分（2026-09-24）
+   —— 二级页面（积分中心 / 账号与安全）与登录页的多模式。
+   同样只吃上面的变量：黄铜金仍然只有一个主强调，语义色只在「钱」这件事上出现：
+   入账用黄铜（与主色同源，不额外抢戏）、出账用玫红、告警用深橙。
+   ========================================================================== */
+
+/* --------------------------------------------------------------- 二级页面骨架 */
+
+.page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-0);
+}
+
+/* 只在内容区滚动：顶栏必须一直钉在最上面，账单页很长 */
+.page-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.page-wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 22px 24px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.page-h2 {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--fg-0);
+}
+
+/* 标题下面那行小字：说明规则，而不是装饰 */
+.page-h2-note {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.7;
+  color: var(--fg-3);
+}
+
+.cr-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.cr-empty {
+  margin: 0;
+  padding: 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--fg-2);
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------- 余额区 */
+
+.cr-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(120% 140% at 0% 0%, var(--signal-dim) 0%, transparent 58%),
+    var(--bg-1);
+  box-shadow: var(--panel-edge), var(--shadow-soft);
+}
+
+.cr-balance-label,
+.cr-stat-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+
+.cr-balance-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.cr-balance-value {
+  font-family: var(--font-mono);
+  font-size: 44px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--signal);
+  font-variant-numeric: tabular-nums;
+}
+
+.cr-balance-unit {
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: var(--fg-2);
+}
+
+.cr-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  overflow: hidden;
+}
+
+.cr-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  background: var(--bg-2);
+}
+
+.cr-stat-value {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg-0);
+  font-variant-numeric: tabular-nums;
+}
+
+.cr-stat-value.in {
+  color: var(--signal);
+}
+
+.cr-stat-value.out {
+  color: var(--rose);
+}
+
+.cr-pricing {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--fg-1);
+}
+
+/* ------------------------------------------------------------------- 套餐卡 */
+
+.cr-plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(212px, 1fr));
+  gap: 12px;
+}
+
+.cr-plan {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  transition: border-color 0.16s ease, transform 0.16s ease;
+}
+
+.cr-plan:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-2px);
+}
+
+/* 主推套餐：只加一条黄铜边 + 一枚铭牌，不做放大/发光那套 */
+.cr-plan.featured {
+  border-color: var(--signal-line);
+  background: linear-gradient(180deg, var(--signal-dim) 0%, var(--bg-1) 42%);
+}
+
+.cr-plan-tag {
+  position: absolute;
+  top: -9px;
+  left: 16px;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--signal);
+  color: #1a1409;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.cr-plan-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-0);
+}
+
+.cr-plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.cr-plan-amount {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--fg-0);
+}
+
+.cr-plan-credits {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--signal);
+}
+
+.cr-plan-bonus {
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--signal-dim);
+  font-size: 10px;
+  color: var(--signal-soft);
+}
+
+.cr-plan-desc {
+  margin: 0;
+  flex: 1;
+  font-size: 11px;
+  line-height: 1.65;
+  color: var(--fg-2);
+}
+
+.cr-plan-rate {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
+}
+
+/* --------------------------------------------------------------- 表格与流水 */
+
+.cr-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-size: 12px;
+}
+
+.cr-table th {
+  padding: 7px 11px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.cr-table td {
+  padding: 8px 11px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--fg-1);
+  vertical-align: middle;
+}
+
+.cr-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.cr-table tbody tr:hover td {
+  background: var(--bg-2);
+}
+
+.cr-table .num,
+.cr-table th.num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cr-table .act,
+.cr-table th.act {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cr-table .mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.cr-table .dim {
+  color: var(--fg-3);
+}
+
+.cr-table .delta.in {
+  color: var(--signal);
+  font-weight: 600;
+}
+
+.cr-table .delta.out {
+  color: var(--rose);
+  font-weight: 600;
+}
+
+.cr-reason {
+  color: var(--fg-2);
+  max-width: 320px;
+}
+
+.cr-kind {
+  display: inline-block;
+  padding: 1px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  font-size: 10.5px;
+  white-space: nowrap;
+  color: var(--fg-1);
+}
+
+.cr-kind.in {
+  border-color: var(--signal-line);
+  color: var(--signal);
+}
+
+.cr-kind.out {
+  border-color: rgba(255, 81, 99, 0.4);
+  color: #ffb3bd;
+}
+
+.cr-kind.hold {
+  border-color: var(--amber-line);
+  color: var(--amber);
+}
+
+.cr-status {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  font-size: 10.5px;
+  white-space: nowrap;
+  color: var(--fg-2);
+}
+
+.cr-status.paid {
+  border-color: var(--signal-line);
+  color: var(--signal);
+}
+
+.cr-status.pending {
+  border-color: var(--amber-line);
+  color: var(--amber);
+}
+
+.cr-status.cancelled {
+  color: var(--fg-3);
+}
+
+.cr-pager {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.cr-pager-info {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
+}
+
+/* ------------------------------------------------------------------- 收银台 */
+
+.cr-checkout {
+  width: min(520px, calc(100vw - 48px));
+}
+
+.cr-order-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  overflow: hidden;
+}
+
+.cr-order-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  background: var(--bg-2);
+}
+
+.cr-order-cell span {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+
+.cr-order-cell b {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-0);
+  overflow-wrap: anywhere;
+}
+
+.cr-order-cell b.in {
+  color: var(--signal);
+}
+
+.cr-paytoken {
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cr-paytoken-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+
+.cr-paytoken code {
+  padding: 9px 11px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-s);
+  background: var(--bg-0);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--signal-soft);
+  overflow-wrap: anywhere;
+}
+
+.cr-fineprint {
+  margin: 10px 0 0;
+  font-size: 10.5px;
+  line-height: 1.7;
+  color: var(--fg-3);
+}
+
+/* ------------------------------------------------------------- 账号与安全卡 */
+
+.ac-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  box-shadow: var(--panel-edge);
+}
+
+.ac-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--signal);
+}
+
+.ac-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-0);
+}
+
+.ac-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--fg-3);
+}
+
+.ac-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px 18px;
+  margin: 0;
+}
+
+.ac-grid dt {
+  margin-bottom: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+
+.ac-grid dd {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--fg-0);
+  overflow-wrap: anywhere;
+}
+
+.ac-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ac-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--fg-3);
+}
+
+/* ------------------------------------------------------- 登录页的多模式零件 */
+
+.pw-rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: -4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pw-rules li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--fg-3);
+}
+
+.pw-rules li.on {
+  color: var(--signal);
+}
+
+/* 未满足的规则给一个空圈：不用 ✕，那看起来像出错了 */
+.pw-rules li .dot {
+  width: 6px;
+  height: 6px;
+}
+
+.verify-panel {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--amber-line);
+  border-radius: var(--radius);
+  background: var(--amber-dim);
+}
+
+.verify-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg-0);
+}
+
+.verify-sub {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.65;
+  color: var(--fg-1);
+}
+
+.form-notice {
+  padding: 8px 11px;
+  border: 1px solid var(--signal-line);
+  border-left: 3px solid var(--signal);
+  border-radius: var(--radius);
+  background: var(--signal-dim);
+  color: var(--signal-soft);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.switch-sep {
+  width: 1px;
+  height: 11px;
+  background: var(--line-strong);
+}
+
+.auth-result {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 12px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--fg-1);
+}
+
+.auth-result.ok {
+  border-color: var(--signal-line);
+  background: var(--signal-dim);
+  color: var(--fg-0);
+}
+
+.auth-result.error {
+  border-color: rgba(255, 81, 99, 0.4);
+  background: var(--rose-dim);
+  color: #ffb3bd;
+}
+
+/* --------------------------------------------- 积分告警横幅（对话区 / 账单页） */
+
+.banner-credit {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border-color: var(--rose);
+  background: var(--rose-dim);
+  color: #ffb3bd;
+}
+
+.banner-credit .banner-text {
+  flex: 1;
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+

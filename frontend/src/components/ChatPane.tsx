@@ -80,6 +80,13 @@ interface ChatPaneProps extends PatchDeps {
   onApproveGate: (gateId: string, args: Record<string, unknown>, note: string) => void;
   onRejectGate: (gateId: string, note: string) => void;
   onChangeGatePolicy: (policy: GatePolicy) => void;
+  /** 积分：余额不足被拒时的常驻横幅（比一闪而过的 Toast 有用得多）。 */
+  creditBlocked: boolean;
+  /** 当前余额；null 表示还没拉到（不显示，而不是显示 0）。 */
+  creditBalance: number | null;
+  creditLow: boolean;
+  /** 打开积分中心（顶栏徽标与横幅共用同一个入口）。 */
+  onRecharge: () => void;
 }
 
 function patchesOfMessage(message: ChatMessage, patches: PatchRecord[]): PatchRecord[] {
@@ -98,6 +105,17 @@ function modelOfMessage(message: ChatMessage): string | null {
 function modeOfMessage(message: ChatMessage): string | null {
   const mode = message.meta?.mode;
   return typeof mode === 'string' ? mode : null;
+}
+
+/**
+ * 这条回答实际扣了多少积分。
+ *
+ * 记账一定要能落到「哪一句花了多少」上 —— 只给一个总余额，
+ * 用户永远无法判断是自己在乱问还是单轮太贵。0 分时不显示（免费回合不占版面）。
+ */
+function creditsOfMessage(message: ChatMessage): number | null {
+  const credits = message.meta?.credits;
+  return typeof credits === 'number' && credits > 0 ? credits : null;
 }
 
 export function ChatPane({
@@ -125,6 +143,10 @@ export function ChatPane({
   onApproveGate,
   onRejectGate,
   onChangeGatePolicy,
+  creditBlocked,
+  creditBalance,
+  creditLow,
+  onRecharge,
   patchBusyId,
   compileBusyId,
   radiusOf,
@@ -249,6 +271,18 @@ export function ChatPane({
         <div className="banner">
           <span className="dot dot-warn" />
           事件流断开，正在重连（会补齐断线期间的事件）
+        </div>
+      )}
+
+      {/* 余额不足是「进来就必须处理」的状态，所以做成常驻横幅而不是 Toast：
+          Toast 三秒就没了，而用户下一步一定要去充值。 */}
+      {creditBlocked && (
+        <div className="banner banner-credit">
+          <span className="dot dot-err" />
+          <span className="banner-text">积分不足，本轮对话已被拒绝。充值后即可继续。</span>
+          <button className="btn btn-primary btn-sm" onClick={onRecharge}>
+            去充值
+          </button>
         </div>
       )}
 
@@ -400,6 +434,18 @@ export function ChatPane({
             ))}
           </div>
 
+          {/* 余额常驻在输入区旁边：这是「还能不能说下一句」的直接决定因素，
+              藏进设置页会让人对着一轮轮对话猜自己什么时候会用完。 */}
+          {creditBalance !== null && (
+            <button
+              className={`chip chip-btn${creditLow ? ' chip-warn' : ''}`}
+              title="本账号剩余积分。每轮对话按真实 token 用量结算（多退少补）。点击查看账单与充值。"
+              onClick={onRecharge}
+            >
+              余额 {creditBalance} 分
+            </button>
+          )}
+
           {currentFile ? (
             <span className="chip" title={currentFile}>
               当前文件 · {currentFile.split('/').pop()}
@@ -492,6 +538,7 @@ function MessageBlock({
   const isUser = message.role === 'user';
   const model = modelOfMessage(message);
   const mode = modeOfMessage(message);
+  const credits = isUser ? null : creditsOfMessage(message);
   const attached = patchesOfMessage(message, patches);
   const citations = message.meta?.citations;
   const invalid = isUser ? 0 : countInvalid(citations);
@@ -512,6 +559,11 @@ function MessageBlock({
         {!isUser && invalid > 0 && (
           <span className="msg-meta msg-meta-bad" title="这些引用指向的文件在工作区里不存在，或行号越界">
             {invalid} 处引用存疑
+          </span>
+        )}
+        {credits !== null && (
+          <span className="msg-meta" title="这一轮按真实 token 用量结算后的扣费（预扣额度会多退少补）">
+            −{credits} 分
           </span>
         )}
         <span className="msg-meta">{new Date(message.createdAt).toLocaleTimeString()}</span>

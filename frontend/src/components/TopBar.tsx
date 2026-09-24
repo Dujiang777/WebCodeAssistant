@@ -2,17 +2,20 @@ import { TerminalMark, ChevronIcon } from './icons';
 import type { HealthInfo } from '../lib/api';
 
 /**
- * 顶栏。左侧是品牌与面包屑，右侧是「模型连接状态 + 当前用户」。
+ * 顶栏。左侧是品牌与面包屑，右侧是「模型连接状态 + 积分 + 当前用户」。
  *
  * 这里是 2026-09-24 重构后的版本，原则是**顶栏只放「读一眼」的信息，不放工具**：
  *   - 以前宪法 / 地图 / 测试 / 快照 / 检索 / 终端 / 平行宇宙 / 工位 / 文件 / 对话
  *     十个按钮全挤在这里，顶栏变成了一排两字谜语，工作区名反而被挤没了；
- *   - 现在工具全部搬去左侧工具轨道（ToolRail），顶栏只剩三件本来就该在这里的事：
- *     我在哪（面包屑）、模型通不通（状态点）、我是谁（账号 + 退出）。
+ *   - 现在工具全部搬去左侧工具轨道（ToolRail），顶栏只剩几件本来就该在这里的事：
+ *     我在哪（面包屑）、模型通不通（状态点）、还剩多少积分（徽标）、我是谁（账号 + 退出）。
  *
  * 把模型状态放在顶栏而不是设置页：这个工具最常见的故障就是「模型没配好」，
  * 让它常驻可见（绿点=已配置、黄点=未配置）比事后排查省事得多。
  * 检索引擎与 Redis 属于环境细节，收进它的悬停说明里，不再各占一个 chip。
+ *
+ * 积分徽标是 2026-09-24 加的第二件「常驻可见」的事，理由与模型状态一样：
+ * 余额是会**消耗到零并当场阻断功能**的状态，藏进设置页只会让人莫名被拒。
  */
 interface TopBarProps {
   workspaceName: string;
@@ -23,6 +26,13 @@ interface TopBarProps {
   onBack: () => void;
   onLogout: () => void;
   pendingPatches: number;
+  /** 剩余积分；null 表示还没拉到（这时不显示徽标，而不是显示 0）。 */
+  credits: number | null;
+  creditLow: boolean;
+  /** 打开积分中心（账单 / 套餐 / 充值）。 */
+  onOpenCredits: () => void;
+  /** 打开账号与安全（改密码 / 登录设备）。 */
+  onOpenAccount: () => void;
 }
 
 export function TopBar({
@@ -34,6 +44,10 @@ export function TopBar({
   onBack,
   onLogout,
   pendingPatches,
+  credits,
+  creditLow,
+  onOpenCredits,
+  onOpenAccount,
 }: TopBarProps) {
   const modelReady = health?.modelConfigured ?? false;
 
@@ -83,9 +97,27 @@ export function TopBar({
         {modelReady ? health?.model ?? '模型已就绪' : '模型未配置'}
       </span>
 
+      {credits !== null && (
+        <button
+          className={`chip chip-btn${creditLow ? ' chip-warn' : ''}`}
+          onClick={onOpenCredits}
+          title={
+            creditLow
+              ? `余额 ${credits} 分，已低于告警线 —— 点开充值，否则下一轮对话会被拒绝`
+              : `余额 ${credits} 分。点击查看账单、套餐与充值`
+          }
+        >
+          {creditLow && <span className="dot dot-err" />}
+          积分 {credits}
+        </button>
+      )}
+
       <span className="chip" title={`已登录：${username}`}>
         {username}
       </span>
+      <button className="btn btn-ghost btn-sm" onClick={onOpenAccount} title="账号与安全：改密码、登录设备">
+        账号
+      </button>
       <button className="btn btn-ghost btn-sm" onClick={onLogout}>
         退出
       </button>

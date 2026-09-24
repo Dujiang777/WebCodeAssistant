@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { api, HttpError, loadToken } from '../lib/api';
+import { api, ensureAccessToken, HttpError, updateCredits } from '../lib/api';
 import type {
   AgentMode,
   BlastRadius,
@@ -8,6 +8,7 @@ import type {
   ChatMessage,
   ChatSession,
   ConstitutionView,
+  CreditSummary,
   DeskView,
   FileContent,
   FileNode,
@@ -256,6 +257,28 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const [flags, setFlags] = useState<Record<string, FlagEntry>>({});
   const [flagAcks, setFlagAcks] = useState<Set<string>>(() => new Set<string>());
 
+  // ------------------------------------------------- 商业级账号：积分
+  /** 顶栏徽标用的轻量概览。完整账单在积分中心页，这里只要余额与告警位。 */
+  const [credits, setCredits] = useState<CreditSummary | null>(null);
+  /** 余额不足被后端拒掉时置位：输入区上方改为显示「去充值」，而不是一句红字了事。 */
+  const [creditBlocked, setCreditBlocked] = useState(false);
+
+  /**
+   * 刷新余额。
+   *
+   * 只在两个时刻调用：进页面时、一轮对话结算后。不做轮询 ——
+   * 余额只会被「我自己发起的动作」改变，轮询纯属浪费。
+   */
+  const refreshCredits = async () => {
+    try {
+      const summary = await api.creditSummary();
+      setCredits(summary);
+      updateCredits(summary.balance, summary.lowBalance);
+    } catch {
+      // 积分是增强信息，拉不到不影响主流程
+    }
+  };
+
   // ------------------------------------------------------------ 可变引用
   const turnRef = useRef<LiveTurn | null>(null);
   const sessionIdRef = useRef<number | null>(null);
@@ -301,6 +324,12 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       cancelled = true;
     };
   }, [workspaceId]);
+
+  // 积分概览：进页面拉一次即可（结算后的刷新由 finishTurn 负责）
+  useEffect(() => {
+    void refreshCredits();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ------------------------------------------------- 影响面：补丁一出现就去算
 
@@ -495,6 +524,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     }
     // 以服务端为准重取（补丁的 messageId 关联等只有在落库后才完整）
     void refetchChat();
+    // 这一轮已在服务端按真实 token 用量结算（预扣 → 多退少补），余额要跟着变
+    void refreshCredits();
   };
 
   const handleEvent = (event: ChatEvent) => {
@@ -645,14 +676,11 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       setStreamStatus('closed');
       return;
     }
-    const token = loadToken();
-    if (!token) {
-      setStreamStatus('closed');
-      return;
-    }
+    // 令牌在每次建连时现取（必要时静默续期）—— 事件流会重连很多次，
+    // 把 2 小时的 access 固定在这里，长会话重连必然撞上过期。
     const handle = openChatStream({
       sessionId,
-      token,
+      getToken: ensureAccessToken,
       afterId: null,
       onEvent: (event) => handlersRef.current.onEvent(event),
       onStatus: (status) => handlersRef.current.onStatus(status),
@@ -1032,7 +1060,14 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         list.map((message) => (message.id === optimisticId ? { ...message, id: response.messageId } : message)),
       );
     } catch (err) {
-      toast.error(messageOf(err));
+      if (err instanceof HttpError && err.code === 'INSUFFICIENT_CREDITS') {
+        // 402 的语义不是「没权限」而是「该付钱了」。切出一块常驻的充值入口，
+        // 比一闪而过的 Toast 有用得多 —— 用户下一步必然要去充值。
+        setCreditBlocked(true);
+        void refreshCredits();
+      } else {
+        toast.error(messageOf(err));
+      }
       setMessages((list) => list.filter((message) => message.id !== optimisticId));
       turnRef.current = null;
       setTurn(null);
@@ -1168,6 +1203,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         onBack={() => navigate('/workspaces')}
         onLogout={onLogout}
         pendingPatches={patches.filter((patch) => patch.status === 'pending').length}
+        credits={credits?.balance ?? null}
+        creditLow={credits?.lowBalance ?? false}
+        onOpenCredits={() => navigate('/credits')}
+        onOpenAccount={() => navigate('/account')}
       />
 
       <div className="workbench" style={{ gridTemplateColumns: columns }}>
@@ -1316,6 +1355,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               flagErrorOf={(patchId) => flags[patchId]?.error ?? null}
               flagAckedOf={(patchId) => flagAcks.has(patchId)}
               onAckFlag={ackFlag}
+              creditBlocked={creditBlocked}
+              creditBalance={credits?.balance ?? null}
+              creditLow={credits?.lowBalance ?? false}
+              onRecharge={() => navigate('/credits')}
             />
           </div>
         )}

@@ -16,6 +16,19 @@ public enum ErrorCode {
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "请求过于频繁，请稍后再试"),
     QUOTA_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "已达今日用量上限"),
 
+    // ---- 账号体系（商业级鉴权）
+    ACCOUNT_LOCKED(HttpStatus.LOCKED, "账号因连续登录失败被临时锁定，请稍后再试"),
+    ACCOUNT_DISABLED(HttpStatus.FORBIDDEN, "账号已被停用"),
+    TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "链接无效或已过期，请重新获取"),
+    EMAIL_TAKEN(HttpStatus.CONFLICT, "该邮箱已被注册"),
+    EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "邮箱尚未验证，请先完成验证"),
+
+    // ---- 积分体系
+    /** 402 而不是 403：这不是「没权限」，是「该付钱了」，前端据此直接引导充值。 */
+    INSUFFICIENT_CREDITS(HttpStatus.PAYMENT_REQUIRED, "积分不足，请充值后继续"),
+    ORDER_NOT_PAYABLE(HttpStatus.CONFLICT, "该订单当前无法支付"),
+    PAYMENT_FAILED(HttpStatus.BAD_GATEWAY, "支付通道调用失败"),
+
     PATH_ESCAPE(HttpStatus.BAD_REQUEST, "路径超出工作区范围"),
     NOT_A_DIRECTORY(HttpStatus.BAD_REQUEST, "目标不是目录"),
     NOT_A_FILE(HttpStatus.BAD_REQUEST, "目标不是文件"),
