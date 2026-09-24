@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 
-import type { BlastRadius, BuildResult, PatchRecord } from '../lib/api';
+import type { BlastRadius, BuildResult, FlagView, PatchRecord } from '../lib/api';
 import { parseUnifiedDiff } from '../lib/diff';
 import { BlastRadiusBar } from './BlastRadiusBar';
 import { CompileStrip } from './CompileStrip';
+import { FeatureFlagCard } from './FeatureFlagCard';
 import { PrPreviewPanel } from './PrPreviewPanel';
 import { CheckIcon, CloseIcon, DiffIcon } from './icons';
 
@@ -25,6 +26,12 @@ interface PatchCardProps {
   radius: BlastRadius | null;
   radiusLoading: boolean;
   radiusError: string | null;
+  /** 特性开关分析结果（功能 16）。pending 时才有意义。 */
+  flag: FlagView | null;
+  flagLoading: boolean;
+  flagError: string | null;
+  flagAcked: boolean;
+  onAckFlag: (patchId: string, acked: boolean) => void;
   compileBusy: boolean;
   compile: BuildResult | null;
   onApply: (patch: PatchRecord) => void;
@@ -70,6 +77,11 @@ export function PatchCard({
   radius,
   radiusLoading,
   radiusError,
+  flag,
+  flagLoading,
+  flagError,
+  flagAcked,
+  onAckFlag,
   compileBusy,
   compile,
   onApply,
@@ -89,6 +101,10 @@ export function PatchCard({
     patch.status === 'pending' ? '待确认' : patch.status === 'applied' ? '已应用' : '已拒绝';
   const statusColor =
     patch.status === 'pending' ? 'var(--violet)' : patch.status === 'applied' ? 'var(--lime)' : 'var(--fg-3)';
+
+  // 改动行为且还没确认「开关关闭时的旧路径」→ 应用按钮锁住。
+  // 后端也会独立挡一次（FLAG_ACK_REQUIRED），这里只是不让用户点了才吃一个报错。
+  const flagBlocksApply = patch.status === 'pending' && Boolean(flag?.required) && !flagAcked;
 
   return (
     <div className="patch-card">
@@ -128,6 +144,13 @@ export function PatchCard({
 
       {patch.status === 'pending' && (
         <>
+          <FeatureFlagCard
+            view={flag}
+            loading={flagLoading}
+            error={flagError}
+            acked={flagAcked}
+            onAck={(acked) => onAckFlag(patch.id, acked)}
+          />
           <PrPreviewPanel patchId={patch.id} fileName={fileName} />
           <BlastRadiusBar
             radius={radius}
@@ -155,7 +178,12 @@ export function PatchCard({
 
         {patch.status === 'pending' && (
           <>
-            <button className="btn btn-sm btn-primary" disabled={busy} onClick={() => onApply(patch)}>
+            <button
+              className="btn btn-sm btn-primary"
+              disabled={busy || flagBlocksApply}
+              title={flagBlocksApply ? '请先确认特性开关关闭时的旧路径' : '应用补丁并写盘'}
+              onClick={() => onApply(patch)}
+            >
               {busy ? <span className="spinner" /> : <CheckIcon size={12} />}
               应用并写盘
             </button>

@@ -78,6 +78,8 @@ public class AgentOrchestrator {
     private final UsageGuard usageGuard;
     private final LlmProperties llmProperties;
     private final AppProperties appProperties;
+    private final AgentDeskService deskService;
+    private final ToolGateService gateService;
     private final ExecutorConfig.AppExecutors executors;
     private final ObjectMapper objectMapper;
 
@@ -98,6 +100,8 @@ public class AgentOrchestrator {
                              UsageGuard usageGuard,
                              LlmProperties llmProperties,
                              AppProperties appProperties,
+                             AgentDeskService deskService,
+                             ToolGateService gateService,
                              ExecutorConfig.AppExecutors executors,
                              ObjectMapper objectMapper) {
         this.modelGateway = modelGateway;
@@ -117,6 +121,8 @@ public class AgentOrchestrator {
         this.usageGuard = usageGuard;
         this.llmProperties = llmProperties;
         this.appProperties = appProperties;
+        this.deskService = deskService;
+        this.gateService = gateService;
         this.executors = executors;
         this.objectMapper = objectMapper;
     }
@@ -172,7 +178,7 @@ public class AgentOrchestrator {
             AgentToolbox toolbox = new AgentToolbox(
                     workspace, publisher, fileService, grepService, patchService,
                     blastRadiusService, buildService, springMapService, semanticService,
-                    appProperties, request.sessionId(), llmProperties.maxToolSteps());
+                    appProperties, deskService, gateService, request.sessionId(), llmProperties.maxToolSteps());
 
             Assistant assistant = AiServices.builder(Assistant.class)
                     .streamingChatModel(modelGateway.require())

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { api, loadToken } from '../lib/api';
+import { api, HttpError, loadToken } from '../lib/api';
 import type {
   AgentMode,
   BlastRadius,
@@ -8,10 +8,14 @@ import type {
   ChatMessage,
   ChatSession,
   ConstitutionView,
+  DeskView,
   FileContent,
   FileNode,
+  FlagView,
+  GatePolicy,
   HealthInfo,
   PatchRecord,
+  PendingGate,
   TestRunResult,
   Workspace,
 } from '../lib/api';
@@ -22,6 +26,7 @@ import { openChatStream } from '../lib/sse';
 import type { ChatEvent, StreamStatus } from '../lib/sse';
 import { useToast } from '../lib/toast';
 import { ChatPane } from '../components/ChatPane';
+import { AgentDesk } from '../components/AgentDesk';
 import { ConstitutionModal } from '../components/ConstitutionModal';
 import { EditorPane } from '../components/EditorPane';
 import type { RevealTarget } from '../components/EditorPane';
@@ -36,6 +41,7 @@ import { SnapshotsModal } from '../components/SnapshotsModal';
 import { SemanticModal } from '../components/SemanticModal';
 import { TerminalModal } from '../components/TerminalModal';
 import { TopBar } from '../components/TopBar';
+import { WhatIfPanel } from '../components/WhatIfPanel';
 import { TerminalMark, FolderIcon, PlusIcon, RefreshIcon } from '../components/icons';
 
 /**
@@ -53,11 +59,13 @@ import { TerminalMark, FolderIcon, PlusIcon, RefreshIcon } from '../components/i
  */
 const LAYOUT_KEY = 'wca.layout';
 const MODE_KEY = 'wca.mode';
-const DEFAULT_LAYOUT = { left: 252, right: 404 };
+const DEFAULT_LAYOUT = { left: 252, right: 404, desk: 306 };
 
 interface Layout {
   left: number;
   right: number;
+  /** Agent 工位面板宽度（功能 13）。 */
+  desk: number;
 }
 
 /** 影响面的加载状态：补丁一出现就去算，算完之前卡片上显示「正在分析…」。 */
@@ -65,6 +73,13 @@ interface RadiusEntry {
   loading: boolean;
   error: string | null;
   data: BlastRadius | null;
+}
+
+/** 特性开关分析的加载状态（功能 16），与影响面同构：补丁一出现就去算。 */
+interface FlagEntry {
+  loading: boolean;
+  error: string | null;
+  data: FlagView | null;
 }
 
 function loadMode(): AgentMode {
@@ -83,6 +98,7 @@ function loadLayout(): Layout {
     return {
       left: clamp(Number(parsed.left ?? DEFAULT_LAYOUT.left), 150, 560),
       right: clamp(Number(parsed.right ?? DEFAULT_LAYOUT.right), 280, 780),
+      desk: clamp(Number(parsed.desk ?? DEFAULT_LAYOUT.desk), 232, 560),
     };
   } catch {
     return { ...DEFAULT_LAYOUT };
@@ -222,6 +238,23 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   // ------------------------------------------------- 功能 12：终端
   const [terminalOpen, setTerminalOpen] = useState(false);
 
+  // ------------------------------------------------- 功能 13：Agent 工位
+  const [desk, setDesk] = useState<DeskView | null>(null);
+  const [deskLoading, setDeskLoading] = useState(false);
+  const [deskVisible, setDeskVisible] = useState(false);
+
+  // ------------------------------------------------- 功能 14：工具级闸门
+  const [gates, setGates] = useState<PendingGate[]>([]);
+  const [gateBusyId, setGateBusyId] = useState<string | null>(null);
+  const [gatePolicy, setGatePolicy] = useState<GatePolicy>('writes');
+
+  // ------------------------------------------------- 功能 15：平行宇宙
+  const [whatIfOpen, setWhatIfOpen] = useState(false);
+
+  // ------------------------------------------------- 功能 16：特性开关
+  const [flags, setFlags] = useState<Record<string, FlagEntry>>({});
+  const [flagAcks, setFlagAcks] = useState<Set<string>>(() => new Set<string>());
+
   // ------------------------------------------------------------ 可变引用
   const turnRef = useRef<LiveTurn | null>(null);
   const sessionIdRef = useRef<number | null>(null);
@@ -229,6 +262,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const dirtyRef = useRef(false);
   /** 已经为哪些补丁发过影响面请求 —— 防止 patches 每次变化都重发一遍。 */
   const radiusRequested = useRef<Set<string>>(new Set());
+  /** 同理，特性开关分析每个补丁只算一次。 */
+  const flagRequested = useRef<Set<string>>(new Set());
   const handlersRef = useRef({
     onEvent: (_event: ChatEvent) => {},
     onStatus: (_status: StreamStatus) => {},
@@ -292,6 +327,43 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       })();
     }
   }, [patches]);
+
+  // ------------------------------------------------- 特性开关：补丁一出现就去算
+  // 与影响面同一节奏。放在这里而不是 PatchCard 里面，是因为 applyAll 也要用到它：
+  // 批量应用时得知道「这一批里有没有必须确认开关的补丁」。
+  useEffect(() => {
+    for (const patch of patches) {
+      if (patch.status !== 'pending' || flagRequested.current.has(patch.id)) continue;
+      flagRequested.current.add(patch.id);
+      setFlags((current) => ({
+        ...current,
+        [patch.id]: { loading: true, error: null, data: current[patch.id]?.data ?? null },
+      }));
+      void (async () => {
+        try {
+          const view = await api.featureFlag(patch.id);
+          setFlags((current) => ({
+            ...current,
+            [patch.id]: { loading: false, error: null, data: view },
+          }));
+        } catch (err) {
+          setFlags((current) => ({
+            ...current,
+            [patch.id]: { loading: false, error: messageOf(err), data: null },
+          }));
+        }
+      })();
+    }
+  }, [patches]);
+
+  const ackFlag = (patchId: string, acked: boolean) => {
+    setFlagAcks((current) => {
+      const next = new Set(current);
+      if (acked) next.add(patchId);
+      else next.delete(patchId);
+      return next;
+    });
+  };
 
   // ------------------------------------------------------------ 基础加载
 
@@ -503,6 +575,37 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         return;
       }
 
+      case 'desk': {
+        // 工位推的是整块快照，直接替换 —— 状态机只在服务端一处，前端不做推断
+        setDesk(event as unknown as DeskView);
+        setDeskLoading(false);
+        return;
+      }
+
+      case 'tool_gate': {
+        const gateId = String(event.gateId ?? '');
+        if (!gateId) return;
+        const gate: PendingGate = {
+          gateId,
+          sessionId: sessionIdRef.current ?? 0,
+          tool: String(event.tool ?? ''),
+          intent: String(event.intent ?? ''),
+          reason: String(event.reason ?? ''),
+          args: (event.args as Record<string, unknown>) ?? {},
+          createdAt: new Date().toISOString(),
+          expiresAt: typeof event.expiresAt === 'number' ? event.expiresAt : Date.now() + 20000,
+        };
+        setGates((list) => (list.some((item) => item.gateId === gateId) ? list : [...list, gate]));
+        return;
+      }
+
+      case 'gate_resolved': {
+        const gateId = String(event.gateId ?? '');
+        if (!gateId) return;
+        setGates((list) => list.filter((item) => item.gateId !== gateId));
+        return;
+      }
+
       case 'error': {
         const message = String(event.message ?? '未知错误');
         const base = turnRef.current;
@@ -555,6 +658,38 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     });
     return () => handle.close();
   }, [sessionId]);
+
+  // 换会话时把工位 / 闸门拉一次现状：
+  // SSE 只推「变化」，刷新页面后拿不到历史 desk 事件，所以这里必须有一次性拉取兜底。
+  useEffect(() => {
+    setGates([]);
+    if (sessionId === null) {
+      setDesk(null);
+      return;
+    }
+    let cancelled = false;
+    setDeskLoading(true);
+    void (async () => {
+      try {
+        const [snapshot, pending, policy] = await Promise.all([
+          api.desk(workspaceId, sessionId),
+          api.gates(sessionId),
+          api.gatePolicy(sessionId),
+        ]);
+        if (cancelled) return;
+        setDesk(snapshot);
+        setGates(pending);
+        setGatePolicy(policy.policy);
+      } catch {
+        // 工位是增强能力，拉取失败不打断主流程
+      } finally {
+        if (!cancelled) setDeskLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId, sessionId]);
 
   // ------------------------------------------------------------ 文件操作
 
@@ -775,9 +910,16 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const applyPatch = async (patch: PatchRecord) => {
     setPatchBusyId(patch.id);
     try {
-      const applied = await api.applyPatch(patch.id);
+      // 改动行为的补丁要带「已确认开关关闭时的旧路径」——前端拦了一层，
+      // 后端还会独立校验一次（FLAG_ACK_REQUIRED），这里只是把话提前说清楚。
+      const applied = await api.applyPatch(patch.id, flagAcks.has(patch.id));
       setPatches((list) => list.map((item) => (item.id === applied.id ? applied : item)));
       setDiffPatch((current) => (current && current.id === applied.id ? null : current));
+      setFlagAcks((current) => {
+        const next = new Set(current);
+        next.delete(patch.id);
+        return next;
+      });
       toast.success(`补丁已应用：${applied.file}`);
 
       if (selectedPathRef.current === applied.file) {
@@ -790,7 +932,11 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       await refreshTree();
       void runCompile(applied);
     } catch (err) {
-      toast.error(messageOf(err));
+      if (err instanceof HttpError && err.code === 'FLAG_ACK_REQUIRED') {
+        toast.info('这张补丁改动了行为 —— 先在卡片上勾选「已确认开关关闭时的旧路径」，再点应用。');
+      } else {
+        toast.error(messageOf(err));
+      }
     } finally {
       setPatchBusyId(null);
     }
@@ -815,9 +961,14 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     if (sid === null) return;
     const pending = patches.filter((patch) => patch.status === 'pending');
     if (pending.length < 2) return;
+    // 批里若含「必须确认开关」的补丁，只有全部确认过才带 acknowledgeFlag；
+    // 否则宁可让它们被逐条挡下（失败明细会写清原因），也不静默跳过这道确认。
+    const allFlaggedAcked = pending.every(
+      (patch) => !flags[patch.id]?.data?.required || flagAcks.has(patch.id),
+    );
     setApplyAllBusy(true);
     try {
-      const result = await api.applyAllPatches(sid);
+      const result = await api.applyAllPatches(sid, allFlaggedAcked);
       const applied = await api.listPatches(sid);
       setPatches(applied);
       await refreshTree();
@@ -898,6 +1049,68 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     }
   };
 
+  // ------------------------------------------------- 功能 14：闸门审批
+
+  /** 放行被拦下的工具调用。`args` 只含人工改过的键，服务端会合进原始参数。 */
+  const approveGate = async (gateId: string, args: Record<string, unknown>, note: string) => {
+    const sid = sessionId;
+    if (sid === null) return;
+    setGateBusyId(gateId);
+    try {
+      await api.approveGate(sid, gateId, args, note);
+      setGates((list) => list.filter((item) => item.gateId !== gateId));
+      const changed = Object.keys(args).length;
+      toast.success(changed > 0 ? `已放行（改了 ${changed} 项参数）—— Agent 用你给的参数继续` : '已放行');
+    } catch (err) {
+      toast.error(messageOf(err));
+    } finally {
+      setGateBusyId(null);
+    }
+  };
+
+  /** 拦下：模型会收到「已被人拦下」，改用只读手段继续，不会写盘。 */
+  const rejectGate = async (gateId: string, note: string) => {
+    const sid = sessionId;
+    if (sid === null) return;
+    setGateBusyId(gateId);
+    try {
+      await api.rejectGate(sid, gateId, note);
+      setGates((list) => list.filter((item) => item.gateId !== gateId));
+      toast.info('已拦下这一步 —— Agent 会改用只读手段继续。');
+    } catch (err) {
+      toast.error(messageOf(err));
+    } finally {
+      setGateBusyId(null);
+    }
+  };
+
+  const changeGatePolicy = async (policy: GatePolicy) => {
+    const sid = sessionId;
+    if (sid === null) return;
+    const previous = gatePolicy;
+    setGatePolicy(policy);
+    try {
+      await api.setGatePolicy(sid, policy);
+    } catch (err) {
+      setGatePolicy(previous);
+      toast.error(messageOf(err));
+    }
+  };
+
+  /** 采纳平行宇宙后的收尾：把新补丁放进列表，走正常的审查与应用流程。 */
+  const onWhatIfAdopted = (patchId: string) => {
+    const sid = sessionId;
+    if (sid === null) return;
+    void (async () => {
+      try {
+        setPatches(await api.listPatches(sid));
+        toast.success(`已采纳到主线（${patchId.slice(0, 8)}）—— 补丁进入待确认，审阅后再应用。`);
+      } catch (err) {
+        toast.error(messageOf(err));
+      }
+    })();
+  };
+
   // ------------------------------------------------------------ 布局
 
   const columns = useMemo(() => {
@@ -905,8 +1118,9 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     if (treeVisible) parts.push(`minmax(140px, ${layout.left}px)`, '5px');
     parts.push('minmax(0, 1fr)');
     if (chatVisible) parts.push('5px', `minmax(260px, ${layout.right}px)`);
+    if (deskVisible) parts.push('5px', `minmax(232px, ${layout.desk}px)`);
     return parts.join(' ');
-  }, [treeVisible, chatVisible, layout.left, layout.right]);
+  }, [treeVisible, chatVisible, deskVisible, layout.left, layout.right, layout.desk]);
 
   const selectionLines = selection ? selection.endLine - selection.startLine + 1 : 0;
   const saveState: 'clean' | 'dirty' | 'saving' | 'no-file' = !file
@@ -958,6 +1172,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         onOpenSnapshots={() => setSnapshotsOpen(true)}
         onOpenSemantic={() => setSemanticOpen(true)}
         onOpenTerminal={() => setTerminalOpen(true)}
+        onOpenWhatIf={() => setWhatIfOpen(true)}
+        onToggleDesk={() => setDeskVisible((value) => !value)}
+        deskVisible={deskVisible}
+        activeGates={gates.length}
         treeVisible={treeVisible}
         chatVisible={chatVisible}
         pendingPatches={patches.filter((patch) => patch.status === 'pending').length}
@@ -1081,6 +1299,39 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               onCompilePatch={(patch) => void runCompile(patch)}
               onFixFromCompile={(patch, result) => fixFromCompile(patch, result)}
               onOpenCitation={(path, line) => void openCitation(path, line)}
+              gates={gates}
+              gateBusyId={gateBusyId}
+              gatePolicy={gatePolicy}
+              onApproveGate={(gateId, args, note) => void approveGate(gateId, args, note)}
+              onRejectGate={(gateId, note) => void rejectGate(gateId, note)}
+              onChangeGatePolicy={(policy) => void changeGatePolicy(policy)}
+              flagOf={(patchId) => flags[patchId]?.data ?? null}
+              flagLoading={(patchId) => flags[patchId]?.loading ?? false}
+              flagErrorOf={(patchId) => flags[patchId]?.error ?? null}
+              flagAckedOf={(patchId) => flagAcks.has(patchId)}
+              onAckFlag={ackFlag}
+            />
+          </div>
+        )}
+
+        {deskVisible && (
+          <Splitter
+            label="调整工位面板宽度"
+            onResize={(delta) =>
+              setLayout((current) => ({ ...current, desk: clamp(current.desk - delta, 232, 560) }))
+            }
+            onReset={() => setLayout((current) => ({ ...current, desk: DEFAULT_LAYOUT.desk }))}
+          />
+        )}
+
+        {deskVisible && (
+          <div className="pane">
+            <AgentDesk
+              desk={desk}
+              loading={deskLoading}
+              live={streamStatus === 'open' || streamStatus === 'connecting'}
+              onOpenFile={(path, line) => void openCitation(path, line)}
+              onClose={() => setDeskVisible(false)}
             />
           </div>
         )}
@@ -1160,6 +1411,20 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         <TerminalModal
           workspaceId={workspaceId}
           onClose={() => setTerminalOpen(false)}
+        />
+      )}
+
+      {whatIfOpen && (
+        <WhatIfPanel
+          workspaceId={workspaceId}
+          sessionId={sessionId}
+          initialFile={selectedPath}
+          onClose={() => setWhatIfOpen(false)}
+          onAdopted={onWhatIfAdopted}
+          onOpenRef={(path, line) => {
+            setWhatIfOpen(false);
+            void openCitation(path, line);
+          }}
         />
       )}
     </div>

@@ -378,12 +378,33 @@ async function main() {
     );
   }
 
-  section('11. 应用补丁');
+  section('11. 应用补丁（含特性开关闸门）');
   if (!patchEvent) {
     note('没有补丁可应用，跳过。');
   } else {
-    const applied = await call(`/api/patches/${patchEvent.id}/apply`, { method: 'POST', token });
-    check('补丁应用成功', applied.status === 200, `HTTP ${applied.status} ${applied.data?.code ?? ''}`);
+    // 功能 16：改动了行为的补丁，必须先确认「开关关闭时的旧路径」，否则一律拦下。
+    const flagInfo = await call(`/api/patches/${patchEvent.id}/feature-flag`, { token });
+    check('能查到补丁的特性开关信息', flagInfo.status === 200, `HTTP ${flagInfo.status}`);
+    check('该补丁被判定为需要开关', flagInfo.data?.required === true, `required=${flagInfo.data?.required}`);
+    check(
+      '给出了开 / 关两种运行说明',
+      Boolean(flagInfo.data?.openRunbook) && Boolean(flagInfo.data?.closedRunbook),
+      `关=${String(flagInfo.data?.closedRunbook ?? '').slice(0, 28)}`,
+    );
+
+    const noAck = await call(`/api/patches/${patchEvent.id}/apply`, { method: 'POST', token });
+    check(
+      '没确认开关时应用被拦下',
+      noAck.status === 409 && noAck.data?.code === 'FLAG_ACK_REQUIRED',
+      `HTTP ${noAck.status} ${noAck.data?.code ?? ''}`,
+    );
+
+    const applied = await call(`/api/patches/${patchEvent.id}/apply`, {
+      method: 'POST',
+      token,
+      body: { acknowledgeFlag: true },
+    });
+    check('确认开关后应用成功', applied.status === 200, `HTTP ${applied.status} ${applied.data?.code ?? ''}`);
     check('补丁状态变为 applied', applied.data?.status === 'applied');
 
     const again = await call(`/api/patches/${patchEvent.id}/apply`, { method: 'POST', token });

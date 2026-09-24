@@ -1,13 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 
-import type { AgentMode, BlastRadius, BuildResult, ChatMessage, ChatSession, PatchRecord } from '../lib/api';
+import type {
+  AgentMode,
+  BlastRadius,
+  BuildResult,
+  ChatMessage,
+  ChatSession,
+  FlagView,
+  GatePolicy,
+  PatchRecord,
+  PendingGate,
+} from '../lib/api';
 import { countInvalid } from '../lib/citations';
 import { MODE_META, streamLabel, summarizeToolArgs, toolLabel } from '../lib/chat';
 import type { LiveTurn, Selection, ToolItem } from '../lib/chat';
 import type { StreamStatus } from '../lib/sse';
 import { CitationText } from './CitationText';
+import { GateCard } from './GateCard';
 import { PatchCard } from './PatchCard';
-import { BoltIcon, BookIcon, CloseIcon, PlusIcon, SearchIcon, SendIcon } from './icons';
+import { BoltIcon, BookIcon, CloseIcon, PlusIcon, SearchIcon, SendIcon, ShieldIcon } from './icons';
 
 /**
  * 右侧对话面板。
@@ -28,6 +39,12 @@ interface PatchDeps {
   radiusOf: (patchId: string) => BlastRadius | null;
   radiusLoading: (patchId: string) => boolean;
   radiusErrorOf: (patchId: string) => string | null;
+  /** 特性开关（功能 16）：改动行为的补丁要先确认「开关关闭时的旧路径」。 */
+  flagOf: (patchId: string) => FlagView | null;
+  flagLoading: (patchId: string) => boolean;
+  flagErrorOf: (patchId: string) => string | null;
+  flagAckedOf: (patchId: string) => boolean;
+  onAckFlag: (patchId: string, acked: boolean) => void;
   compileOf: (patchId: string) => BuildResult | null;
   onApplyPatch: (patch: PatchRecord) => void;
   onRejectPatch: (patch: PatchRecord) => void;
@@ -56,6 +73,13 @@ interface ChatPaneProps extends PatchDeps {
   onClearSelection: () => void;
   onApplyAll: () => void;
   applyAllBusy: boolean;
+  /** 功能 14：正被拦下等人放行的工具调用。 */
+  gates: PendingGate[];
+  gateBusyId: string | null;
+  gatePolicy: GatePolicy;
+  onApproveGate: (gateId: string, args: Record<string, unknown>, note: string) => void;
+  onRejectGate: (gateId: string, note: string) => void;
+  onChangeGatePolicy: (policy: GatePolicy) => void;
 }
 
 function patchesOfMessage(message: ChatMessage, patches: PatchRecord[]): PatchRecord[] {
@@ -95,11 +119,22 @@ export function ChatPane({
   onClearSelection,
   onApplyAll,
   applyAllBusy,
+  gates,
+  gateBusyId,
+  gatePolicy,
+  onApproveGate,
+  onRejectGate,
+  onChangeGatePolicy,
   patchBusyId,
   compileBusyId,
   radiusOf,
   radiusLoading,
   radiusErrorOf,
+  flagOf,
+  flagLoading,
+  flagErrorOf,
+  flagAckedOf,
+  onAckFlag,
   compileOf,
   onApplyPatch,
   onRejectPatch,
@@ -138,6 +173,11 @@ export function ChatPane({
     radiusOf,
     radiusLoading,
     radiusErrorOf,
+    flagOf,
+    flagLoading,
+    flagErrorOf,
+    flagAckedOf,
+    onAckFlag,
     compileOf,
     onApplyPatch,
     onRejectPatch,
@@ -159,6 +199,11 @@ export function ChatPane({
       radius={radiusOf(patch.id)}
       radiusLoading={radiusLoading(patch.id)}
       radiusError={radiusErrorOf(patch.id)}
+      flag={flagOf(patch.id)}
+      flagLoading={flagLoading(patch.id)}
+      flagError={flagErrorOf(patch.id)}
+      flagAcked={flagAckedOf(patch.id)}
+      onAckFlag={onAckFlag}
       compileBusy={compileBusyId === patch.id}
       compile={compileOf(patch.id)}
       onApply={onApplyPatch}
@@ -288,6 +333,22 @@ export function ChatPane({
         )}
       </div>
 
+      {/* 闸门卡片不放进滚动区，而是钉在输入框上方 —— 这是一次打断，
+          必须让人无从错过；错过了它就超时自动放行了。 */}
+      {gates.length > 0 && (
+        <div className="gate-stack">
+          {gates.map((gate) => (
+            <GateCard
+              key={gate.gateId}
+              gate={gate}
+              busy={gateBusyId === gate.gateId}
+              onApprove={onApproveGate}
+              onReject={onRejectGate}
+            />
+          ))}
+        </div>
+      )}
+
       <div className="composer">
         <div className="composer-context">
           <div className="mode-toggle" role="group" aria-label="工作模式">
@@ -300,6 +361,37 @@ export function ChatPane({
               >
                 {item === 'deliver' ? <BoltIcon size={11} /> : <BookIcon size={11} />}
                 {MODE_META[item].label}
+              </button>
+            ))}
+          </div>
+
+          <div
+            className="mode-toggle gate-policy"
+            role="group"
+            aria-label="工具闸门策略"
+            title="工具级冻结：在写盘 / 跑测试之前先停下来等你放行（功能 14）"
+          >
+            {(
+              [
+                ['off', '放行'],
+                ['writes', '拦写'],
+                ['strict', '严格'],
+              ] as [GatePolicy, string][]
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                className={`mode-btn${gatePolicy === value ? ' active' : ''}`}
+                title={
+                  value === 'off'
+                    ? '全放行：适合信任模式 / 自动化流程'
+                    : value === 'writes'
+                      ? '默认：拦下写操作（起草补丁、跑测试）'
+                      : '严格：在写操作之外，再拦「范围过大」的检索'
+                }
+                onClick={() => onChangeGatePolicy(value)}
+              >
+                {value !== 'off' && <ShieldIcon size={11} />}
+                {label}
               </button>
             ))}
           </div>
@@ -434,6 +526,11 @@ function MessageBlock({
               radius={deps.radiusOf(patch.id)}
               radiusLoading={deps.radiusLoading(patch.id)}
               radiusError={deps.radiusErrorOf(patch.id)}
+              flag={deps.flagOf(patch.id)}
+              flagLoading={deps.flagLoading(patch.id)}
+              flagError={deps.flagErrorOf(patch.id)}
+              flagAcked={deps.flagAckedOf(patch.id)}
+              onAckFlag={deps.onAckFlag}
               compileBusy={deps.compileBusyId === patch.id}
               compile={deps.compileOf(patch.id)}
               onApply={deps.onApplyPatch}

@@ -72,4 +72,47 @@ public class ChatEventPublisher {
     public void done(long messageId) {
         channel.publish(ChatEvent.TYPE_DONE, Map.of("messageId", String.valueOf(messageId)));
     }
+
+    /**
+     * Agent 工位状态（功能 13）。
+     *
+     * <p>整块状态用一次事件推完，而不是推增量 —— 工位是「此刻的样子」，
+     * 增量会让前端不得不在本地重演一遍状态机，多一处能算错的地方。
+     */
+    public void desk(Map<String, Object> snapshot) {
+        channel.publish(ChatEvent.TYPE_DESK, snapshot == null ? Map.of() : snapshot);
+    }
+
+    /**
+     * 工具闸门：某次工具调用被拦下，等待人工放行（功能 14）。
+     *
+     * @param gateId   闸门 uuid，前端 approve / reject 时要带回来
+     * @param tool     被拦下的工具名
+     * @param intent   人话描述「它想干什么」
+     * @param args     被拦下的参数（前端可编辑）
+     * @param editable true 表示允许改参数后放行（写操作恒为 true）
+     * @param reason   为什么会拦下（例如「写盘操作」「检索范围覆盖整个工作区」）
+     * @param expiresAt 超时时刻（epoch millis），到点未处理视为拒绝
+     */
+    public void toolGate(String gateId, String tool, String intent, Map<String, Object> args,
+                         boolean editable, String reason, long expiresAt) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("gateId", gateId);
+        body.put("tool", tool);
+        body.put("intent", intent == null ? "" : intent);
+        body.put("args", args == null ? Map.of() : args);
+        body.put("editable", editable);
+        body.put("reason", reason == null ? "" : reason);
+        body.put("expiresAt", expiresAt);
+        channel.publish(ChatEvent.TYPE_TOOL_GATE, body);
+    }
+
+    /** 闸门处理结果：前端收起等待卡片，工具在服务端继续执行。 */
+    public void gateResolved(String gateId, String decision, String note) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("gateId", gateId);
+        body.put("decision", decision == null ? "approved" : decision);
+        body.put("note", note == null ? "" : note);
+        channel.publish(ChatEvent.TYPE_GATE_RESOLVED, body);
+    }
 }

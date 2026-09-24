@@ -1,0 +1,165 @@
+# ui-probe start  steps=69
+
+$ agent-browser set viewport 1512 950
+✓ Done
+
+$ agent-browser open http://127.0.0.1:5173/#/login
+✓ Web Code Assistant · 网页版编码助手
+  http://127.0.0.1:5173/#/login
+
+$ sleep 2500
+
+$ agent-browser find text 一键随机演示账号 click
+✓ Done
+
+$ sleep 3500
+
+$ agent-browser click .form-stack .btn-primary
+✓ Done
+
+$ sleep 9000
+
+$ agent-browser click [title="src/main/java/com/demo/UserService.java"]
+✓ Done
+
+$ sleep 2500
+
+$ agent-browser click [title*="Agent 工位"]
+✓ Done
+
+$ sleep 2000
+
+$ agent-browser eval 'DESK_PANEL=' + (document.querySelector('.desk') ? 'yes' : 'no') + ' EMPTY_TITLE=' + ((document.querySelector('.desk-empty-title')||{innerText:'none'}).innerText) + ' EMPTY_HINT=' + ((document.querySelector('.desk-empty-hint')||{innerText:'none'}).innerText)
+"DESK_PANEL=yes EMPTY_TITLE=工位还空着 EMPTY_HINT=只读面板 · 不会改动任何文件"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v4\40-desk-empty.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v4\40-desk-empty.png
+
+$ agent-browser eval var ta=document.querySelector('.composer-input'); var set=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set; set.call(ta,'把 UserService 的字段注入改成构造器注入，直接给我补丁'); ta.dispatchEvent(new Event('input',{bubbles:true})); 'filled'
+"filled"
+
+$ sleep 400
+
+$ agent-browser eval document.querySelector('.composer-actions .btn-primary') ? (document.querySelector('.composer-actions .btn-primary').click(), 'sent') : 'no-send'
+"sent"
+
+$ sleep 6500
+
+$ agent-browser eval 'GATE_CARDS=' + document.querySelectorAll('.gate-card').length + ' TITLE=' + ((document.querySelector('.gate-title')||{innerText:'none'}).innerText) + ' TOOL=' + ((document.querySelector('.gate-tool')||{innerText:'none'}).innerText) + ' TIMER=' + ((document.querySelector('.gate-timer')||{innerText:'none'}).innerText)
+"GATE_CARDS=1 TITLE=已拦下一步 TOOL=propose_patch TIMER=14s 后自动放行"
+
+$ agent-browser eval 'INTENT=' + ((document.querySelector('.gate-intent')||{innerText:'none'}).innerText) + ' | REASON=' + ((document.querySelector('.gate-reason')||{innerText:'none'}).innerText) + ' | PARAMS=' + document.querySelectorAll('.gate-param').length + ' KEYPARAMS=' + document.querySelectorAll('.gate-param.key').length
+"INTENT=想在 src/main/java/com/demo/UserService.java 上生成一个代码补丁（你确认后才写盘） | REASON=写操作：这一步会生成一个待应用的代码补丁 | PARAMS=3 KEYPARAMS=1"
+
+$ agent-browser eval 'POLICY_ACTIVE=' + ((document.querySelector('.gate-policy .mode-btn.active')||{innerText:'none'}).innerText)
+"POLICY_ACTIVE=拦写"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v4\41-tool-gate.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v4\41-tool-gate.png
+
+$ agent-browser eval var i=document.querySelectorAll('.gate-param .gate-param-input')[1]; var set=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set; i ? (set.call(i, i.value + '（人工改过）'), i.dispatchEvent(new Event('input',{bubbles:true})), 'edited-summary') : 'no-summary-param'
+"edited-summary"
+
+$ agent-browser eval 'HAS_DIFF_TEXTAREA=' + (document.querySelector('.gate-param-input[rows]') ? 'yes' : 'no') + ' TOTAL_PARAMS=' + document.querySelectorAll('.gate-param .gate-param-input').length
+"HAS_DIFF_TEXTAREA=yes TOTAL_PARAMS=3"
+
+$ sleep 600
+
+$ agent-browser eval 'APPROVE_LABEL=' + ((document.querySelector('.gate-actions .btn-primary')||{innerText:'none'}).innerText) + ' CHANGED_MARKS=' + document.querySelectorAll('.gate-param-changed').length
+"APPROVE_LABEL=用改过的参数放行（1 项） CHANGED_MARKS=1"
+
+$ agent-browser eval document.querySelector('.gate-actions .btn-primary') ? (document.querySelector('.gate-actions .btn-primary').click(), 'approved') : 'no-approve'
+"approved"
+
+$ sleep 7000
+
+$ agent-browser eval 'DESK_PHASE=' + ((document.querySelector('.desk-phase-label')||{innerText:'none'}).innerText) + ' COUNT=' + ((document.querySelector('.desk-count')||{innerText:'none'}).innerText)
+"DESK_PHASE=待命 COUNT=2 次调用"
+
+$ agent-browser eval 'DESK_FILES=' + document.querySelectorAll('.desk-file').length + ' DESK_DRAFTS=' + document.querySelectorAll('.desk-draft').length + ' DESK_TIMELINE=' + document.querySelectorAll('.desk-timeline-row').length + ' DESK_CURSOR=' + ((document.querySelector('.desk-cursor-file')||{innerText:'none'}).innerText)
+"DESK_FILES=1 DESK_DRAFTS=1 DESK_TIMELINE=2 DESK_CURSOR=UserService.java"
+
+$ agent-browser eval 'DESK_DRAFT_STAT=' + ((document.querySelector('.desk-draft-stat')||{innerText:'none'}).innerText)
+"DESK_DRAFT_STAT=+18/-16"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v4\42-desk-live.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v4\42-desk-live.png
+
+$ agent-browser eval 'FLAG_CARDS=' + document.querySelectorAll('.flag-card').length + ' REQUIRED=' + document.querySelectorAll('.flag-card-required').length + ' TITLE=' + ((document.querySelector('.flag-title')||{innerText:'none'}).innerText) + ' KEY=' + ((document.querySelector('.flag-key')||{innerText:'none'}).innerText)
+"FLAG_CARDS=1 REQUIRED=1 TITLE=这个补丁改动了行为 · 必须包进开关 KEY=wca.feature.user-service-user-service"
+
+$ agent-browser eval 'RUNBOOKS=' + document.querySelectorAll('.flag-runbook').length + ' OPEN=' + ((document.querySelector('.flag-runbook.open .flag-runbook-body')||{innerText:'none'}).innerText.slice(0,48)) + ' | CLOSED=' + ((document.querySelector('.flag-runbook.closed .flag-runbook-body')||{innerText:'none'}).innerText.slice(0,48))
+"RUNBOOKS=2 OPEN=【打开】在 application.yml 里写入 `wca.feature.user-serv | CLOSED=【关闭】保持 `wca.feature.user-service-user-service: f"
+
+$ agent-browser eval 'LEGACY_LINES=' + ((document.querySelector('.flag-legacy')||{innerText:''}).innerText.split('\n').length) + ' FACTS=' + document.querySelectorAll('.flag-fact').length + ' ACK_ON=' + (document.querySelector('.flag-ack.on') ? 'yes' : 'no')
+"LEGACY_LINES=4 FACTS=4 ACK_ON=no"
+
+$ agent-browser eval 'APPLY_DISABLED=' + ((document.querySelector('.patch-actions .btn-primary')||{disabled:'missing'}).disabled)
+"APPLY_DISABLED=true"
+
+$ agent-browser eval var r=document.querySelector('.flag-ack')||document.querySelector('.flag-card'); r ? (r.scrollIntoView({block:'start'}), 'scrolled') : 'no-anchor'
+"scrolled"
+
+$ sleep 800
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v4\43-flag-locked.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v4\43-flag-locked.png
+
+$ agent-browser eval var c=document.querySelector('.flag-ack input'); c ? (c.click(), 'checked') : 'no-checkbox'
+"checked"
+
+$ sleep 900
+
+$ agent-browser eval 'ACK_ON=' + (document.querySelector('.flag-ack.on') ? 'yes' : 'no') + ' APPLY_DISABLED=' + ((document.querySelector('.patch-actions .btn-primary')||{disabled:'missing'}).disabled)
+"ACK_ON=yes APPLY_DISABLED=false"
+
+$ agent-browser eval var a=document.querySelector('.flag-ack'); a ? (a.scrollIntoView({block:'center'}), 'scrolled') : 'no-ack'
+"scrolled"
+
+$ sleep 800
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v4\44-flag-acked.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v4\44-flag-acked.png
+
+$ agent-browser click [title*="平行宇宙"]
+✓ Done
+
+$ sleep 2500
+
+$ agent-browser eval 'MODAL=' + ((document.querySelector('.modal-title')||{innerText:'none'}).innerText) + ' FILE_PREFILLED=' + ((document.querySelector('.whatif-setup .snapshots-input')||{value:'none'}).value)
+"MODAL=平行宇宙 · What-if FILE_PREFILLED=src/main/java/com/demo/UserService.java"
+
+$ agent-browser eval var q=document.querySelector('.whatif-question'); var setT=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set; setT.call(q,'假如把 UserService 的字段注入换成构造器注入，会是什么样子？'); q.dispatchEvent(new Event('input',{bubbles:true})); 'filled'
+"filled"
+
+$ sleep 500
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v4\45-whatif-setup.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v4\45-whatif-setup.png
+
+$ agent-browser eval document.querySelector('.whatif-setup-actions .btn-primary') ? (document.querySelector('.whatif-setup-actions .btn-primary').click(), 'asked') : 'no-ask'
+"asked"
+
+$ sleep 12000
+
+$ agent-browser eval 'WHATIF_COLS=' + document.querySelectorAll('.whatif-col').length + ' ADD_LINES=' + document.querySelectorAll('.whatif-line.add').length + ' DEL_LINES=' + document.querySelectorAll('.whatif-line.del').length + ' STATUS=' + ((document.querySelector('.whatif-chip')||{innerText:'none'}).innerText)
+"WHATIF_COLS=2 ADD_LINES=18 DEL_LINES=16 STATUS=推演完成 · 待你决定"
+
+$ agent-browser eval 'WHATIF_STAT=' + ((document.querySelector('.whatif-stat')||{innerText:'none'}).innerText) + ' ACTIONS=' + Array.from(document.querySelectorAll('.whatif-actions .btn')).map(function(e){return e.innerText.trim()}).join(' / ')
+"WHATIF_STAT=+18 / -16 ACTIONS=打开原文件 / 丢弃这个宇宙（默认） / 采纳到主线"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v4\46-whatif-compare.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v4\46-whatif-compare.png
+
+$ agent-browser eval var btns=[].slice.call(document.querySelectorAll('.modal-foot .btn')); btns.length ? (btns[btns.length-1].click(), 'closed') : 'no-modal'
+"closed"
+
+$ sleep 1200
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v4\47-overall-four-pane.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v4\47-overall-four-pane.png
+
+$ agent-browser eval 'SHELL_PANES=' + document.querySelectorAll('.workbench > .pane').length + ' SPLITTERS=' + document.querySelectorAll('.workbench > .splitter').length + ' WORKBENCH_DISPLAY=' + getComputedStyle(document.querySelector('.workbench')).display + ' RADIUS=' + getComputedStyle(document.querySelector('.gate-policy .mode-btn.active')||document.body).borderRadius
+"SHELL_PANES=4 SPLITTERS=3 WORKBENCH_DISPLAY=grid RADIUS=12px"
+
+# ui-probe done

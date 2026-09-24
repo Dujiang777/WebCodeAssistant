@@ -22,14 +22,14 @@ function base(size: number) {
   };
 }
 
-/** 品牌标记：终端提示符 `>_` 装进圆角方框 —— 「把终端与编辑器装进一个框」。 */
+/** 品牌标记：终端提示符 `>_` 装进直角方框 —— 「把终端与编辑器装进一个框」。 */
 export function TerminalMark({ size = 22, className }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
-      <rect x="1.6" y="1.6" width="20.8" height="20.8" rx="4.4" stroke="currentColor" strokeWidth="1.5" opacity="0.55" />
+      <rect x="1.6" y="1.6" width="20.8" height="20.8" rx="6" stroke="currentColor" strokeWidth="1.5" opacity="0.55" />
       <path
         d="M6.2 8.2l3.9 3.8-3.9 3.8"
-        stroke="var(--signal, #3af0a6)"
+        stroke="var(--signal, #e8b45a)"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -214,21 +214,21 @@ export function languageBadge(path: string): { label: string; color: string } | 
   const map: Record<string, { label: string; color: string }> = {
     java: { label: 'J', color: '#ff9d7a' },
     kt: { label: 'K', color: '#c9b8ff' },
-    ts: { label: 'TS', color: '#6fd3e8' },
-    tsx: { label: 'TS', color: '#6fd3e8' },
-    js: { label: 'JS', color: '#e8c88a' },
-    jsx: { label: 'JS', color: '#e8c88a' },
-    json: { label: '{}', color: '#e8c88a' },
-    xml: { label: '<>', color: '#3af0a6' },
-    yml: { label: 'Y', color: '#ff6e7f' },
-    yaml: { label: 'Y', color: '#ff6e7f' },
+    ts: { label: 'TS', color: '#e8c88a' },
+    tsx: { label: 'TS', color: '#e8c88a' },
+    js: { label: 'JS', color: '#d8c9a3' },
+    jsx: { label: 'JS', color: '#d8c9a3' },
+    json: { label: '{}', color: '#d8c9a3' },
+    xml: { label: '<>', color: '#e8b45a' },
+    yml: { label: 'Y', color: '#ff5163' },
+    yaml: { label: 'Y', color: '#ff5163' },
     md: { label: 'M', color: '#8fa79a' },
-    sql: { label: 'S', color: '#8ad7ff' },
-    py: { label: 'Py', color: '#8ad7ff' },
-    go: { label: 'Go', color: '#8ad7ff' },
+    sql: { label: 'S', color: '#7fc8a9' },
+    py: { label: 'Py', color: '#7fc8a9' },
+    go: { label: 'Go', color: '#7fc8a9' },
     rs: { label: 'Rs', color: '#ff9d7a' },
-    css: { label: '#', color: '#6fd3e8' },
-    sh: { label: '$', color: '#3af0a6' },
+    css: { label: '#', color: '#e8c88a' },
+    sh: { label: '$', color: '#e8b45a' },
   };
   return map[ext] ?? null;
 }
