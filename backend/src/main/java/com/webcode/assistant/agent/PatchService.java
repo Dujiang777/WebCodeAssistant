@@ -55,19 +55,22 @@ public class PatchService {
     private final WorkspacePathResolver pathResolver;
     private final WorkspaceService workspaceService;
     private final SnapshotService snapshotService;
+    private final FeatureFlagService featureFlagService;
 
     public PatchService(PatchRepository patchRepository,
                         ChatSessionRepository sessionRepository,
                         WorkspaceFileService fileService,
                         WorkspacePathResolver pathResolver,
                         WorkspaceService workspaceService,
-                        SnapshotService snapshotService) {
+                        SnapshotService snapshotService,
+                        FeatureFlagService featureFlagService) {
         this.patchRepository = patchRepository;
         this.sessionRepository = sessionRepository;
         this.fileService = fileService;
         this.pathResolver = pathResolver;
         this.workspaceService = workspaceService;
         this.snapshotService = snapshotService;
+        this.featureFlagService = featureFlagService;
     }
 
     /**
@@ -115,11 +118,23 @@ public class PatchService {
      * 少一个可能传错的参数，就少一类越权风险。
      */
     public Patch apply(long userId, UUID patchId) {
+        return apply(userId, patchId, false);
+    }
+
+    /**
+     * 用户确认后写盘（单补丁入口）。
+     *
+     * @param flagAcknowledged 是否已确认「关掉特性开关后跑的是旧路径」（功能 16）。
+     *                         改动了运行行为的补丁，没确认这一步就不允许落盘 ——
+     *                         企业里最贵的事故不是改错，而是改完关不掉。
+     */
+    public Patch apply(long userId, UUID patchId, boolean flagAcknowledged) {
         Patch patch = requireOwned(userId, patchId);
         if (!Patch.STATUS_PENDING.equals(patch.status())) {
             throw new ApiException(ErrorCode.PATCH_ALREADY_RESOLVED,
                     "该补丁状态为 " + patch.status() + "，不能再次应用");
         }
+        assertFlagAcknowledged(userId, patchId, flagAcknowledged);
         Workspace workspace = workspaceOf(userId, patchId);
 
         // 应用前自动打快照 —— 打点失败就终止应用：没有安全网的写入不值得发生。
@@ -154,6 +169,10 @@ public class PatchService {
      * </ul>
      */
     public BatchApplyResult applyAll(long userId, long sessionId) {
+        return applyAll(userId, sessionId, false);
+    }
+
+    public BatchApplyResult applyAll(long userId, long sessionId, boolean flagAcknowledged) {
         requireSession(userId, sessionId);
         List<Patch> pending = patchRepository.findBySession(sessionId).stream()
                 .filter(patch -> Patch.STATUS_PENDING.equals(patch.status()))
@@ -173,6 +192,7 @@ public class PatchService {
         int failed = 0;
         for (Patch patch : pending) {
             try {
+                assertFlagAcknowledged(userId, patch.id(), flagAcknowledged);
                 applyCore(userId, patch, workspace);
                 applied++;
                 items.add(new BatchApplyResult.Item(patch.id(), patch.filePath(), Patch.STATUS_APPLIED, null));
@@ -267,6 +287,22 @@ public class PatchService {
     private Patch requireOwned(long userId, UUID patchId) {
         return patchRepository.findOwned(patchId, userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "补丁不存在或无权访问"));
+    }
+
+    /**
+     * 应用前的开关确认闸门（功能 16）。只有「判定为行为变化」的补丁才拦，
+     * 纯注释 / 测试 / 非源码一律直接放行 —— 否则开关会退化成噪音。
+     */
+    private void assertFlagAcknowledged(long userId, UUID patchId, boolean acknowledged) {
+        if (acknowledged) {
+            return;
+        }
+        FeatureFlagService.FlagView flag = featureFlagService.analyze(userId, patchId);
+        if (flag.required()) {
+            throw new ApiException(ErrorCode.FLAG_ACK_REQUIRED,
+                    "这个补丁改动了运行行为（开关 " + flag.flagKey() + "，" + flag.reason()
+                            + "）。请先确认「关闭开关时跑旧路径」，并在应用请求里带上 acknowledgeFlag=true。");
+        }
     }
 
     private void requireSession(long userId, long sessionId) {

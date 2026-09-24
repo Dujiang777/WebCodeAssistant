@@ -43,6 +43,25 @@ public record ChatEvent(long seq, String type, Map<String, Object> body) {
     public static final String TYPE_ERROR = "error";
     public static final String TYPE_DONE = "done";
 
+    /**
+     * Agent 工位（影子工作区）状态快照。
+     *
+     * <p>功能 13：把「它打开了哪些文件、光标在哪、正在 grep 什么、草稿 diff 怎么长出来」
+     * 变成空间里的可见状态。每次工具开始/结束都推一条，前端只做替换渲染，不自己推断。
+     */
+    public static final String TYPE_DESK = "desk";
+
+    /**
+     * 工具闸门（功能 14）：一次写操作 / 大范围检索被拦下，等待人工放行。
+     *
+     * <p>这条事件是<b>阻塞式</b>的：后端虚拟线程停在这里等 REST 审批，
+     * 前端必须渲染出「改参数 / 放行 / 拒绝」的卡片。
+     */
+    public static final String TYPE_TOOL_GATE = "tool_gate";
+
+    /** 闸门已被处理（放行 / 拒绝 / 超时），前端据此收起等待中的卡片。 */
+    public static final String TYPE_GATE_RESOLVED = "gate_resolved";
+
     public String toJson(ObjectMapper mapper) throws JsonProcessingException {
         ObjectNode node = mapper.createObjectNode();
         node.put("seq", seq);

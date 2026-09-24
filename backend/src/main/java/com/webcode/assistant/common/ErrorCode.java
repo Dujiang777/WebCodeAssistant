@@ -26,6 +26,7 @@ public enum ErrorCode {
     DIFF_INVALID(HttpStatus.BAD_REQUEST, "补丁格式无法解析"),
     DIFF_CONFLICT(HttpStatus.CONFLICT, "补丁上下文与当前文件不匹配，文件可能已被修改"),
     PATCH_ALREADY_RESOLVED(HttpStatus.CONFLICT, "该补丁已被应用或拒绝"),
+    FLAG_ACK_REQUIRED(HttpStatus.CONFLICT, "该补丁改动了行为，必须先确认特性开关关闭时的旧路径才能应用"),
 
     LLM_ERROR(HttpStatus.BAD_GATEWAY, "模型服务调用失败"),
     LLM_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "未配置模型服务，请检查 LLM_BASE_URL / LLM_API_KEY / LLM_MODEL"),

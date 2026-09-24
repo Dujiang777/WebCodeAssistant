@@ -333,6 +333,17 @@ function toolNameOf(message) {
 
 function handleCompletion(body, res) {
   const messages = body.messages ?? [];
+  const userMessages = messages.filter((m) => m.role === 'user');
+  const lastUserText = String(userMessages[userMessages.length - 1]?.content ?? '');
+
+  // What-if（功能 15）走单独一条通道：它不经过工具循环，而是要求「直接吐一个 unified diff」。
+  // 真实模型靠 prompt 里的「只输出一个 unified diff」自律，mock 这里按同样契约模拟。
+  if (lastUserText.includes('反事实实验')) {
+    return (STEP_DELAY_MS > 0 ? sleep(STEP_DELAY_MS) : Promise.resolve()).then(() =>
+      respondWhatIf(lastUserText, res),
+    );
+  }
+
   const toolMessages = findToolMessages(messages);
   const intent = detectIntent(messages);
   const currentFile = extractCurrentFile(messages);
@@ -340,6 +351,30 @@ function handleCompletion(body, res) {
   return (STEP_DELAY_MS > 0 ? sleep(STEP_DELAY_MS) : Promise.resolve()).then(() =>
     respond(toolMessages, intent, currentFile, res),
   );
+}
+
+/**
+ * What-if 的应答：从 prompt 里自带的「目标文件 + 带行号的当前内容」还原出原文，
+ * 换一种写法，再产出 ```diff 代码块。没有匹配的重写模板时退化成「追加一行注释」，
+ * 保证一定有一条可解析的 hunk —— 否则这个功能在 mock 下永远只会是 unavailable。
+ */
+function respondWhatIf(userText, res) {
+  const fileMatch = /目标文件：(.+)/.exec(userText);
+  const filePath = fileMatch ? fileMatch[1].trim() : null;
+  const fenced = /```\n([\s\S]*?)```/.exec(userText);
+  const originalText = fenced ? stripLineNumbers(fenced[1]).replace(/\n$/, '') : null;
+
+  if (!filePath || !originalText) {
+    streamText(res, ['我拿不到目标文件的内容 —— 换一个文本文件再试。']);
+    return finish(res, { inputTokens: 300, outputTokens: 20 });
+  }
+
+  const rewritten = refactorUserService(originalText);
+  const updated = rewritten ?? `${originalText}\n// what-if 实验标记：这条分支只是把设想落成一个可对比的差异\n`;
+  const diff = buildUnifiedDiff(filePath, originalText, updated);
+
+  streamText(res, ['```diff\n', diff, '\n```\n']);
+  return finish(res, { inputTokens: 1200, outputTokens: 220 });
 }
 
 function respond(toolMessages, intent, currentFile, res) {

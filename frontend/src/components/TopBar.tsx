@@ -24,6 +24,13 @@ interface TopBarProps {
   onOpenSnapshots: () => void;
   onOpenSemantic: () => void;
   onOpenTerminal: () => void;
+  /** 功能 15：打开平行宇宙面板。 */
+  onOpenWhatIf: () => void;
+  /** 功能 13：显示 / 隐藏 Agent 工位面板。 */
+  onToggleDesk: () => void;
+  deskVisible: boolean;
+  /** 功能 14：此刻有几步正被拦下等人放行 —— 顶栏要能一眼看见。 */
+  activeGates: number;
   treeVisible: boolean;
   chatVisible: boolean;
   pendingPatches: number;
@@ -46,6 +53,10 @@ export function TopBar({
   onOpenSnapshots,
   onOpenSemantic,
   onOpenTerminal,
+  onOpenWhatIf,
+  onToggleDesk,
+  deskVisible,
+  activeGates,
   treeVisible,
   chatVisible,
   pendingPatches,
@@ -117,6 +128,20 @@ export function TopBar({
       </button>
       <button className="btn btn-ghost btn-sm" onClick={onOpenTerminal} title="终端 —— 在工作区里手动执行命令（AI 无此能力）">
         终端
+      </button>
+      <button className="btn btn-ghost btn-sm" onClick={onOpenWhatIf} title="平行宇宙 What-if —— 在影子工作区里试改动，左右对比，默认不合并">
+        平行宇宙
+      </button>
+      <button
+        className={`btn btn-ghost btn-sm${deskVisible ? '' : ' muted'}${activeGates > 0 ? ' alert' : ''}`}
+        onClick={onToggleDesk}
+        title={
+          activeGates > 0
+            ? `Agent 工位 —— 有 ${activeGates} 步正被拦下等你放行`
+            : 'Agent 工位 —— 实时看它在你的仓库里打开了什么、光标在哪、草稿怎么长出来'
+        }
+      >
+        工位{activeGates > 0 ? ` ${activeGates}` : ''}
       </button>
 
       <button

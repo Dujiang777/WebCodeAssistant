@@ -122,10 +122,16 @@ public class ChatController {
     /**
      * 批量应用当前会话的全部待确认补丁（功能 10）。
      * 整批打一次快照；单个失败不阻断整批，逐补丁返回明细。
+     *
+     * <p>功能 16 之后多一个前置条件：批里若有「行为变化」的补丁，
+     * 必须带 {@code acknowledgeFlag=true} —— 否则这些补丁会被逐个挡下并计入失败明细，
+     * 不需要开关的补丁照常应用。
      */
     @PostMapping("/{sid}/patches/apply-all")
-    public PatchService.BatchApplyResult applyAll(@PathVariable long sid) {
-        return patchService.applyAll(currentUser.requireId(), sid);
+    public PatchService.BatchApplyResult applyAll(@PathVariable long sid,
+                                                  @RequestBody(required = false) ApiModels.FlagAckRequest request) {
+        boolean acknowledged = request != null && request.acknowledgeFlag();
+        return patchService.applyAll(currentUser.requireId(), sid, acknowledged);
     }
 
     @DeleteMapping("/{sid}")

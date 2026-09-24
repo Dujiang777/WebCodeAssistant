@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * HTTP 层的请求 / 响应模型。
@@ -206,5 +207,32 @@ public final class ApiModels {
 
         public record Stats(int files, int addedLines, int removedLines, int callers, int testFiles) {
         }
+    }
+
+    // --------------------------------------------------------- 闸门 / 特性开关 / What-if
+
+    /**
+     * 「已确认特性开关的关闭路径」标记（功能 16）。
+     *
+     * <p>刻意做成显式字段而不是省略：省略掉就等于没确认，后端会 409。
+     * 这个布尔值就是「我看过关掉开关之后跑哪条旧路径」这句话的机器可读形式。
+     */
+    public record FlagAckRequest(boolean acknowledgeFlag) {
+    }
+
+    /** 工具闸门审批：放行时可带上改过的参数（只覆盖工具自己声明的键）。 */
+    public record GateApproveRequest(Map<String, Object> args, String note) {
+    }
+
+    /** 工具闸门拒绝。 */
+    public record GateRejectRequest(String note) {
+    }
+
+    /** 闸门策略：off（全放行）/ writes（拦写操作，默认）/ strict（再拦大范围检索）。 */
+    public record GatePolicyRequest(String policy) {
+    }
+
+    /** 开一次 What-if 实验。 */
+    public record WhatIfRequest(long sessionId, String question, String file) {
     }
 }

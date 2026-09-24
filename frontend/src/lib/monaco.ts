@@ -1,9 +1,9 @@
 /**
  * Monaco 初始化：注册一个与整套 UI 同源的深色主题。
  *
- * 为什么不直接用内置的 vs-dark：它偏纯灰，和 Web Code Assistant 的碳墨底色、
- * 信号绿强调色对不上，编辑器和外壳会像两个产品拼起来的。
- * 这里的配色全部取自 global.css 的变量值。
+ * 为什么不直接用内置的 vs-dark：它偏纯灰，和 Web Code Assistant 的瑞士黑底、
+ * 电光蓝强调色对不上，编辑器和外壳会像两个产品拼起来的。
+ * 这里的配色全部取自 global.css 的变量值（"Swiss Draft" 设计系统）。
  *
  * 另外刻意关掉了 minimap 与 semanticHighlighting —— 在网页 IDE 里前者太占宽度，
  * 后者需要 LSP（属于 V2），留着只会误导用户以为有语义分析。
@@ -28,45 +28,45 @@ export function configureMonaco(): void {
     base: 'vs-dark',
     inherit: true,
     rules: [
-      { token: 'comment', foreground: '4e6156', fontStyle: 'italic' },
-      { token: 'keyword', foreground: '3af0a6' },
-      { token: 'keyword.control', foreground: '3af0a6' },
-      { token: 'string', foreground: 'e8c88a' },
-      { token: 'number', foreground: '8ad7ff' },
-      { token: 'type', foreground: '6fd3e8' },
-      { token: 'type.identifier', foreground: '6fd3e8' },
-      { token: 'identifier', foreground: 'deebe3' },
+      { token: 'comment', foreground: '6b6353', fontStyle: 'italic' },
+      { token: 'keyword', foreground: 'f2cd8f' },
+      { token: 'keyword.control', foreground: 'f2cd8f' },
+      { token: 'string', foreground: 'd8c9a3' },
+      { token: 'number', foreground: '7fc8a9' },
+      { token: 'type', foreground: 'e8c88a' },
+      { token: 'type.identifier', foreground: 'e8c88a' },
+      { token: 'identifier', foreground: 'efefec' },
       { token: 'annotation', foreground: 'c9b8ff' },
-      { token: 'delimiter', foreground: '8fa79a' },
-      { token: 'operator', foreground: 'a9c2b4' },
+      { token: 'delimiter', foreground: '9a9a95' },
+      { token: 'operator', foreground: 'c2c2bd' },
       { token: 'tag', foreground: 'ff9d7a' },
-      { token: 'attribute.name', foreground: 'e8c88a' },
+      { token: 'attribute.name', foreground: 'd8c9a3' },
       { token: 'attribute.value', foreground: 'a8d9a0' },
     ],
     colors: {
-      'editor.background': '#0f1512',
-      'editor.foreground': '#deebe3',
-      'editorLineNumber.foreground': '#33443c',
-      'editorLineNumber.activeForeground': '#3af0a6',
-      'editor.lineHighlightBackground': '#141d18',
-      'editor.selectionBackground': '#1e3a2f',
-      'editor.inactiveSelectionBackground': '#16261f',
-      'editorCursor.foreground': '#3af0a6',
-      'editorIndentGuide.background1': '#1c2722',
-      'editorIndentGuide.activeBackground1': '#2a3a33',
-      'editorWidget.background': '#121a16',
-      'editorWidget.border': '#223028',
-      'editorSuggestWidget.background': '#121a16',
-      'editorSuggestWidget.selectedBackground': '#1c2b24',
-      'editorGutter.background': '#0f1512',
-      'editorOverviewRuler.border': '#0a0f0d',
-      'scrollbarSlider.background': '#24352d80',
-      'scrollbarSlider.hoverBackground': '#33503fb0',
-      'scrollbarSlider.activeBackground': '#3f6350c0',
-      'diffEditor.insertedTextBackground': '#3af0a618',
-      'diffEditor.removedTextBackground': '#ff6e7f18',
-      'diffEditor.insertedLineBackground': '#3af0a614',
-      'diffEditor.removedLineBackground': '#ff6e7f14',
+      'editor.background': '#12100c',
+      'editor.foreground': '#efefec',
+      'editorLineNumber.foreground': '#4a4436',
+      'editorLineNumber.activeForeground': '#e8b45a',
+      'editor.lineHighlightBackground': '#191612',
+      'editor.selectionBackground': '#3a2f1a',
+      'editor.inactiveSelectionBackground': '#241e12',
+      'editorCursor.foreground': '#e8b45a',
+      'editorIndentGuide.background1': '#221e17',
+      'editorIndentGuide.activeBackground1': '#332c1f',
+      'editorWidget.background': '#12100c',
+      'editorWidget.border': '#2e2a22',
+      'editorSuggestWidget.background': '#12100c',
+      'editorSuggestWidget.selectedBackground': '#2a2317',
+      'editorGutter.background': '#12100c',
+      'editorOverviewRuler.border': '#0b0a08',
+      'scrollbarSlider.background': '#2e2a2280',
+      'scrollbarSlider.hoverBackground': '#3e382bb0',
+      'scrollbarSlider.activeBackground': '#4a4230c0',
+      'diffEditor.insertedTextBackground': '#e8b45a18',
+      'diffEditor.removedTextBackground': '#ff516318',
+      'diffEditor.insertedLineBackground': '#e8b45a14',
+      'diffEditor.removedLineBackground': '#ff516314',
     },
   });
 }

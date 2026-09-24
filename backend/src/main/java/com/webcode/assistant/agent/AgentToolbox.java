@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 /**
  * Agent 可用的四个工具。<b>这是模型唯一能触碰工作区的入口</b>。
@@ -57,6 +57,8 @@ public class AgentToolbox {
     private final SpringMapService springMapService;
     private final com.webcode.assistant.semantic.SemanticIndexService semanticService;
     private final AppProperties appProperties;
+    private final AgentDeskService deskService;
+    private final ToolGateService gateService;
     private final long sessionId;
     private final int maxToolSteps;
 
@@ -76,6 +78,8 @@ public class AgentToolbox {
                         SpringMapService springMapService,
                         com.webcode.assistant.semantic.SemanticIndexService semanticService,
                         AppProperties appProperties,
+                        AgentDeskService deskService,
+                        ToolGateService gateService,
                         long sessionId,
                         int maxToolSteps) {
         this.workspace = workspace;
@@ -88,6 +92,8 @@ public class AgentToolbox {
         this.springMapService = springMapService;
         this.semanticService = semanticService;
         this.appProperties = appProperties;
+        this.deskService = deskService;
+        this.gateService = gateService;
         this.sessionId = sessionId;
         this.maxToolSteps = maxToolSteps;
     }
@@ -104,8 +110,8 @@ public class AgentToolbox {
             返回每一项的类型（dir/file）与大小。已被忽略的目录（.git、node_modules、target、build 等）不会出现。
             """)
     public String listDir(@P("相对工作区根的目录路径，根目录传 \".\"") String path) {
-        return guard("list_dir", Map.of("path", nullSafe(path)), () -> {
-            String directory = normalizeDirPath(path);
+        return guard("list_dir", Map.of("path", nullSafe(path)), decision -> {
+            String directory = normalizeDirPath(decision.value("path", nullSafe(path)));
             List<FileNode> children = fileService.listDirectory(workspace, directory);
 
             StringBuilder out = new StringBuilder();
@@ -145,8 +151,8 @@ public class AgentToolbox {
             此时不要假设文件只有这么长，需要后续部分请调整范围或用 grep 定位。
             """)
     public String readFile(@P("相对工作区根的文本文件路径") String path) {
-        return guard("read_file", Map.of("path", nullSafe(path)), () -> {
-            FileContent content = fileService.read(workspace, path);
+        return guard("read_file", Map.of("path", nullSafe(path)), decision -> {
+            FileContent content = fileService.read(workspace, decision.value("path", nullSafe(path)));
             if (content.binary()) {
                 return outcome("文件 " + content.path() + " 是二进制文件（" + formatSize(content.sizeBytes())
                         + "），无法以文本形式读取。", "二进制文件，已跳过");
@@ -218,12 +224,15 @@ public class AgentToolbox {
         args.put("pattern", nullSafe(pattern));
         args.put("path", nullSafe(path));
         args.put("glob", nullSafe(glob));
-        return guard("grep", args, () -> {
+        return guard("grep", args, decision -> {
             String scope = (path == null || path.isBlank()) ? "." : path;
-            GrepResult result = grepService.search(workspace, pattern, scope, glob);
+            String finalPattern = decision.value("pattern", nullSafe(pattern));
+            String finalScope = decision.value("path", scope);
+            String finalGlob = decision.value("glob", glob);
+            GrepResult result = grepService.search(workspace, finalPattern, finalScope, finalGlob);
             StringBuilder out = new StringBuilder();
-            out.append("模式: ").append(pattern)
-                    .append(" | 范围: ").append(scope)
+            out.append("模式: ").append(finalPattern)
+                    .append(" | 范围: ").append(finalScope)
                     .append(" | 引擎: ").append(result.engine())
                     .append(" | 匹配: ").append(result.count()).append(" 处\n");
             if (result.truncated()) {
@@ -267,8 +276,12 @@ public class AgentToolbox {
         args.put("file", nullSafe(file));
         args.put("summary", nullSafe(summary));
         args.put("diff", abbreviateForEvent(diff));
-        return guard("propose_patch", args, () -> {
-            Patch patch = patchService.propose(sessionId, null, workspace, file, diff);
+        return guard("propose_patch", args, decision -> {
+            String finalFile = decision.value("file", file);
+            // diff 只在人工确实改过时才替换：事件里带的是缩写版，直接拿来用会写出残缺补丁
+            String finalDiff = decision.value("diff", diff);
+            String finalSummary = decision.value("summary", summary);
+            Patch patch = patchService.propose(sessionId, null, workspace, finalFile, finalDiff);
             proposedPatches.add(patch.id());
 
             // 先推给前端：用户能立刻看到 diff 并决定是否应用
@@ -284,6 +297,8 @@ public class AgentToolbox {
                 log.debug("统计补丁行数失败: {}", ex.getMessage());
             }
             String uiSummary = "+" + added + " / -" + removed + " · " + patch.filePath();
+            // 工位上的草稿条：这一步就是「diff 怎么长出来的」那一刻
+            deskService.draftProposed(sessionId, patch.id().toString(), patch.filePath(), added, removed);
 
             // 顺手把影响面回给模型：用户会在卡片上看到风险条，模型也应该知道同样的事实，
             // 这样它能在说明里主动提醒「这碰到了鉴权代码」，而不是让用户自己去发现。
@@ -308,7 +323,7 @@ public class AgentToolbox {
                     用户会在编辑器里看到 diff 并自行决定是否应用。请用一句话告诉用户这个补丁改了什么，
                     **不要**再重复输出 diff 内容，也不要重复提交同一个补丁。
                     """.formatted(patch.id(), patch.filePath(), added, removed,
-                    summary == null || summary.isBlank() ? "（未提供）" : summary, impact);
+                    finalSummary == null || finalSummary.isBlank() ? "（未提供）" : finalSummary, impact);
             return outcome(modelResult, uiSummary);
         });
     }
@@ -323,7 +338,7 @@ public class AgentToolbox {
             注意：首次运行可能要下载依赖，耗时较长；工作区没有测试时会明确告诉你。
             """)
     public String runTests() {
-        return guard("run_tests", Map.of(), () -> {
+        return guard("run_tests", Map.of(), decision -> {
             TestRunResult result = buildService.runTests(workspace);
             StringBuilder out = new StringBuilder();
             out.append("状态: ").append(result.status())
@@ -390,7 +405,7 @@ public class AgentToolbox {
             非 Spring 项目会明确返回「没有发现组件」，不要对这类项目编造地图。
             """)
     public String springMap() {
-        return guard("spring_map", Map.of(), () -> {
+        return guard("spring_map", Map.of(), decision -> {
             SpringMapService.SpringMapData data = springMapService.scan(workspace);
             StringBuilder out = new StringBuilder();
             out.append("Spring 地图 | 扫描 ").append(data.scannedFiles()).append(" 个 Java 文件")
@@ -448,9 +463,9 @@ public class AgentToolbox {
     public String semanticSearch(@P("自然语言查询，例如「数据库连接池在哪配置」") String query) {
         Map<String, Object> args = new LinkedHashMap<>();
         args.put("query", nullSafe(query));
-        return guard("semantic_search", args, () -> {
+        return guard("semantic_search", args, decision -> {
             SemanticHit.Result result = semanticService.search(workspace,
-                    query == null ? "" : query, 8);
+                    decision.value("query", query == null ? "" : query), 8);
             if (!SemanticHit.OK.equals(result.status())) {
                 return outcome("语义检索不可用（" + result.status() + "）：" + result.note()
                         + "\n请改用 grep 按关键字检索。", "语义检索不可用");
@@ -480,8 +495,11 @@ public class AgentToolbox {
      * 统一的「发事件 → 执行 → 发结果」包装。
      * 异常在这里被转成给模型看的文本，保证任何情况下模型都能拿到一次工具结果。
      */
-    private String guard(String toolName, Map<String, Object> args, Supplier<ToolOutcome> action) {
+    private String guard(String toolName, Map<String, Object> args,
+                         Function<ToolGateService.GateDecision, ToolOutcome> action) {
         publisher.toolCall(toolName, args);
+        // 工位（功能 13）：每次工具动作都翻译成空间状态 —— 打开的文件、光标、正在搜什么
+        deskService.toolStarted(sessionId, toolName, args);
 
         // 步数上限：不是硬中断（框架层没有暴露中断点），而是把工具变成「不可用」，
         // 模型拿到这个结果后基本都会收敛到最终回答。真正的硬约束见 README「已知限制」。
@@ -489,21 +507,41 @@ public class AgentToolbox {
             String limitMessage = "已达到本轮工具调用上限（" + maxToolSteps + " 次）。"
                     + "请立即基于已有信息给出最终回答，不要再调用工具。";
             publisher.toolResult(toolName, false, limitMessage);
+            deskService.toolFinished(sessionId, toolName, false, limitMessage);
             return "工具执行失败 -> " + limitMessage;
         }
 
+        // 人工闸门（功能 14）：写操作 / 大范围检索在这里挂起，等人放行或改参数。
+        // 拦在「意图」而不是「diff」上 —— 模型这一步还没执行，人就已经介入了。
+        ToolGateService.GateDecision decision = ToolGateService.GateDecision.passThrough(args);
+        String gateReason = gateService.reasonToGate(sessionId, toolName, args);
+        if (gateReason != null) {
+            decision = gateService.waitForApproval(sessionId, workspace.id(), toolName, args, gateReason);
+            if (!decision.approved()) {
+                String message = "用户拦下了这一步（" + decision.note() + "）。"
+                        + "不要重复申请同一个操作：改用只读手段（read_file / grep / semantic_search）继续排查，"
+                        + "或者直接把当前掌握的情况整理成结论交给用户。";
+                publisher.toolResult(toolName, false, message);
+                deskService.toolFinished(sessionId, toolName, false, "被用户拦下");
+                return "工具执行失败 -> " + message;
+            }
+        }
+
         try {
-            ToolOutcome outcome = action.get();
+            ToolOutcome outcome = action.apply(decision);
             publisher.toolResult(toolName, true, outcome.uiSummary());
+            deskService.toolFinished(sessionId, toolName, true, outcome.uiSummary());
             return outcome.modelResult();
         } catch (ApiException ex) {
             String message = ex.code().name() + ": " + ex.getMessage();
             publisher.toolResult(toolName, false, message);
+            deskService.toolFinished(sessionId, toolName, false, message);
             log.debug("工具 {} 业务失败: {}", toolName, message);
             return "工具执行失败 -> " + message + "\n请根据这个原因调整参数后重试；不要编造文件内容或路径。";
         } catch (RuntimeException ex) {
             String message = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
             publisher.toolResult(toolName, false, message);
+            deskService.toolFinished(sessionId, toolName, false, message);
             log.warn("工具 {} 内部错误", toolName, ex);
             return "工具执行失败 -> 内部错误: " + message;
         }

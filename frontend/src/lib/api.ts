@@ -475,8 +475,15 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  applyPatch: (patchId: string) =>
-    request<PatchRecord>(`/api/patches/${patchId}/apply`, { method: 'POST' }),
+  /**
+   * 应用补丁。改动代码行为的补丁必须先看过「开关关闭时的旧路径」并确认
+   * （acknowledgeFlag=true），否则后端返回 FLAG_ACK_REQUIRED。
+   */
+  applyPatch: (patchId: string, acknowledgeFlag = false) =>
+    request<PatchRecord>(`/api/patches/${patchId}/apply`, {
+      method: 'POST',
+      body: JSON.stringify({ acknowledgeFlag }),
+    }),
 
   rejectPatch: (patchId: string) =>
     request<PatchRecord>(`/api/patches/${patchId}/reject`, { method: 'POST' }),
@@ -537,10 +544,14 @@ export const api = {
   deleteSnapshot: (workspaceId: number, snapshotId: string) =>
     request<void>(`/api/workspaces/${workspaceId}/snapshots/${snapshotId}`, { method: 'DELETE' }),
 
-  /** 批量应用会话内全部待确认补丁（整批一次快照，逐补丁返回成败）。 */
-  applyAllPatches: (sessionId: number) =>
+  /**
+   * 批量应用会话内全部待确认补丁（整批一次快照，逐补丁返回成败）。
+   * 批里若含「行为变化」的补丁，必须带 acknowledgeFlag=true，否则这些会被逐个挡下。
+   */
+  applyAllPatches: (sessionId: number, acknowledgeFlag = false) =>
     request<BatchApplyResult>(`/api/chat/sessions/${sessionId}/patches/apply-all`, {
       method: 'POST',
+      body: JSON.stringify({ acknowledgeFlag }),
     }),
 
   /** 语义检索状态（是否可用 / 已索引块数）。 */
@@ -566,7 +577,193 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ command }),
     }),
+
+  // -------------------------------------------------- 功能 13-16 接口
+
+  /** Agent 工位现状（只读）。平时走 SSE 的 desk 事件，这里用于首屏与断线兜底。 */
+  desk: (workspaceId: number, sessionId: number) =>
+    request<DeskView>(`/api/workspaces/${workspaceId}/desk?sessionId=${sessionId}`),
+
+  /** 本会话正在等待人工放行的闸门（刷新页面后恢复卡片）。 */
+  gates: (sessionId: number) => request<PendingGate[]>(`/api/chat/sessions/${sessionId}/gates`),
+
+  /** 放行一次被拦下的工具调用；可带改过的参数（只覆盖工具原有键）。 */
+  approveGate: (sessionId: number, gateId: string, args?: Record<string, unknown>, note?: string) =>
+    request<PendingGate>(`/api/chat/sessions/${sessionId}/gates/${encodeURIComponent(gateId)}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ args: args ?? null, note: note ?? null }),
+    }),
+
+  /** 拦下这次工具调用（模型会收到「已被人拦下」，改用只读手段继续）。 */
+  rejectGate: (sessionId: number, gateId: string, note?: string) =>
+    request<PendingGate>(`/api/chat/sessions/${sessionId}/gates/${encodeURIComponent(gateId)}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ note: note ?? null }),
+    }),
+
+  /** 读取本会话的闸门策略：off 全放行 / writes 拦写操作 / strict 再拦大范围检索。 */
+  gatePolicy: (sessionId: number) =>
+    request<{ policy: GatePolicy }>(`/api/chat/sessions/${sessionId}/gate-policy`),
+
+  /** 切换闸门策略。 */
+  setGatePolicy: (sessionId: number, policy: GatePolicy) =>
+    request<{ policy: GatePolicy }>(`/api/chat/sessions/${sessionId}/gate-policy`, {
+      method: 'PUT',
+      body: JSON.stringify({ policy }),
+    }),
+
+  /** 本工作区里的全部平行宇宙（反事实分支）。 */
+  whatIfList: (workspaceId: number) =>
+    request<WhatIfBranch[]>(`/api/workspaces/${workspaceId}/whatif`),
+
+  /** 开一次 What-if：拷影子、让模型把设想写成 diff、返回左右对照。 */
+  whatIfAsk: (workspaceId: number, sessionId: number, question: string, file: string) =>
+    request<WhatIfBranch>(`/api/workspaces/${workspaceId}/whatif`, {
+      method: 'POST',
+      body: JSON.stringify({ sessionId, question, file }),
+    }),
+
+  /** 查一次实验的当前状态（ready / adopted / discarded / unavailable）。 */
+  whatIfGet: (workspaceId: number, branchId: string) =>
+    request<WhatIfBranch>(`/api/workspaces/${workspaceId}/whatif/${encodeURIComponent(branchId)}`),
+
+  /** 丢弃平行宇宙（默认结局，影子目录一并删除）。 */
+  whatIfDiscard: (workspaceId: number, branchId: string) =>
+    request<WhatIfBranch>(`/api/workspaces/${workspaceId}/whatif/${encodeURIComponent(branchId)}/discard`, {
+      method: 'POST',
+    }),
+
+  /** 采纳：平行宇宙的改法转成主线上的待确认补丁（仍需人工审阅后才能应用）。 */
+  whatIfAdopt: (workspaceId: number, branchId: string) =>
+    request<WhatIfAdoptResult>(
+      `/api/workspaces/${workspaceId}/whatif/${encodeURIComponent(branchId)}/adopt`,
+      { method: 'POST' },
+    ),
+
+  /**
+   * 补丁的特性开关语义（功能 16）。required=false 时也返回完整视图，
+   * 前端展示「为什么不需要开关」，而不是空着。
+   */
+  featureFlag: (patchId: string) => request<FlagView>(`/api/patches/${patchId}/feature-flag`),
 };
+
+// ------------------------------------------------------------------ 功能 13-16 模型
+
+/** 工位阶段：idle 表示空闲，其余为正在跑的工具名。 */
+export type DeskPhase = 'idle' | 'read_file' | 'list_dir' | 'grep' | 'propose_patch' | 'run_tests'
+  | 'spring_map' | 'semantic_search' | string;
+
+export interface DeskOpenFile {
+  path: string;
+  /** read（只读打开）/ write（准备写入）。 */
+  mode: string;
+  lines: number | null;
+  at: string;
+}
+
+export interface DeskGrep {
+  pattern: string;
+  scope: string;
+  glob: string | null;
+  /** running / done / failed */
+  state: string;
+  hits: number | null;
+  at: string;
+}
+
+export interface DeskDraft {
+  patchId: string;
+  file: string;
+  added: number;
+  removed: number;
+  status: string;
+  at: string;
+}
+
+export interface DeskActivity {
+  tool: string;
+  label: string;
+  /** running / ok / failed */
+  status: string;
+  summary: string;
+  at: string;
+}
+
+/** Agent 工位快照。整块状态一次给全，前端只做替换渲染。 */
+export interface DeskView {
+  sessionId: number;
+  phase: DeskPhase;
+  phaseLabel: string;
+  activeTool: string | null;
+  activeIntent: string | null;
+  cursorFile: string | null;
+  cursorLine: number | null;
+  openFiles: DeskOpenFile[];
+  grep: DeskGrep | null;
+  drafts: DeskDraft[];
+  timeline: DeskActivity[];
+  toolCalls: number;
+  lastDirectory: string | null;
+  updatedAt: string;
+}
+
+export type GatePolicy = 'off' | 'writes' | 'strict';
+
+/** 一个等待人工放行的工具调用。 */
+export interface PendingGate {
+  gateId: string;
+  sessionId: number;
+  tool: string;
+  /** 人话版「它想干什么」——闸门卡片最上面那行。 */
+  intent: string;
+  reason: string;
+  args: Record<string, unknown>;
+  createdAt: string;
+  /** 超时时刻（epoch 毫秒），到点自动放行。 */
+  expiresAt: number;
+}
+
+/** 反事实分支状态：ready / adopted / discarded / unavailable。 */
+export interface WhatIfBranch {
+  id: string;
+  workspaceId: number;
+  question: string;
+  file: string;
+  status: string;
+  note: string | null;
+  mainText: string;
+  shadowText: string;
+  diff: string;
+  added: number;
+  removed: number;
+  createdAt: string;
+}
+
+export interface WhatIfAdoptResult {
+  patchId: string;
+  file: string;
+  note: string;
+}
+
+/** 补丁的特性开关视图。 */
+export interface FlagView {
+  patchId: string;
+  file: string;
+  required: boolean;
+  reason: string;
+  flagKey: string | null;
+  defaultValue: string | null;
+  mode: string | null;
+  targetMethod: string | null;
+  legacyCode: string | null;
+  wrappedSnippet: string | null;
+  configLine: string | null;
+  openRunbook: string | null;
+  closedRunbook: string | null;
+  addedLines: string[];
+  removedLines: string[];
+  notice: string;
+}
 
 /** 人读的字节数格式化。 */
 export function formatBytes(bytes: number | null): string {

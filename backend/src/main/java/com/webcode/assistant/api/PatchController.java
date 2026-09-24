@@ -2,6 +2,7 @@ package com.webcode.assistant.api;
 
 import com.webcode.assistant.agent.BlastRadius;
 import com.webcode.assistant.agent.BlastRadiusService;
+import com.webcode.assistant.agent.FeatureFlagService;
 import com.webcode.assistant.agent.Patch;
 import com.webcode.assistant.agent.PatchService;
 import com.webcode.assistant.agent.PrPreviewService;
@@ -13,6 +14,7 @@ import com.webcode.assistant.workspace.Workspace;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -42,24 +44,44 @@ public class PatchController {
     private final BlastRadiusService blastRadiusService;
     private final PrPreviewService prPreviewService;
     private final BuildService buildService;
+    private final FeatureFlagService featureFlagService;
     private final CurrentUser currentUser;
 
     public PatchController(PatchService patchService,
                            BlastRadiusService blastRadiusService,
                            PrPreviewService prPreviewService,
                            BuildService buildService,
+                           FeatureFlagService featureFlagService,
                            CurrentUser currentUser) {
         this.patchService = patchService;
         this.blastRadiusService = blastRadiusService;
         this.prPreviewService = prPreviewService;
         this.buildService = buildService;
+        this.featureFlagService = featureFlagService;
         this.currentUser = currentUser;
     }
 
-    /** 应用补丁：校验 + 写盘 + 更新工作区体积统计。 */
+    /**
+     * 应用补丁：校验 + 写盘 + 更新工作区体积统计。
+     *
+     * <p>{@code acknowledgeFlag} 是功能 16 的硬闸门：补丁若被判定为「行为变化」，
+     * 不带这个标记就会 409（FLAG_ACK_REQUIRED）—— 逼着人先看一眼
+     * 「关掉开关之后跑的到底是哪条旧路径」。
+     */
     @PostMapping("/{patchId}/apply")
-    public ApiModels.PatchView apply(@PathVariable UUID patchId) {
-        return toView(patchService.apply(currentUser.requireId(), patchId));
+    public ApiModels.PatchView apply(@PathVariable UUID patchId,
+                                     @RequestBody(required = false) ApiModels.FlagAckRequest request) {
+        boolean acknowledged = request != null && request.acknowledgeFlag();
+        return toView(patchService.apply(currentUser.requireId(), patchId, acknowledged));
+    }
+
+    /**
+     * 特性开关包裹视图（功能 16）：开关名、默认值、开关关闭时跑的旧路径、开 / 关两种运行说明。
+     * 纯只读 —— 待确认时看是「应用前必读」，应用后看是「灰度手册」。
+     */
+    @GetMapping("/{patchId}/feature-flag")
+    public FeatureFlagService.FlagView featureFlag(@PathVariable UUID patchId) {
+        return featureFlagService.analyze(currentUser.requireId(), patchId);
     }
 
     /** 拒绝补丁：只改状态，磁盘不动。 */
