@@ -30,8 +30,8 @@ import java.util.stream.Stream;
  * 语义检索（功能 11）：把工作区代码切块、调 OpenAI 兼容 embeddings 接口取向量、
  * 查询时做余弦相似度排序。
  *
- * <p><b>为什么不用 pgvector</b>：单工作区的块数量级是几百到几千，Java 侧全量余弦
- * 是毫秒级 —— 为了这个量级要求用户给 PG 装扩展不值得。向量存 jsonb，开箱即用。
+ * <p><b>为什么不上向量索引</b>：单工作区的块数量级是几百到几千，Java 侧全量余弦
+ * 是毫秒级 —— 为了这个量级要求用户给数据库装扩展不值得。向量存 json 列，开箱即用。
  *
  * <p><b>为什么embedding不可用时要明确报错</b>：与编译闭环的 {@code unavailable} 同一哲学 ——
  * 降级可以，装死不行。未配置 embedding 模型时检索接口返回 unavailable 并解释原因。
@@ -151,7 +151,7 @@ public class SemanticIndexService {
             Chunk chunk = chunks.get(i);
             jdbc.sql("""
                             insert into code_chunks (workspace_id, file_path, start_line, end_line, content, embedding)
-                            values (:workspaceId, :path, :startLine, :endLine, :content, cast(:embedding as jsonb))
+                            values (:workspaceId, :path, :startLine, :endLine, :content, :embedding)
                             """)
                     .param("workspaceId", workspace.id())
                     .param("path", chunk.path())
@@ -187,7 +187,7 @@ public class SemanticIndexService {
         record Row(String path, int startLine, int endLine, String content, String embeddingJson) {
         }
         List<Row> rows = jdbc.sql("""
-                        select file_path, start_line, end_line, content, embedding::text
+                        select file_path, start_line, end_line, content, embedding
                           from code_chunks
                          where workspace_id = :workspaceId
                         """)

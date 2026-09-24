@@ -2,6 +2,8 @@ package com.webcode.assistant.agent;
 
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -30,16 +32,20 @@ public class ChatSessionRepository {
     }
 
     public long insert(long workspaceId, long userId, String title) {
-        return jdbc.sql("""
+        KeyHolder keys = new GeneratedKeyHolder();
+        jdbc.sql("""
                         insert into chat_sessions (workspace_id, user_id, title)
                         values (:workspaceId, :userId, :title)
-                        returning id
                         """)
                 .param("workspaceId", workspaceId)
                 .param("userId", userId)
                 .param("title", title)
-                .query(Long.class)
-                .single();
+                .update(keys);
+        Number id = keys.getKey();
+        if (id == null) {
+            throw new IllegalStateException("插入 chat_sessions 后未能取回自增主键");
+        }
+        return id.longValue();
     }
 
     public Optional<ChatSession> findOwned(long sessionId, long userId) {
@@ -59,8 +65,15 @@ public class ChatSessionRepository {
                 .list();
     }
 
+    /**
+     * 会话活跃时间戳。
+     *
+     * <p>用 {@code current_timestamp(6)} 而非 {@code now()}：MySQL 的 {@code now()} 是秒精度，
+     * 而「最近会话」列表按 {@code updated_at desc} 排序 —— 同一秒内动过的两个会话会并列，
+     * 排序就变成随机的。微秒精度让先后关系稳定。
+     */
     public void touch(long sessionId) {
-        jdbc.sql("update chat_sessions set updated_at = now() where id = :id")
+        jdbc.sql("update chat_sessions set updated_at = current_timestamp(6) where id = :id")
                 .param("id", sessionId)
                 .update();
     }

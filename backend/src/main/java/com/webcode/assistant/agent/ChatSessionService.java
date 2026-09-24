@@ -90,7 +90,7 @@ public class ChatSessionService {
         log.info("会话 {} 已删除（用户 {}）", sessionId, userId);
     }
 
-    /** 把 meta 的 jsonb 原文字符串解析成 JSON 树；解析失败时降级为 null，不影响消息正文展示。 */
+    /** 把 meta 的 JSON 原文字符串解析成 JSON 树；解析失败时降级为 null，不影响消息正文展示。 */
     public JsonNode parseMeta(String metaJson) {
         if (metaJson == null || metaJson.isBlank()) {
             return null;

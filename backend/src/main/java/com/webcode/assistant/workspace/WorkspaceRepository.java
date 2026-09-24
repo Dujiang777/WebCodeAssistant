@@ -2,6 +2,8 @@ package com.webcode.assistant.workspace;
 
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -34,18 +36,22 @@ public class WorkspaceRepository {
     }
 
     public long insert(long userId, String name, String rootPath, String gitUrl, long sizeBytes) {
-        return jdbc.sql("""
+        KeyHolder keys = new GeneratedKeyHolder();
+        jdbc.sql("""
                         insert into workspaces (user_id, name, root_path, git_url, size_bytes)
                         values (:userId, :name, :rootPath, :gitUrl, :sizeBytes)
-                        returning id
                         """)
                 .param("userId", userId)
                 .param("name", name)
                 .param("rootPath", rootPath)
                 .param("gitUrl", gitUrl)
                 .param("sizeBytes", sizeBytes)
-                .query(Long.class)
-                .single();
+                .update(keys);
+        Number id = keys.getKey();
+        if (id == null) {
+            throw new IllegalStateException("插入 workspaces 后未能取回自增主键");
+        }
+        return id.longValue();
     }
 
     public List<Workspace> findAllByUser(long userId) {

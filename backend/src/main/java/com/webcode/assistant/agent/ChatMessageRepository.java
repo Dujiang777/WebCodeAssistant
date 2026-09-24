@@ -2,6 +2,8 @@ package com.webcode.assistant.agent;
 
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -9,8 +11,9 @@ import java.util.List;
 /**
  * chat_messages 表访问。
  *
- * <p>{@code meta} 列是 jsonb；写入时用 {@code cast(:meta as jsonb)} 显式转换，
- * 读取时直接取字符串交给 Jackson，避免为了一个字段引入 ORM 的类型映射。
+ * <p>{@code meta} 列是 MySQL 的 {@code json} 类型，但这里两端都当**字符串**处理：
+ * 写入时直接绑 JSON 文本（数据库会解析校验，非法 JSON 会当场报错而不是悄悄存进去），
+ * 读取时取字符串交给 Jackson —— 避免为了一个字段引入 ORM 的类型映射。
  */
 @Repository
 public class ChatMessageRepository {
@@ -32,17 +35,21 @@ public class ChatMessageRepository {
     }
 
     public long insert(long sessionId, String role, String content, String metaJson) {
-        return jdbc.sql("""
+        KeyHolder keys = new GeneratedKeyHolder();
+        jdbc.sql("""
                         insert into chat_messages (session_id, role, content, meta)
-                        values (:sessionId, :role, :content, cast(:meta as jsonb))
-                        returning id
+                        values (:sessionId, :role, :content, :meta)
                         """)
                 .param("sessionId", sessionId)
                 .param("role", role)
                 .param("content", content == null ? "" : content)
                 .param("meta", metaJson == null || metaJson.isBlank() ? "{}" : metaJson)
-                .query(Long.class)
-                .single();
+                .update(keys);
+        Number id = keys.getKey();
+        if (id == null) {
+            throw new IllegalStateException("插入 chat_messages 后未能取回自增主键");
+        }
+        return id.longValue();
     }
 
     /** 按时间正序返回整段会话历史（前端渲染用）。 */
