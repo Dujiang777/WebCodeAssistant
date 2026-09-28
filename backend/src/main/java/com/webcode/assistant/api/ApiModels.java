@@ -200,7 +200,7 @@ public final class ApiModels {
     // --------------------------------------------------------- 补丁
 
     public record PatchView(String id, long sessionId, Long messageId, String file, String diff,
-                            String status, String createdAt, String appliedAt) {
+                            String summary, String status, String createdAt, String appliedAt) {
     }
 
     // ------------------------------------------------- 补丁风险条（Blast radius）

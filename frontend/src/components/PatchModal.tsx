@@ -117,6 +117,7 @@ export function PatchModal({ workspaceId, patch, busy, onClose, onApply }: Patch
 
         <div className="modal-foot">
           <span className="modal-note">
+            {patch.summary ? `${patch.summary} · ` : ''}
             应用后文件会被真的改写；写入前后端会再校验一次能否干净应用。
           </span>
           <button className="btn" onClick={onClose}>

@@ -1,0 +1,39 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "login as admin" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'admin'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'WcaAdmin!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3200 },
+
+  { "note": "open first workspace row" },
+  ["eval", "var row=document.querySelector('.workspace-row'); row && row.click(), 'opened:' + (row ? 'yes' : 'no')"],
+  { "sleep": 5000 },
+
+  { "note": "open UserService.java in editor (must exist)" },
+  ["eval", "var rows=Array.from(document.querySelectorAll('.tree-row')); var f=rows.find(function (r) { return r.innerText.indexOf('UserService.java') >= 0; }); f && f.click(); 'FILE=' + (f ? 'yes' : 'no') + ' ROWS=' + rows.length"],
+  { "sleep": 1500 },
+
+  { "note": "send multi-file refactor message" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; var t=document.querySelector('.composer-input'); s.call(t, '请把这个类一次改好几个文件：字段注入改成构造器注入，再补一份说明文档。'); t.dispatchEvent(new Event('input', { bubbles: true })); 'typed:' + (t ? 'yes' : 'no')"],
+  { "sleep": 400 },
+  ["eval", "var btn=document.querySelector('.composer-actions .btn-primary'); var before=btn && btn.disabled; btn && btn.click(); 'SENT disabled-before=' + before"],
+  { "sleep": 25000 },
+  ["eval", "var cards=document.querySelectorAll('.patch-card'); var sums=document.querySelectorAll('.patch-summary'); 'TRY1 CARDS=' + cards.length + ' SUMMARY=' + sums.length + ' TEXT=' + (sums.length ? sums[0].innerText.slice(0, 30) : 'none')"],
+  { "sleep": 15000 },
+  ["eval", "var cards=document.querySelectorAll('.patch-card'); var sums=document.querySelectorAll('.patch-summary'); 'TRY2 CARDS=' + cards.length + ' SUMMARY=' + sums.length + ' TEXT=' + (sums.length ? sums[0].innerText.slice(0, 30) : 'none')"],
+
+  { "note": "screenshot patch area" },
+  ["eval", "var el=document.querySelector('.patch-summary'); el && el.scrollIntoView({ block: 'center' }), 'scrolled:' + (el ? 'yes' : 'no')"],
+  { "sleep": 600 },
+  ["screenshot", "docs/self-test/v6-admin/30-patch-summary.png"],
+
+  { "note": "open full diff modal shows summary in footer" },
+  ["eval", "var btns=Array.from(document.querySelectorAll('.patch-card .patch-actions .btn')); var b=btns.find(function (x) { return x.innerText.indexOf('完整对比') >= 0; }); b && b.click(); 'CLICK=' + (b ? 'yes' : 'no')"],
+  { "sleep": 2500 },
+  ["eval", "'MODAL=' + (document.querySelector('.modal') ? 'yes' : 'no') + ' FOOT=' + ((document.querySelector('.modal-note') || { innerText: '' }).innerText.slice(0, 40))"],
+  ["screenshot", "docs/self-test/v6-admin/31-patch-modal-summary.png"]
+]

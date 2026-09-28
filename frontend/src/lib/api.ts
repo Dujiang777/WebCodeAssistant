@@ -378,6 +378,8 @@ export interface PatchRecord {
   messageId: number | null;
   file: string;
   diff: string;
+  /** 模型写的一句话变更说明（会显示在补丁卡片上）；历史补丁可能为空串。 */
+  summary: string | null;
   status: 'pending' | 'applied' | 'rejected';
   createdAt: string;
   appliedAt: string | null;

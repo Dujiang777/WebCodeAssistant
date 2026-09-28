@@ -233,6 +233,7 @@ function detectIntent(messages) {
   const userMessages = messages.filter((m) => m.role === 'user');
   const last = userMessages[userMessages.length - 1];
   const userText = String(last?.content ?? '');
+  if (/一次改好几个文件|多文件|批量重构|multi.?file/i.test(userText)) return 'refactor_multi';
   if (/重构|改成构造器|构造器注入|constructor injection|refactor/i.test(userText)) return 'refactor';
   if (/解释|说明|讲讲|什么是|explain/i.test(userText)) return 'explain';
   return 'general';
@@ -399,6 +400,33 @@ function respond(toolMessages, intent, currentFile, res) {
     if (intent === 'explain' || !content) {
       streamText(res, explainChunks(currentFile, content));
       return finish(res, { inputTokens: 900, outputTokens: 300 });
+    }
+
+    if (intent === 'refactor_multi') {
+      // 功能 78.2：多文件补丁 —— 一次 diff 连写「已读文件的重构段 + 新建说明文档段」。
+      // 第二段用新建文件（/dev/null 风格），内容确定性生成，不依赖额外 read_file。
+      const updated = refactorUserService(content);
+      if (!updated) {
+        streamText(res, ['没有在文件里找到 `UserRepository` 字段注入的写法，请确认当前打开的文件。']);
+        return finish(res, { inputTokens: 900, outputTokens: 40 });
+      }
+      const first = buildUnifiedDiff(currentFile, content, updated);
+      const noteLines = [
+        '# 重构说明', '', '本次把 UserService 的字段注入改为构造器注入：', '',
+        '- 移除 `@Autowired`，依赖改为 `final`；', '- 新增构造器，便于单测直接构造实例。', '',
+      ];
+      const second = [
+        '--- /dev/null',
+        '+++ b/docs/refactor-notes.md',
+        `@@ -0,0 +1,${noteLines.length} @@`,
+        ...noteLines.map((line) => `+${line}`),
+      ].join('\n');
+      streamToolCall(res, 'propose_patch', {
+        file: currentFile,
+        summary: '一次提交两处相关改动：UserService 改构造器注入，并新建重构说明文档',
+        diff: `${first}\n${second}`,
+      });
+      return finish(res, { inputTokens: 1500, outputTokens: 260 });
     }
 
     if (intent === 'refactor') {

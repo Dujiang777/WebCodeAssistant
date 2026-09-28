@@ -46,12 +46,17 @@ public class ChatEventPublisher {
         channel.publish(ChatEvent.TYPE_TOOL_RESULT, body);
     }
 
-    /** 补丁已生成，等待用户在前端确认。{@code id} 是补丁 uuid。 */
-    public void patch(String patchId, String file, String diff) {
+    /**
+     * 补丁已生成，等待用户在前端确认。{@code id} 是补丁 uuid。
+     *
+     * @param summary 模型写的一句话变更说明，前端直接显示在补丁卡片上；可为 null
+     */
+    public void patch(String patchId, String file, String diff, String summary) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("id", patchId);
         body.put("file", file);
         body.put("diff", diff);
+        body.put("summary", summary == null ? "" : summary);
         channel.publish(ChatEvent.TYPE_PATCH, body);
     }
 

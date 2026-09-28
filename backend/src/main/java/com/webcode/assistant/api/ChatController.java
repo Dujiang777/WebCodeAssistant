@@ -154,6 +154,6 @@ public class ChatController {
     private ApiModels.PatchView toView(Patch patch) {
         PatchService.PatchView view = PatchService.PatchView.of(patch);
         return new ApiModels.PatchView(view.id().toString(), view.sessionId(), view.messageId(),
-                view.file(), view.diff(), view.status(), view.createdAt(), view.appliedAt());
+                view.file(), view.diff(), view.summary(), view.status(), view.createdAt(), view.appliedAt());
     }
 }

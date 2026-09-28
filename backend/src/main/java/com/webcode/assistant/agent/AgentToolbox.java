@@ -255,23 +255,24 @@ public class AgentToolbox {
     // -------------------------------------------------------- propose_patch
 
     @Tool(name = "propose_patch", value = """
-            生成一个**待用户确认**的代码补丁。这是修改代码的唯一方式，你不会直接写文件。
+            生成**待用户确认**的代码补丁。这是修改代码的唯一方式，你不会直接写文件。
             参数：
-              file    相对工作区根的目标文件路径
-              diff    unified diff 文本，必须包含 @@ 变更块；建议带上 --- / +++ 文件头。
-                      --- 一侧写 a/原路径，+++ 一侧写 b/目标路径；新建文件用 --- /dev/null。
-                      上下文行（空格开头）必须与文件当前内容逐字符一致。
-              summary 一句话说明这个补丁做了什么（给用户看，中文）
+              file    相对工作区根的目标文件路径（单文件补丁的主文件；多文件 diff 时传第一个文件的路径）
+              diff    unified diff 文本。**支持一次写多个文件**（git 风格，---/+++ 文件头交替出现），
+                      例如改「接口 + 实现 + 测试」时一次提交三个文件段，用户会在前端看到一组补丁并可一键批量应用。
+                      每个 @@ 变更块前的上下文行（空格开头）必须与文件当前内容逐字符一致；
+                      新建文件用 --- /dev/null。行号不准确时先重新 read_file 再生成。
+              summary 一句话中文说明**这组改动做了什么、为什么**（给用户看，会直接显示在补丁卡片上）。
+                      用「改了什么 + 解决什么问题」的结构，例如「把逐条 insert 改为批量插入，修复导入 1 万行超时」。
             约束：
-              - 一次调用只能改一个文件；改动跨多个文件时，在本轮内连续多次调用把相关补丁
-                全部提交（例如「接口 + 实现 + 测试」三件套），用户可以在前端一键批量应用；
-              - 补丁会先做一次「能否干净应用」的校验，校验不通过会把原因告诉你，
-                此时请重新 read_file 获取最新内容后再次调用，不要重复提交同样的 diff；
-              - 用户点「应用」之后才会真正写盘；在用户确认前不要重复提交同一补丁。
+              - 相关文件的改动**尽量一次 diff 提交**，不要一个文件一个文件挤牙膏；一次最多 8 个文件；
+              - 补丁会逐文件做「能否干净应用」的校验，任何一个文件失败整批都会被拒绝并告诉你原因；
+                此时请重新 read_file 后修正，不要原样重试；
+              - 用户点「应用」之后才会真正写盘；补丁被应用或拒绝后不要再重复提交。
             """)
     public String proposePatch(@P("相对工作区根的目标文件路径") String file,
-                               @P("unified diff 文本") String diff,
-                               @P("一句话中文说明这个补丁做了什么") String summary) {
+                               @P("unified diff 文本，可包含多个文件的变更段") String diff,
+                               @P("一句话中文说明这组改动做了什么") String summary) {
         Map<String, Object> args = new LinkedHashMap<>();
         args.put("file", nullSafe(file));
         args.put("summary", nullSafe(summary));
@@ -281,50 +282,65 @@ public class AgentToolbox {
             // diff 只在人工确实改过时才替换：事件里带的是缩写版，直接拿来用会写出残缺补丁
             String finalDiff = decision.value("diff", diff);
             String finalSummary = decision.value("summary", summary);
-            Patch patch = patchService.propose(sessionId, null, workspace, finalFile, finalDiff);
-            proposedPatches.add(patch.id());
 
-            // 先推给前端：用户能立刻看到 diff 并决定是否应用
-            publisher.patch(patch.id().toString(), patch.filePath(), patch.diffText());
+            List<Patch> patches = patchService.proposeBatch(sessionId, null, workspace,
+                    finalFile, finalDiff, finalSummary);
+            patches.forEach(patch -> proposedPatches.add(patch.id()));
 
-            int added = 0;
-            int removed = 0;
-            try {
-                var filePatch = UnifiedDiffParser.parse(patch.diffText(), patch.filePath()).get(0);
-                added = filePatch.addedLines();
-                removed = filePatch.removedLines();
-            } catch (RuntimeException ex) {
-                log.debug("统计补丁行数失败: {}", ex.getMessage());
+            StringBuilder uiSummary = new StringBuilder();
+            StringBuilder modelResult = new StringBuilder();
+            int totalAdded = 0;
+            int totalRemoved = 0;
+            modelResult.append("补丁已生成，正在等待用户确认（").append(patches.size()).append(" 个文件）。\n");
+            for (int i = 0; i < patches.size(); i++) {
+                Patch patch = patches.get(i);
+                int added = 0;
+                int removed = 0;
+                try {
+                    var filePatch = UnifiedDiffParser.parse(patch.diffText(), patch.filePath()).get(0);
+                    added = filePatch.addedLines();
+                    removed = filePatch.removedLines();
+                } catch (RuntimeException ex) {
+                    log.debug("统计补丁行数失败: {}", ex.getMessage());
+                }
+                totalAdded += added;
+                totalRemoved += removed;
+
+                // 先推给前端：用户能立刻看到 diff 与变更说明并决定是否应用
+                publisher.patch(patch.id().toString(), patch.filePath(), patch.diffText(), patch.summary());
+                // 工位上的草稿条：这一步就是「diff 怎么长出来的」那一刻
+                deskService.draftProposed(sessionId, patch.id().toString(), patch.filePath(), added, removed);
+                uiSummary.append(i == 0 ? "" : " · ").append(patch.filePath());
+
+                // 影响面回给模型：用户会在卡片上看到风险条，模型也应该知道同样的事实，
+                // 这样它能在说明里主动提醒「这碰到了鉴权代码」，而不是让用户自己去发现。
+                String impact;
+                try {
+                    impact = blastRadiusService.describeForModel(
+                            blastRadiusService.compute(workspace, patch.filePath(), patch.diffText()));
+                } catch (RuntimeException ex) {
+                    log.debug("影响面分析失败: {}", ex.getMessage());
+                    impact = "（影响面分析未能完成）";
+                }
+                if (i < 3) {
+                    modelResult.append("\n[")
+                            .append(patches.size() > 1 ? (i + 1) + "/" + patches.size() + " " : "")
+                            .append(patch.filePath()).append("] +").append(added).append(" / -").append(removed)
+                            .append('\n').append(impact).append('\n');
+                }
             }
-            String uiSummary = "+" + added + " / -" + removed + " · " + patch.filePath();
-            // 工位上的草稿条：这一步就是「diff 怎么长出来的」那一刻
-            deskService.draftProposed(sessionId, patch.id().toString(), patch.filePath(), added, removed);
-
-            // 顺手把影响面回给模型：用户会在卡片上看到风险条，模型也应该知道同样的事实，
-            // 这样它能在说明里主动提醒「这碰到了鉴权代码」，而不是让用户自己去发现。
-            String impact;
-            try {
-                impact = blastRadiusService.describeForModel(
-                        blastRadiusService.compute(workspace, patch.filePath(), patch.diffText()));
-            } catch (RuntimeException ex) {
-                log.debug("影响面分析失败: {}", ex.getMessage());
-                impact = "（影响面分析未能完成）";
+            if (patches.size() > 3) {
+                modelResult.append("\n… 其余 ").append(patches.size() - 3)
+                        .append(" 个文件的影响面详情见前端风险条。\n");
             }
+            modelResult.append("""
+                    
+                    用户会在编辑器里看到 diff、每张卡片的变更说明与风险条，并自行决定是否应用。
+                    接下来**不要**重复输出 diff 内容，也不要重复提交补丁；用最多 3 句话收尾即可。
+                    """);
 
-            String modelResult = """
-                    补丁已生成，正在等待用户确认。
-                    patchId: %s
-                    文件: %s
-                    变更: +%d 行 / -%d 行
-                    说明: %s
-
-                    %s
-
-                    用户会在编辑器里看到 diff 并自行决定是否应用。请用一句话告诉用户这个补丁改了什么，
-                    **不要**再重复输出 diff 内容，也不要重复提交同一个补丁。
-                    """.formatted(patch.id(), patch.filePath(), added, removed,
-                    finalSummary == null || finalSummary.isBlank() ? "（未提供）" : finalSummary, impact);
-            return outcome(modelResult, uiSummary);
+            return outcome(modelResult.toString(),
+                    "+" + totalAdded + " / -" + totalRemoved + " · " + uiSummary);
         });
     }
 

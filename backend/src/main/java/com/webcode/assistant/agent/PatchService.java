@@ -9,6 +9,8 @@ import com.webcode.assistant.workspace.WorkspaceService;
 import com.webcode.assistant.workspace.snapshot.Snapshot;
 import com.webcode.assistant.workspace.snapshot.SnapshotService;
 import com.webcode.assistant.workspace.diff.FilePatch;
+import com.webcode.assistant.workspace.diff.Hunk;
+import com.webcode.assistant.workspace.diff.HunkLine;
 import com.webcode.assistant.workspace.diff.UnifiedDiffApplier;
 import com.webcode.assistant.workspace.diff.UnifiedDiffParser;
 import org.slf4j.Logger;
@@ -74,38 +76,103 @@ public class PatchService {
     }
 
     /**
-     * 由 Agent 工具调用：校验并落库一个待确认补丁。
+     * 单文件入口（What-if 等内部路径）：校验并落库一个补丁。
      *
      * @return 落库后的补丁；调用方负责把它推给 SSE
-     * @throws ApiException 校验不通过时抛出，异常消息会作为工具结果回给模型，让它重新生成
+     * @throws ApiException 校验不通过时抛出
      */
     public Patch propose(long sessionId, Long messageId, Workspace workspace,
                          String declaredPath, String diffText) {
+        List<Patch> patches = proposeBatch(sessionId, messageId, workspace, declaredPath, diffText, null);
+        return patches.getFirst();
+    }
+
+    /**
+     * Agent 工具入口：校验并落库一批补丁（功能 78.2：多文件补丁）。
+     *
+     * <p>diff 可以是<b>一个</b>文件的 unified diff，也可以是<b>多个文件</b>连写的
+     * unified diff（git 风格，文件头 {@code --- a/x} / {@code +++ b/y} 交替出现）。
+     * 多文件会被<b>拆段</b>：每个文件拆成一条独立的补丁记录，只保存属于自己文件的
+     * diff 段 —— 这样应用、影响面、编译闭环、PR 预演这些下游消费方拿到的仍然是
+     * 「一个补丁 = 一个文件」，契约完全不变。
+     *
+     * <p>校验是<b>全有或全无</b>：任何一个文件校验失败（路径越界 / 不能干净应用），
+     * 整批都不会落库 —— 「接口改了、实现没改」的半套补丁比没有补丁更危险。
+     * 失败原因会聚合后回给模型，让它修正后重试。
+     *
+     * @param declaredPath file 参数。单文件 diff 时必须与 diff 头一致；多文件 diff 时
+     *                     仅作为缺文件头的裸 hunk 的兜底路径（一般不用，建议模型始终写文件头）
+     * @return 落库后的补丁列表（至少 1 条，顺序与 diff 中文件出现顺序一致）
+     */
+    public List<Patch> proposeBatch(long sessionId, Long messageId, Workspace workspace,
+                                    String declaredPath, String diffText, String summary) {
         String path = normalizeDeclaredPath(declaredPath);
         List<FilePatch> parsed = UnifiedDiffParser.parse(diffText, path);
-
-        if (parsed.size() != 1) {
+        if (parsed.size() > MAX_PATCHES_PER_CALL) {
             throw new ApiException(ErrorCode.DIFF_INVALID,
-                    "一次补丁只能修改一个文件，当前包含 " + parsed.size() + " 个文件。请拆成多次 propose_patch。");
-        }
-        FilePatch filePatch = parsed.get(0);
-        String diffPath = normalizeDeclaredPath(filePatch.targetPath());
-        if (!diffPath.equals(path)) {
-            throw new ApiException(ErrorCode.DIFF_INVALID,
-                    "diff 头部的文件路径（" + diffPath + "）与 file 参数（" + path + "）不一致，请修正后重试。");
+                    "一次补丁最多包含 " + MAX_PATCHES_PER_CALL + " 个文件，当前 " + parsed.size()
+                            + " 个。请拆成多次 propose_patch。");
         }
 
-        // 路径边界：越界会在这里抛 PATH_ESCAPE
-        Path target = resolveTarget(workspace, path);
-        String current = readCurrentContent(workspace, path, target);
+        // 第一遍：全部校验。任何一个失败整批拒绝，不让半套补丁落库。
+        for (FilePatch filePatch : parsed) {
+            String diffPath = normalizeDeclaredPath(filePatch.targetPath());
+            Path target = resolveTarget(workspace, diffPath);
+            String current = readCurrentContent(workspace, diffPath, target);
+            try {
+                UnifiedDiffApplier.apply(current, filePatch);
+            } catch (ApiException ex) {
+                throw ex;
+            } catch (RuntimeException ex) {
+                throw new ApiException(ErrorCode.DIFF_INVALID,
+                        "文件 " + diffPath + " 的补丁不能干净应用：" + ex.getMessage()
+                                + "。请重新 read_file 该文件后修正 diff。");
+            }
+        }
 
-        // 干跑一次，确保这个补丁确实能应用；不能应用就不该拿去打扰用户
-        UnifiedDiffApplier.apply(current, filePatch);
+        // 第二遍：逐文件拆段落库。每条记录只存自己文件的 diff 段，
+        // 下游（apply / blast-radius / compile / pr-preview）看到的仍是单文件补丁。
+        List<Patch> patches = new ArrayList<>(parsed.size());
+        for (FilePatch filePatch : parsed) {
+            String diffPath = normalizeDeclaredPath(filePatch.targetPath());
+            String segmentDiff = serializeSegment(filePatch);
+            UUID id = patchRepository.insert(sessionId, messageId, diffPath, segmentDiff, summary);
+            patches.add(patchRepository.findById(id).orElseThrow());
+            log.info("生成补丁 {}（批内 {} / {}）会话 {} 文件 {}（+{} / -{}）",
+                    id, patches.size(), parsed.size(), sessionId, diffPath,
+                    filePatch.addedLines(), filePatch.removedLines());
+        }
+        return patches;
+    }
 
-        UUID id = patchRepository.insert(sessionId, messageId, path, diffText);
-        log.info("生成补丁 {} 会话 {} 文件 {}（+{} / -{}）",
-                id, sessionId, path, filePatch.addedLines(), filePatch.removedLines());
-        return patchRepository.findById(id).orElseThrow();
+    /** 一次 propose 允许覆盖的文件数上限。防止模型一把梭改掉半个仓库。 */
+    private static final int MAX_PATCHES_PER_CALL = 8;
+
+    /**
+     * 把解析后的单文件补丁重新序列化成标准 unified diff 文本。
+     *
+     * <p>为什么不直接存原始 diffText：一条 patch 记录只允许对应一个文件，
+     * 而原始 diff 里可能连写着 N 个文件 —— 下游 applyCore 解析后 {@code get(0)}
+     * 会永远拿到第一个文件。拆段序列化让「记录 = 文件」保持严格一对一。
+     * hunk 头的计数按实际行数重算，比模型手写的原始计数更可靠。
+     */
+    private static String serializeSegment(FilePatch filePatch) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("--- ").append(filePatch.oldPath() == null ? "/dev/null" : "a/" + filePatch.oldPath())
+                .append('\n');
+        sb.append("+++ ").append(filePatch.newPath() == null ? "/dev/null" : "b/" + filePatch.newPath())
+                .append('\n');
+        for (Hunk hunk : filePatch.hunks()) {
+            long oldCount = hunk.lines().stream().filter(line -> line.type() != '+').count();
+            long newCount = hunk.lines().stream().filter(line -> line.type() != '-').count();
+            sb.append("@@ -").append(hunk.oldStart()).append(',').append(oldCount)
+                    .append(" +").append(hunk.newStart()).append(',').append(newCount)
+                    .append(" @@\n");
+            for (HunkLine line : hunk.lines()) {
+                sb.append(line.type()).append(line.text()).append('\n');
+            }
+        }
+        return sb.toString();
     }
 
     /**
@@ -341,9 +408,9 @@ public class PatchService {
         return path;
     }
 
-    /** 补丁的对外视图。 */
+    /** 补丁的对外视图。summary 是模型写的一句话变更说明，可为 null（历史补丁）。 */
     public record PatchView(UUID id, long sessionId, Long messageId, String file, String diff,
-                            String status, String createdAt, String appliedAt) {
+                            String summary, String status, String createdAt, String appliedAt) {
 
         public static PatchView of(Patch patch) {
             return new PatchView(
@@ -352,6 +419,7 @@ public class PatchService {
                     patch.messageId(),
                     patch.filePath(),
                     patch.diffText(),
+                    patch.summary(),
                     patch.status(),
                     iso(patch.createdAt()),
                     patch.appliedAt() == null ? null : patch.appliedAt().toString());
