@@ -45,9 +45,14 @@ say "FE_OK"
 
 say "3/5 构建后端（gradle bootJar）"
 cd "$SRC/backend" || exit 1
-# Gradle 发行版换腾讯云镜像（130MB，直连官方源在国内常年超时）
-sed -i 's|https://services.gradle.org/distributions/|https://mirrors.cloud.tencent.com/gradle/|' \
+# Gradle 发行版换腾讯云镜像。两个坑：
+#   ① 官方源（services.gradle.org）在国内服务器上实测 ~20 KB/s，130MB 要跑近两小时；
+#   ② wrapper 文件里写的是 `https\://`（转义冒号），所以模式里**不能带 `https://` 前缀**，
+#      否则静默不匹配、白等一场（2026-09-28 踩过）。
+sed -i 's|services.gradle.org/distributions|mirrors.cloud.tencent.com/gradle|' \
   gradle/wrapper/gradle-wrapper.properties
+grep -q 'mirrors.cloud.tencent.com/gradle' gradle/wrapper/gradle-wrapper.properties \
+  || { say "MIRROR_PATCH_FAILED"; exit 1; }
 chmod +x gradlew
 GRADLE_USER_HOME="$GRADLE_HOME_DIR" ./gradlew --no-daemon --console=plain \
   --init-script "$OUT/init.gradle" bootJar || { say "BE_BUILD_FAILED"; exit 1; }
