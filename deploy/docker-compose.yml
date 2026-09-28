@@ -85,6 +85,8 @@ services:
 
       # 上线前务必替换（至少 32 字节）
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-please-override-with-32-bytes-at-least}
+      # 加密用户自带模型 Key（BYOK）。留空会回退到 JWT_SECRET 并打 WARN。
+      APP_SECRET: ${APP_SECRET:-}
       JWT_TTL: ${JWT_TTL:-PT2H}
       JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-PT720H}
 
