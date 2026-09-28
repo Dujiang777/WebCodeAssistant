@@ -17,6 +17,8 @@ import { loader } from '@monaco-editor/react';
 loader.config({ monaco });
 
 export const WCA_THEME = 'wca-dark';
+/** 暖纸浅色主题（lib/theme.ts 的 ivory）对应的编辑器主题。 */
+export const WCA_LIGHT = 'wca-light';
 
 let configured = false;
 
@@ -69,6 +71,61 @@ export function configureMonaco(): void {
       'diffEditor.removedLineBackground': '#ff516314',
     },
   });
+
+  monaco.editor.defineTheme(WCA_LIGHT, {
+    base: 'vs',
+    inherit: true,
+    rules: [
+      { token: 'comment', foreground: '8a7f66', fontStyle: 'italic' },
+      { token: 'keyword', foreground: '8a5a00' },
+      { token: 'keyword.control', foreground: '8a5a00' },
+      { token: 'string', foreground: '3d7a4f' },
+      { token: 'number', foreground: '1f6fa8' },
+      { token: 'type', foreground: '8a5a00' },
+      { token: 'type.identifier', foreground: '8a5a00' },
+      { token: 'identifier', foreground: '2a251b' },
+      { token: 'annotation', foreground: '6b46c1' },
+      { token: 'delimiter', foreground: '7a715c' },
+      { token: 'operator', foreground: '5a5240' },
+      { token: 'tag', foreground: 'b04a2a' },
+      { token: 'attribute.name', foreground: '7a5c14' },
+      { token: 'attribute.value', foreground: '3d7a4f' },
+    ],
+    colors: {
+      'editor.background': '#faf7f0',
+      'editor.foreground': '#2a251b',
+      'editorLineNumber.foreground': '#b3a88c',
+      'editorLineNumber.activeForeground': '#9c6d14',
+      'editor.lineHighlightBackground': '#f0ebdd',
+      'editor.selectionBackground': '#e3d2ab',
+      'editor.inactiveSelectionBackground': '#efe5cd',
+      'editorCursor.foreground': '#9c6d14',
+      'editorIndentGuide.background1': '#e5decb',
+      'editorIndentGuide.activeBackground1': '#cfc4a6',
+      'editorWidget.background': '#faf7f0',
+      'editorWidget.border': '#ddd5c2',
+      'editorSuggestWidget.background': '#faf7f0',
+      'editorSuggestWidget.selectedBackground': '#f0e6cf',
+      'editorGutter.background': '#faf7f0',
+      'editorOverviewRuler.border': '#f4f0e6',
+      'scrollbarSlider.background': '#d8d0bc80',
+      'scrollbarSlider.hoverBackground': '#c8bfa6b0',
+      'scrollbarSlider.activeBackground': '#b8ad92c0',
+      'diffEditor.insertedTextBackground': '#3ddc9722',
+      'diffEditor.removedTextBackground': '#d23b4b22',
+      'diffEditor.insertedLineBackground': '#3ddc9718',
+      'diffEditor.removedLineBackground': '#d23b4b18',
+    },
+  });
+}
+
+/**
+ * UI 主题 → 编辑器主题的联动入口（lib/theme.ts 的 applyTheme 调用）。
+ * 墨玉与暗房黄铜共用同一套深色编辑器主题：两者都是深底，只有外壳强调色不同。
+ */
+export function setMonacoTheme(uiTheme: 'brass' | 'emerald' | 'ivory'): void {
+  configureMonaco();
+  monaco.editor.setTheme(uiTheme === 'ivory' ? WCA_LIGHT : WCA_THEME);
 }
 
 /** 编辑器通用选项：偏向 IDE 观感，关掉与 V2 能力相关的提示。 */

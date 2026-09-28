@@ -1,0 +1,33 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "login as admin" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'admin'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'WcaAdmin!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3200 },
+
+  { "note": "workspace list: hero + mode cards + card grid + avatar" },
+  ["eval", "'HERO=' + (document.querySelector('.ws-hero-title') ? document.querySelector('.ws-hero-title').innerText.slice(0, 20) : 'none') + ' MODE_CARDS=' + document.querySelectorAll('.ws-mode-card').length + ' CARDS=' + document.querySelectorAll('.ws-card').length + ' AVATAR=' + document.querySelectorAll('.card-head .avatar-btn').length + ' THEME=' + document.documentElement.dataset.theme"],
+  ["screenshot", "docs/self-test/v7/43-workspaces-brass.png"],
+
+  { "note": "emerald look of workspace list" },
+  ["eval", "var b=document.querySelector('.card-head .avatar-btn'); b && b.click(), 'open'"],
+  { "sleep": 500 },
+  ["eval", "var cards=Array.from(document.querySelectorAll('.avatar-theme')); var t=cards.find(function (x) { return x.innerText.indexOf('emerald') >= 0 || x.innerText.indexOf('\\u58a8\\u7389') >= 0; }); t && t.click(); 'emerald=' + (t ? 'yes' : 'no')"],
+  { "sleep": 400 },
+  ["eval", "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), 'esc'"],
+  { "sleep": 300 },
+  ["screenshot", "docs/self-test/v7/44-workspaces-emerald.png"],
+
+  { "note": "restore brass" },
+  ["eval", "var b=document.querySelector('.card-head .avatar-btn'); b && b.click(), 'open'"],
+  { "sleep": 400 },
+  ["eval", "var cards=Array.from(document.querySelectorAll('.avatar-theme')); var t=cards.find(function (x) { return x.innerText.indexOf('brass') >= 0 || x.innerText.indexOf('\\u9ec4\\u94dc') >= 0; }); t && t.click(), 'brass'"],
+  { "sleep": 300 },
+  ["eval", "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), 'esc'"],
+  { "sleep": 300 },
+  ["eval", "'FINAL_THEME=' + document.documentElement.dataset.theme"]
+]

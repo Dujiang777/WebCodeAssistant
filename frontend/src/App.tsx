@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { api, clearSession, loadRefreshToken, loadUser, patchUser, subscribeSession } from './lib/api';
 import type { AuthUser } from './lib/api';
 import { navigate, useRoute } from './lib/router';
+import { initTheme } from './lib/theme';
 import { AccountPage } from './pages/AccountPage';
 import { AdminPage } from './pages/AdminPage';
 import { ResetPasswordPage, VerifyEmailPage } from './pages/AuthTokenPage';
@@ -14,6 +15,10 @@ import { WorkspaceListPage } from './pages/WorkspaceListPage';
 
 /** 不需要登录态就能打开的页面（邮件链接落点、登录页）。 */
 const ANONYMOUS_ROUTES = new Set(['login', 'verify-email', 'reset-password']);
+
+// 模块加载即落主题：在任何组件渲染之前把 <html data-theme> 写好，
+// 避免浅色主题用户首屏闪一帧深色。initTheme 幂等，重复调用无害。
+initTheme();
 
 /**
  * 应用外壳：唯一负责「当前是谁 + 当前在哪个页面」。

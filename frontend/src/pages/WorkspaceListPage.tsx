@@ -4,6 +4,7 @@ import { api, formatBytes, loadUser, subscribeSession } from '../lib/api';
 import type { AuthUser, HealthInfo, Workspace } from '../lib/api';
 import { messageOf } from '../lib/chat';
 import { navigate } from '../lib/router';
+import { AvatarMenu } from '../components/AvatarMenu';
 import { TerminalMark, FolderOpenIcon, PlusIcon, RefreshIcon } from '../components/icons';
 
 /**
@@ -93,15 +94,21 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
     !busy &&
     ((mode === 'sample') || (mode === 'git' && gitUrl.trim().length > 0) || (mode === 'zip' && zipFile !== null));
 
+  const MODE_CARDS: { key: CreateMode; title: string; tag: string; desc: string }[] = [
+    { key: 'sample', title: '内置示例', tag: '最快', desc: '一个刻意留了问题的 Spring 项目，几秒铺好，开箱即跑通全流程' },
+    { key: 'git', title: 'Git 克隆', tag: '常用', desc: '浅克隆（depth=1），填 HTTPS 地址即可' },
+    { key: 'zip', title: 'ZIP 上传', tag: '离线', desc: '上传本地压缩包，解压并校验后使用' },
+  ];
+
   return (
-    <div className="centered-page" style={{ alignItems: 'flex-start' }}>
-      <div className="card wide" style={{ marginTop: 12 }}>
+    <div className="centered-page centered-page-v2" style={{ alignItems: 'flex-start' }}>
+      <div className="card wide ws-page" style={{ marginTop: 12 }}>
         <div className="card-head">
           <TerminalMark size={24} />
           <div>
             <div className="card-title">选择工作区</div>
             <div className="card-desc" style={{ marginBottom: 0 }}>
-              每个工作区是服务器磁盘上的一个真实目录。当前账号：{username}
+              每个工作区是服务器磁盘上的一个真实目录
             </div>
           </div>
           <div className="topbar-spacer" />
@@ -133,9 +140,8 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
             <RefreshIcon size={13} />
             刷新
           </button>
-          <button className="btn btn-sm" onClick={onLogout}>
-            退出
-          </button>
+          {/* 账号/主题/退出收进头像菜单：这页不该有七颗裸按钮 */}
+          <AvatarMenu direction="down" onLogout={onLogout} />
         </div>
 
         {user && !user.emailVerified && (
@@ -150,30 +156,44 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
           </div>
         )}
 
-        <div className="row" style={{ flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-          <span className="chip" title="后端是否可以调用模型">
-            <span className={`dot ${health?.modelConfigured ? 'dot-ok' : 'dot-warn'}`} />
-            {health?.modelConfigured ? `模型就绪 · ${health.model}` : '未配置模型（仍可浏览与编辑）'}
-          </span>
-          <span className="chip">检索引擎 · {health?.grepEngine ?? '—'}</span>
-          <span className="chip">
-            <span className={`dot ${health?.redisAvailable ? 'dot-ok' : 'dot-warn'}`} />
-            Redis {health?.redisAvailable ? '可用' : '降级为进程内限流'}
-          </span>
+        <div className="ws-hero">
+          <div className="ws-hero-title">
+            欢迎回来，<b>{username}</b>
+          </div>
+          <div className="ws-hero-sub">挑一个工作区进去，或者 30 秒新建一个。</div>
+          <div className="row" style={{ flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+            <span className="chip" title="后端是否可以调用模型">
+              <span className={`dot ${health?.modelConfigured ? 'dot-ok' : 'dot-warn'}`} />
+              {health?.modelConfigured ? `模型就绪 · ${health.model}` : '未配置模型（仍可浏览与编辑）'}
+            </span>
+            <span className="chip">检索引擎 · {health?.grepEngine ?? '—'}</span>
+            <span className="chip">
+              <span className={`dot ${health?.redisAvailable ? 'dot-ok' : 'dot-warn'}`} />
+              Redis {health?.redisAvailable ? '可用' : '降级为进程内限流'}
+            </span>
+          </div>
         </div>
 
         <div className="section-divider">新建工作区</div>
 
-        <div className="tabs">
-          <button className={`tab${mode === 'sample' ? ' active' : ''}`} onClick={() => setMode('sample')}>
-            内置示例（最快）
-          </button>
-          <button className={`tab${mode === 'git' ? ' active' : ''}`} onClick={() => setMode('git')}>
-            Git 克隆
-          </button>
-          <button className={`tab${mode === 'zip' ? ' active' : ''}`} onClick={() => setMode('zip')}>
-            ZIP 上传
-          </button>
+        <div className="ws-create-grid">
+          {MODE_CARDS.map((card) => (
+            <button
+              key={card.key}
+              className={`ws-mode-card${mode === card.key ? ' on' : ''}`}
+              onClick={() => setMode(card.key)}
+              title={card.desc}
+            >
+              <span className="ws-mode-tag">{card.tag}</span>
+              <span className="ws-mode-title">
+                {card.key === 'sample' && <TerminalMark size={15} />}
+                {card.key === 'git' && <RefreshIcon size={15} />}
+                {card.key === 'zip' && <FolderOpenIcon size={15} />}
+                {card.title}
+              </span>
+              <span className="ws-mode-desc">{card.desc}</span>
+            </button>
+          ))}
         </div>
 
         <div className="form-stack" style={{ marginTop: 14 }}>
@@ -255,23 +275,26 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
             <div className="empty-text">用上面的「内置示例」一键创建，几秒后就能进入编辑器。</div>
           </div>
         ) : (
-          <div className="workspace-list">
-            {workspaces.map((workspace) => (
+          <div className="ws-grid">
+            {workspaces.map((workspace, index) => (
               <div
                 key={workspace.id}
-                className="workspace-row"
+                className="workspace-row ws-card"
+                style={{ animationDelay: `${Math.min(index * 45, 320)}ms` }}
                 onClick={() => navigate(`/ide/${workspace.id}`)}
                 title="打开这个工作区"
               >
-                <FolderOpenIcon size={18} />
+                <span className="ws-card-icon">
+                  <FolderOpenIcon size={17} />
+                </span>
                 <div className="workspace-row-body">
                   <div className="workspace-name">{workspace.name}</div>
                   <div className="workspace-meta">
-                    {workspace.gitUrl ?? '本地导入'} · {formatBytes(workspace.sizeBytes)} · 创建于{' '}
-                    {new Date(workspace.createdAt).toLocaleString()}
+                    {workspace.gitUrl ?? '本地导入'} · {formatBytes(workspace.sizeBytes)}
                   </div>
+                  <div className="ws-card-time">创建于 {new Date(workspace.createdAt).toLocaleString()}</div>
                 </div>
-                <span className="chip">打开 →</span>
+                <span className="ws-card-go">打开 →</span>
               </div>
             ))}
           </div>

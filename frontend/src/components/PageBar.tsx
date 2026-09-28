@@ -1,4 +1,5 @@
 import { navigate } from '../lib/router';
+import { AvatarMenu } from './AvatarMenu';
 import { TerminalMark, ChevronIcon } from './icons';
 
 /**
@@ -85,9 +86,8 @@ export function PageBar({ title, subtitle, balance, lowBalance, active, isAdmin,
           管理后台
         </button>
       )}
-      <button className="btn btn-ghost btn-sm" onClick={onLogout}>
-        退出
-      </button>
+      {/* 头像菜单：主题切换、账号与退出统一从这里进，与 IDE / 工作区页保持一致 */}
+      <AvatarMenu direction="down" onLogout={onLogout} />
     </header>
   );
 }
