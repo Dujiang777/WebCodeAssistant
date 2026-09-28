@@ -1,0 +1,35 @@
+# ---------------------------------------------------------------------------
+# WCA 后端 systemd 单元（Ubuntu 原生部署）
+#   /etc/systemd/system/wca-backend.service
+#
+# 三点说明：
+#   1. 专用户 wca 跑，不用 root —— 后端会在工作区目录里执行编译，
+#      不该以超级用户身份活动；
+#   2. 堆上限 640m：机器 2G，MySQL 才是内存大户，JVM 只能分到这么多。
+#      调大之前先看 free -m，否则会和 MySQL 一起触发 OOM Killer；
+#   3. EnvironmentFile 是 600 权限的 /opt/wca/wca.env，
+#      所有密钥（DB / JWT / SMTP / LLM）只存在这个文件里，不进仓库。
+# ---------------------------------------------------------------------------
+[Unit]
+Description=Web Code Assistant backend (Spring Boot 3.5)
+Documentation=file:///opt/wca/README.md
+After=network-online.target mysql.service redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wca
+Group=wca
+WorkingDirectory=/opt/wca
+EnvironmentFile=/opt/wca/wca.env
+ExecStart=/usr/bin/java -Xms256m -Xmx640m -XX:MaxMetaspaceSize=256m -XX:+UseSerialGC -Duser.timezone=Asia/Shanghai -Dfile.encoding=UTF-8 -jar /opt/wca/app.jar
+SuccessExitStatus=143
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wca-backend
+
+[Install]
+WantedBy=multi-user.target
