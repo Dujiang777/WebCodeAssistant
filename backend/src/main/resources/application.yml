@@ -104,6 +104,14 @@ app:
     require-verified-email: ${AUTH_REQUIRE_VERIFIED_EMAIL:false}
     # 前端地址，用于拼接邮件里的验证 / 重置链接。
     frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+    # 注册 / 找回密码的图形验证码（登录不需要：有账号级失败锁定）。
+    captcha-enabled: ${AUTH_CAPTCHA_ENABLED:true}
+    captcha-ttl: ${AUTH_CAPTCHA_TTL:PT5M}
+    # 匿名认证接口的 IP 级限流：统计窗口与各动作的窗口内上限。
+    ip-window: ${AUTH_IP_WINDOW:PT10M}
+    ip-max-register: ${AUTH_IP_MAX_REGISTER:30}
+    ip-max-login: ${AUTH_IP_MAX_LOGIN:90}
+    ip-max-forgot: ${AUTH_IP_MAX_FORGOT:10}
     # 管理员引导名单（逗号分隔）。全新部署时用它造出第一个管理员；
     # 上线后建好管理员就清空它。留空 = 不引导。
     admin-usernames: ${ADMIN_USERNAMES:}

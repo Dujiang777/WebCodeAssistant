@@ -82,6 +82,21 @@ public class CreditAccountRepository {
     }
 
     /**
+     * 退款专用扣减：与 {@link #debit} 的区别是<b>允许把余额扣成负数</b>。
+     *
+     * <p>为什么需要它：用户可能已经把充进来的积分花掉了一部分甚至全部，
+     * 退款（把钱退回去）不能因为「积分不够扣」就失败 —— 钱必须退，
+     * 负余额如实记账，后续充值先补洞。这与管理员的 {@code adjust}
+     * （余额不足直接拒绝）语义刻意不同：adjust 是账户操作，退款是资金承诺。
+     */
+    public void debitAllowingNegative(long userId, long amount) {
+        jdbc.sql("update credit_accounts set balance = balance - :a where user_id = :u")
+                .param("a", amount)
+                .param("u", userId)
+                .update();
+    }
+
+    /**
      * 结算：余额按 {@code charged} 调整（负数=补扣，正数=退还），累计消耗增加 {@code consumed}。
      *
      * @param charged  余额变动量，通常等于 {@code actual - hold}

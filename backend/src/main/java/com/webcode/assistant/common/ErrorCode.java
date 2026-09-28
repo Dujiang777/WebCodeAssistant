@@ -22,6 +22,7 @@ public enum ErrorCode {
     TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "链接无效或已过期，请重新获取"),
     EMAIL_TAKEN(HttpStatus.CONFLICT, "该邮箱已被注册"),
     EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "邮箱尚未验证，请先完成验证"),
+    CAPTCHA_INVALID(HttpStatus.BAD_REQUEST, "图形验证码错误或已过期，请刷新后重试"),
 
     // ---- 积分体系
     /** 402 而不是 403：这不是「没权限」，是「该付钱了」，前端据此直接引导充值。 */

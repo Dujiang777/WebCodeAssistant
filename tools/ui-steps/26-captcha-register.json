@@ -1,0 +1,14 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "open login page then switch to register mode" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2200 },
+  ["eval", "var btn=Array.from(document.querySelectorAll('.link')).find(function (b) { return b.textContent.indexOf('创建账号') >= 0; }); btn && btn.click(); 'MODE=' + (btn ? 'clicked' : 'no-link')"],
+  { "sleep": 1600 },
+
+  { "note": "assert captcha widgets exist (dev mode prefills the answer)" },
+  ["eval", "var img=document.querySelector('.captcha-img'); var input=document.querySelector('.captcha-input'); JSON.stringify({ CAPTCHA_IMG: !!img, CAPTCHA_INPUT: !!input, INPUT_LEN: input ? input.value.length : -1 })"],
+  { "sleep": 300 },
+  ["screenshot", "docs/self-test/v7/45-captcha-register.png"]
+]

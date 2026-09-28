@@ -702,6 +702,30 @@ function OrdersTab({ reloadKey }: { reloadKey: number }) {
     }
   };
 
+  /**
+   * 退款已支付订单。理由弹一次输入框（可留空），会进审计与订单明细。
+   * 后端幂等：重复点击不会扣两次积分。
+   */
+  const refund = async (orderNo: string) => {
+    const reason = window.prompt(
+      `退款订单 ${orderNo.slice(0, 8)}…：积分将被扣回（用户已花掉的部分会记为负余额），金额原路退回。\n请输入退款理由（可留空）：`,
+      '',
+    );
+    if (reason === null) return; // 用户取消
+    setBusy(orderNo);
+    setError(null);
+    setNotice(null);
+    try {
+      await api.adminRefundOrder(orderNo, reason.trim() || undefined);
+      setNotice(`订单 ${orderNo.slice(0, 8)}… 已退款，积分已扣回。`);
+      await load();
+    } catch (err) {
+      setError(messageOf(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.size)) : 1;
 
   return (
@@ -716,6 +740,7 @@ function OrdersTab({ reloadKey }: { reloadKey: number }) {
           <option value="">全部状态</option>
           <option value="PENDING">待支付</option>
           <option value="PAID">已支付</option>
+          <option value="REFUNDED">已退款</option>
           <option value="CANCELLED">已取消</option>
         </select>
         <span className="ad-toolbar-count">{`共 ${data?.total ?? 0} 笔`}</span>
@@ -747,8 +772,19 @@ function OrdersTab({ reloadKey }: { reloadKey: number }) {
               <td className="num">{order.credits}</td>
               <td>
                 <span className={`cr-status ${order.status.toLowerCase()}`}>
-                  {order.status === 'PAID' ? '已支付' : order.status === 'PENDING' ? '待支付' : '已取消'}
+                  {order.status === 'PAID'
+                    ? '已支付'
+                    : order.status === 'PENDING'
+                      ? '待支付'
+                      : order.status === 'REFUNDED'
+                        ? '已退款'
+                        : '已取消'}
                 </span>
+                {order.status === 'REFUNDED' && order.refundReason && (
+                  <div className="dim" style={{ fontSize: 10.5 }} title={order.refundReason}>
+                    {order.refundReason.length > 18 ? `${order.refundReason.slice(0, 18)}…` : order.refundReason}
+                  </div>
+                )}
               </td>
               <td className="mono dim">{formatDateTime(order.createdAt)}</td>
               <td className="act">
@@ -760,6 +796,16 @@ function OrdersTab({ reloadKey }: { reloadKey: number }) {
                     onClick={() => void cancel(order.orderNo)}
                   >
                     撤销
+                  </button>
+                )}
+                {order.status === 'PAID' && (
+                  <button
+                    className="btn btn-sm"
+                    disabled={busy === order.orderNo}
+                    title="退款：积分扣回（允许负余额），金额原路退回"
+                    onClick={() => void refund(order.orderNo)}
+                  >
+                    退款
                   </button>
                 )}
               </td>

@@ -72,9 +72,29 @@ export interface AuthResult {
   devVerifyToken: string | null;
 }
 
+/** 图形验证码（`GET /api/auth/captcha`）。image 是 PNG 的 Base64。 */
+export interface CaptchaChallenge {
+  id: string;
+  imagePngBase64: string;
+  /** 仅 dev 部署非空 —— 本地没有 OCR，靠它把自检链路走通；生产恒为 null。 */
+  devAnswer: string | null;
+}
+
+/** 符号导航结果。definition 为 null 表示工作区里没找到声明。 */
+export interface NavigateLocation {
+  file: string;
+  line: number;
+  text: string;
+}
+
+export interface NavigateView {
+  symbol: string;
+  definition: NavigateLocation | null;
+  references: NavigateLocation[];
+}
+
 /** 当前用户 + 积分概览（`GET /api/auth/me`）。 */
-export interface MeInfo {
-  userId: number;
+export interface MeInfo {  userId: number;
   username: string;
   email: string | null;
   emailVerified: boolean;
@@ -608,12 +628,36 @@ export interface TerminalResult {
 export const api = {
   health: () => request<HealthInfo>('/api/health'),
 
+  /** 符号导航：跳转定义 + 查找引用（Ctrl+Click / F12）。 */
+  navigate: (workspaceId: number, file: string, line: number, column: number) =>
+    request<NavigateView>(`/api/workspaces/${workspaceId}/navigate`, {
+      method: 'POST',
+      body: JSON.stringify({ file, line, column }),
+    }),
+
   // ---------------------------------------------------------------- 账号
 
-  register: (username: string, email: string, password: string) =>
+  /** 图形验证码。devAnswer 仅 dev 部署非空（本地自检用），生产恒为 null。 */
+  captcha: () => request<CaptchaChallenge>('/api/auth/captcha'),
+
+  register: (
+    username: string,
+    email: string,
+    password: string,
+    captcha?: { id: string; code: string },
+  ) =>
     request<AuthResult>(
       '/api/auth/register',
-      { method: 'POST', body: JSON.stringify({ username, email, password }) },
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+          captchaId: captcha?.id,
+          captchaCode: captcha?.code,
+        }),
+      },
       { retryOn401: false },
     ),
 
@@ -652,10 +696,17 @@ export const api = {
   resendVerification: () => request<Dispatch>('/api/auth/resend-verification', { method: 'POST' }),
 
   /** 无论邮箱是否存在都会返回 sent=true（防账号枚举），页面文案必须体现这一点。 */
-  forgotPassword: (email: string) =>
+  forgotPassword: (email: string, captcha?: { id: string; code: string }) =>
     request<Dispatch>(
       '/api/auth/forgot-password',
-      { method: 'POST', body: JSON.stringify({ email }) },
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          email,
+          captchaId: captcha?.id,
+          captchaCode: captcha?.code,
+        }),
+      },
       { retryOn401: false },
     ),
 
@@ -1076,6 +1127,13 @@ export const api = {
       method: 'POST',
     }),
 
+  /** 退款已支付订单：PAID → REFUNDED + 扣回积分（允许负余额），后端幂等。 */
+  adminRefundOrder: (orderNo: string, reason?: string) =>
+    request<{ count: number }>(`/api/admin/orders/${encodeURIComponent(orderNo)}/refund`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason ?? null }),
+    }),
+
   adminAudit: (params: { action?: string; page?: number; size?: number }) => {
     const q = new URLSearchParams();
     if (params.action) q.set('action', params.action);
@@ -1468,6 +1526,8 @@ export interface AdminOrderRow {
   provider: string | null;
   createdAt: string | null;
   paidAt: string | null;
+  refundedAt: string | null;
+  refundReason: string | null;
 }
 
 export interface AdminOrderPage {

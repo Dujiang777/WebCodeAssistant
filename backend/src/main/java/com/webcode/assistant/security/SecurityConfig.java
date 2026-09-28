@@ -56,6 +56,7 @@ public class SecurityConfig {
                         // 漏放行任何一个，用户就会卡在某个环节进不来 —— 而且症状往往是
                         // 「输完密码一直转圈」（前端拿 401 当成令牌过期去刷新，然后死循环）。
                         .requestMatchers(
+                                "/api/auth/captcha",
                                 "/api/auth/register",
                                 "/api/auth/login",
                                 "/api/auth/refresh",

@@ -171,6 +171,30 @@ public record AppProperties(
             @DefaultValue("http://localhost:5173") String frontendBaseUrl,
 
             /**
+             * 是否启用注册 / 找回密码的图形验证码。
+             *
+             * <p>这两个接口匿名可达且会产生副作用（建号、发信），是脚本刷号 / 邮件轰炸
+             * 的天然入口。登录不需要验证码：它有账号级失败锁定，且给登录加验证码
+             * 对真实用户的摩擦远大于收益。
+             */
+            @DefaultValue("true") boolean captchaEnabled,
+
+            /** 图形验证码的有效期。 */
+            @DefaultValue("PT5M") Duration captchaTtl,
+
+            /** IP 限流的统计窗口。 */
+            @DefaultValue("PT10M") Duration ipWindow,
+
+            /** 单 IP 在窗口内允许的注册次数。 */
+            @DefaultValue("30") int ipMaxRegister,
+
+            /** 单 IP 在窗口内允许的登录次数（含失败；账号级另有失败锁定）。 */
+            @DefaultValue("90") int ipMaxLogin,
+
+            /** 单 IP 在窗口内允许的找回密码（发信）次数。 */
+            @DefaultValue("10") int ipMaxForgot,
+
+            /**
              * 管理员用户名引导名单。
              *
              * <p>为什么需要它：管理端接口要 ADMIN 角色，但全新部署的库里一个管理员都没有，

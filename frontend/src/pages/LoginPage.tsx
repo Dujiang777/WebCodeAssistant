@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 
 import { adoptAuth, api } from '../lib/api';
-import type { AuthResult, AuthUser, Dispatch } from '../lib/api';
+import type { AuthResult, AuthUser, CaptchaChallenge, Dispatch } from '../lib/api';
 import { messageOf } from '../lib/chat';
-import { TerminalMark } from '../components/icons';
+import { RefreshIcon, TerminalMark } from '../components/icons';
 import { TypingTerminal } from '../components/TypingTerminal';
 
 /**
@@ -55,6 +55,44 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
   );
   /** 找回密码的结果：dev 模式下会带回重置令牌，本地能直接跳过去。 */
   const [resetInfo, setResetInfo] = useState<Dispatch | null>(null);
+  /** 图形验证码：注册 / 找回 / 演示账号都要过这一关。null 表示还没拉到或后端未启用。 */
+  const [captcha, setCaptcha] = useState<CaptchaChallenge | null>(null);
+  const [captchaCode, setCaptchaCode] = useState('');
+  /** 演示账号在无 devAnswer 的生产模式下，先在登录页内联过一道验证码。 */
+  const [awaitingDemoCaptcha, setAwaitingDemoCaptcha] = useState(false);
+
+  /** 拉一张新验证码。失败不阻断表单（后端关了验证码时 /captcha 返回空 id）。 */
+  const loadCaptcha = async () => {
+    try {
+      const challenge = await api.captcha();
+      setCaptcha(challenge.id ? challenge : null);
+      setCaptchaCode('');
+    } catch {
+      setCaptcha(null);
+    }
+  };
+
+  // dev 部署下答案随验证码回显：加载成功后回填一次（生产下 devAnswer 为 null，用户手输）
+  useEffect(() => {
+    if (captcha?.devAnswer) {
+      setCaptchaCode(captcha.devAnswer);
+    }
+  }, [captcha]);
+
+  // 注册 / 找回模式挂载验证码；模式切换重置输入，防止上一张图的答案被带过去
+  useEffect(() => {
+    if (mode === 'register' || mode === 'forgot') {
+      void loadCaptcha();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+
+  /** 验证码是一次性的：提交失败后必须换新的一张。 */
+  const refreshCaptchaAfterFailure = () => {
+    if (mode === 'register' || mode === 'forgot' || awaitingDemoCaptcha) {
+      void loadCaptcha();
+    }
+  };
 
   const switchMode = (next: Mode) => {
     setMode(next);
@@ -72,7 +110,15 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
    * 一键演示账号（autoEnter=true）本来就是要立刻进产品，直接落。
    */
   const registerLocal = async (name: string, address: string, pass: string, autoEnter: boolean) => {
-    const result = await api.register(name, address, pass);
+    // dev 部署下答案直接回显（见 api.ts 注释），演示账号才能全自动；
+    // 生产下演示账号走 awaitingDemoCaptcha 的内联验证码，人工输入。
+    const solved =
+      captcha && captchaCode.trim().length > 0
+        ? { id: captcha.id, code: captchaCode.trim() }
+        : captcha?.devAnswer
+          ? { id: captcha.id, code: captcha.devAnswer }
+          : undefined;
+    const result = await api.register(name, address, pass, solved);
     if (autoEnter) {
       onAuthenticated(adoptAuth(result));
       return;
@@ -94,7 +140,9 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
       } else if (mode === 'register') {
         await registerLocal(username.trim(), email.trim(), password, false);
       } else if (mode === 'forgot') {
-        const dispatch = await api.forgotPassword(forgotEmail.trim());
+        const solved =
+          captcha && captchaCode.trim().length > 0 ? { id: captcha.id, code: captchaCode.trim() } : undefined;
+        const dispatch = await api.forgotPassword(forgotEmail.trim(), solved);
         setResetInfo(dispatch);
         setNotice(
           dispatch.sent
@@ -104,6 +152,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
       }
     } catch (err) {
       setError(messageOf(err));
+      refreshCaptchaAfterFailure();
     } finally {
       setBusy(false);
     }
@@ -119,6 +168,11 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
       await registerLocal(demoUser, `${demoUser}@example.com`, 'demo1234', true);
     } catch (err) {
       setError(messageOf(err));
+      // devAnswer 自动解题失败（例如答案过期）：转为人工内联验证码
+      if (!awaitingDemoCaptcha) {
+        setAwaitingDemoCaptcha(true);
+        void loadCaptcha();
+      }
       setBusy(false);
     }
   };
@@ -138,10 +192,15 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
 
   const ready =
     mode === 'login'
-      ? username.trim().length > 0 && password.length > 0
+      ? awaitingDemoCaptcha
+        ? username.trim().length >= 3 && captchaCode.trim().length > 0
+        : username.trim().length > 0 && password.length > 0
       : mode === 'register'
-        ? username.trim().length >= 3 && EMAIL_PATTERN.test(email.trim()) && PASSWORD_RULES.every((r) => r.test(password))
-        : EMAIL_PATTERN.test(forgotEmail.trim());
+        ? username.trim().length >= 3 &&
+          EMAIL_PATTERN.test(email.trim()) &&
+          PASSWORD_RULES.every((r) => r.test(password)) &&
+          (!captcha || captchaCode.trim().length > 0 || captcha.devAnswer !== null)
+        : EMAIL_PATTERN.test(forgotEmail.trim()) && (!captcha || captchaCode.trim().length > 0);
 
   const title = { login: '登录', register: '创建账号', forgot: '找回密码', verify: '验证邮箱' }[mode];
 
@@ -297,6 +356,42 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
                     onChange={(event) => setForgotEmail(event.target.value)}
                     placeholder="you@example.com"
                   />
+                </div>
+              )}
+
+              {(mode === 'register' || mode === 'forgot' || awaitingDemoCaptcha) && captcha && (
+                <div className="field">
+                  <label htmlFor="captcha-code">图形验证码</label>
+                  <div className="captcha-row">
+                    <img
+                      className="captcha-img"
+                      src={`data:image/png;base64,${captcha.imagePngBase64}`}
+                      alt="图形验证码，看不清可点击刷新"
+                      title="看不清？点击换一张"
+                      onClick={() => void loadCaptcha()}
+                    />
+                    <input
+                      id="captcha-code"
+                      className="input captcha-input"
+                      maxLength={16}
+                      autoComplete="off"
+                      value={captchaCode}
+                      onChange={(event) => setCaptchaCode(event.target.value)}
+                      placeholder="输入图中的字符"
+                    />
+                    <button
+                      className="btn btn-sm"
+                      type="button"
+                      onClick={() => void loadCaptcha()}
+                      title="换一张"
+                      aria-label="换一张验证码"
+                    >
+                      <RefreshIcon size={13} />
+                    </button>
+                  </div>
+                  {awaitingDemoCaptcha && (
+                    <span className="field-hint">创建演示账号也需要通过验证码（防脚本刷号）。</span>
+                  )}
                 </div>
               )}
 

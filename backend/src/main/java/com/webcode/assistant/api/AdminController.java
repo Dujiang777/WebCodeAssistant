@@ -189,6 +189,16 @@ public class AdminController {
         return new ApiModels.AdminCountResponse(1);
     }
 
+    /** 退款已支付订单。{@code reason} 选填，会进审计与订单的退款理由栏。 */
+    @PostMapping("/orders/{orderNo}/refund")
+    public ApiModels.AdminCountResponse refundOrder(@PathVariable String orderNo,
+                                                    @RequestBody(required = false) ApiModels.AdminRefundRequest request) {
+        AppUserPrincipal operator = requireAdmin();
+        adminService.refundOrder(operator.userId(), operator.username(), orderNo,
+                request == null ? null : request.reason(), requestContext.ip());
+        return new ApiModels.AdminCountResponse(1);
+    }
+
     // ------------------------------------------------------------ 审计
 
     @GetMapping("/audit")
@@ -267,7 +277,7 @@ public class AdminController {
     private static ApiModels.AdminOrderView toOrder(AdminRepository.AdminOrderRow row) {
         return new ApiModels.AdminOrderView(row.orderNo(), row.userId(), row.username(), row.planCode(),
                 row.amountCents(), row.credits(), row.status(), row.provider(),
-                instant(row.createdAt()), instant(row.paidAt()));
+                instant(row.createdAt()), instant(row.paidAt()), instant(row.refundedAt()), row.refundReason());
     }
 
     /**

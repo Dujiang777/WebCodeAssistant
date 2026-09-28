@@ -27,6 +27,7 @@ public class CreditLedgerRepository {
     public static final String KIND_HOLD = "HOLD";
     public static final String KIND_SETTLE = "SETTLE";
     public static final String KIND_RELEASE = "RELEASE";
+    public static final String KIND_REFUND = "REFUND";
 
     public record LedgerEntry(long id, long userId, String kind, long delta, long balanceAfter,
                               String reason, String refType, String refId, Instant createdAt) {

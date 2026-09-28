@@ -408,6 +408,48 @@ public class CreditService {
         return orders.find(orderNo).orElse(order);
     }
 
+    /**
+     * 管理端退款：PAID → REFUNDED，并把积分扣回（允许负余额）。
+     *
+     * <p>幂等与支付回调同构，两层闸门：
+     * <ol>
+     *   <li>{@code markRefunded} 的 {@code where status='PAID'} 条件更新 ——
+     *       只有第一次能完成跃迁，并发/重复点击不会扣两次分；</li>
+     *   <li>账本 {@code refund:{orderNo}} 幂等键兜底。</li>
+     * </ol>
+     *
+     * <p>扣回用 {@code debitAllowingNegative}：用户可能已经花掉了积分，
+     * 但钱必须退 —— 负余额如实入账，之后充值先补洞。这与管理员手动调整
+     * （余额不足直接拒绝）的语义刻意不同。
+     *
+     * @return 退款后的订单（供审计与前端刷新）
+     */
+    @Transactional
+    public CreditOrderRepository.CreditOrder refundOrder(String orderNo, String reason,
+                                                         long operatorId, String operatorName) {
+        CreditOrderRepository.CreditOrder order = orders.find(orderNo)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "订单不存在"));
+        if (!CreditOrderRepository.STATUS_PAID.equals(order.status())) {
+            throw new ApiException(ErrorCode.ORDER_NOT_PAYABLE, "只有已支付的订单才能退款");
+        }
+        String operator = operatorName == null || operatorName.isBlank()
+                ? "#" + operatorId : operatorName + " (#" + operatorId + ")";
+        if (!orders.markRefunded(orderNo, (reason == null || reason.isBlank() ? "" : reason + "｜") + "操作人 " + operator)) {
+            throw new ApiException(ErrorCode.ORDER_NOT_PAYABLE, "订单状态已变化（可能已被退款），请刷新后重试");
+        }
+        String key = "refund:" + orderNo;
+        if (!ledger.existsByIdempotencyKey(key)) {
+            accounts.ensureAccount(order.userId());
+            accounts.debitAllowingNegative(order.userId(), order.credits());
+            ledger.insert(order.userId(), CreditLedgerRepository.KIND_REFUND, -order.credits(),
+                    accounts.balance(order.userId()),
+                    "订单退款（" + order.planCode() + " · " + order.credits() + " 积分）"
+                            + (reason == null || reason.isBlank() ? "" : "｜" + reason) + "｜操作人 " + operator,
+                    "ORDER", orderNo, key);
+        }
+        return orders.find(orderNo).orElse(order);
+    }
+
     public List<CreditOrderRepository.CreditOrder> orders(long userId, int limit) {
         return orders.listByUser(userId, Math.min(Math.max(limit, 1), 50));
     }

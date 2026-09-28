@@ -17,6 +17,11 @@
 import { writeFileSync } from 'node:fs';
 
 const BASE = (process.env.BASE_URL ?? 'http://127.0.0.1:8080').replace(/\/$/, '');
+import { solveCaptcha, clearIpCounters } from './lib-captcha.mjs';
+
+// IP 限流窗口 10 分钟：连续跑几轮回归会把窗口打满（防线正确工作），
+// 先清掉本脚本的计数器保证回归确定性。
+await clearIpCounters();
 const TARGET_FILE = 'src/main/java/com/demo/UserService.java';
 const TRAVERSAL_ATTEMPT = '../../../../Windows/win.ini';
 const REPORT_FILE = process.env.REPORT_FILE ?? null;
@@ -182,7 +187,7 @@ async function main() {
   section('2. 注册 / 登录');
   const username = `smoke_${Math.random().toString(36).slice(2, 8)}`;
   const password = 'smoke1234';
-  let auth = await call('/api/auth/register', { method: 'POST', body: { username, email: `${username}@example.com`, password } });
+  let auth = await call('/api/auth/register', { method: 'POST', body: { username, email: `${username}@example.com`, password, ...(await solveCaptcha(BASE)) } });
   check('注册新账号', auth.status === 201 || auth.status === 200, `HTTP ${auth.status}`);
   if (auth.status !== 201 && auth.status !== 200) {
     auth = await call('/api/auth/login', { method: 'POST', body: { username, password } });

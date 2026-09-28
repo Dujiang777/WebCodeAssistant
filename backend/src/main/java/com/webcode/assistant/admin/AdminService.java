@@ -2,6 +2,7 @@ package com.webcode.assistant.admin;
 
 import com.webcode.assistant.common.ApiException;
 import com.webcode.assistant.common.ErrorCode;
+import com.webcode.assistant.credit.CreditOrderRepository;
 import com.webcode.assistant.credit.CreditService;
 import com.webcode.assistant.security.AccountStatusGuard;
 import com.webcode.assistant.security.AuthService;
@@ -320,6 +321,24 @@ public class AdminService {
                     "订单不存在或已不是待支付状态（已支付的订单需要走退款流程，不能直接撤销）");
         }
         audit(operator, "ORDER_CANCEL", TARGET_ORDER, orderNo, null, "撤销待支付订单", ip);
+    }
+
+    /**
+     * 退款已支付订单。
+     *
+     * <p>与撤销的分工：撤销是「这单还没付钱，关掉它」；退款是「钱收了、积分给了，
+     * 现在要把钱退回去、积分扣回来」。积分扣回允许负余额（用户可能已经花了），
+     * 全过程幂等（重复点击不会扣两次），每一步都留审计。
+     */
+    @Transactional
+    public CreditOrderRepository.CreditOrder refundOrder(long operatorId, String operatorName,
+                                                         String orderNo, String reason, String ip) {
+        UserAccount operator = requireAdmin(operatorId);
+        CreditOrderRepository.CreditOrder order = creditService.refundOrder(orderNo, reason, operatorId, operatorName);
+        audit(operator, "ORDER_REFUND", TARGET_ORDER, orderNo, String.valueOf(order.userId()),
+                "退款订单（" + order.credits() + " 积分）"
+                        + (reason == null || reason.isBlank() ? "" : "：" + reason), ip);
+        return order;
     }
 
     // ------------------------------------------------------------ 审计
