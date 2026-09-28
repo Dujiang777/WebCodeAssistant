@@ -32,10 +32,16 @@ public final class ApiModels {
      * 一个没有邮箱的账号在上线产品里是「找不回来的账号」。
      * 哈希长度下限 8（且需含字母与数字）由服务端统一校验，注解这里只管长度。
      */
+    /**
+     * 注册请求。{@code captchaId}/{@code captchaCode} 是图形验证码；
+     * 服务端关闭验证码时这两个字段可空。
+     */
     public record RegisterRequest(
             @NotBlank(message = "不能为空") @Size(min = 3, max = 64, message = "长度需在 3-64 之间") String username,
             @NotBlank(message = "不能为空") @Size(max = 160, message = "长度不能超过 160") String email,
-            @NotBlank(message = "不能为空") @Size(min = 8, max = 128, message = "长度需在 8-128 之间") String password
+            @NotBlank(message = "不能为空") @Size(min = 8, max = 128, message = "长度需在 8-128 之间") String password,
+            @Size(max = 64, message = "长度不能超过 64") String captchaId,
+            @Size(max = 16, message = "长度不能超过 16") String captchaCode
     ) {
     }
 
@@ -76,9 +82,33 @@ public final class ApiModels {
     public record VerifyEmailRequest(@NotBlank(message = "不能为空") String token) {
     }
 
-    /** 找回密码。无论邮箱是否存在都返回 sent=true（防账号枚举），页面上会写明这一点。 */
+    /**
+     * 图形验证码。{@code imagePngBase64} 是 PNG 的 Base64（不带 data: 前缀，前端自己拼）；
+     * {@code devAnswer} 仅 dev 部署非空，供本地与自检脚本走通链路。
+     */
+    public record CaptchaChallenge(String id, String imagePngBase64, String devAnswer) {
+    }
+
+    /** 符号导航请求。line/column 都是 1-based，与编辑器光标一致。 */
+    public record NavigateRequest(@NotBlank(message = "不能为空") String file,
+                                  int line, int column) {
+    }
+
+    public record NavigateLocation(String file, int line, String text) {
+    }
+
+    /** 跳转定义 / 查找引用。definition 可为 null（没找到就如实说没找到）。 */
+    public record NavigateView(String symbol, NavigateLocation definition, List<NavigateLocation> references) {
+    }
+
+    /**
+     * 找回密码。无论邮箱是否存在都返回 sent=true（防账号枚举），页面上会写明这一点。
+     * 发信是副作用，必须有验证码拦着，否则它就是一台免费的轰炸机。
+     */
     public record ForgotPasswordRequest(
-            @NotBlank(message = "不能为空") @Size(max = 160, message = "长度不能超过 160") String email
+            @NotBlank(message = "不能为空") @Size(max = 160, message = "长度不能超过 160") String email,
+            @Size(max = 64, message = "长度不能超过 64") String captchaId,
+            @Size(max = 16, message = "长度不能超过 16") String captchaCode
     ) {
     }
 
@@ -467,7 +497,11 @@ public final class ApiModels {
 
     public record AdminOrderView(String orderNo, long userId, String username, String planCode,
                                  int amountCents, long credits, String status, String provider,
-                                 String createdAt, String paidAt) {
+                                 String createdAt, String paidAt, String refundedAt, String refundReason) {
+    }
+
+    /** 管理端退款请求体。reason 选填。 */
+    public record AdminRefundRequest(String reason) {
     }
 
     public record AdminOrderPage(List<AdminOrderView> items, long total, int page, int size) {

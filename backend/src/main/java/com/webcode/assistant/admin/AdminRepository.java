@@ -236,7 +236,9 @@ public class AdminRepository {
             String status,
             String provider,
             Instant createdAt,
-            Instant paidAt
+            Instant paidAt,
+            Instant refundedAt,
+            String refundReason
     ) {
     }
 
@@ -252,7 +254,7 @@ public class AdminRepository {
         boolean filtered = status != null && !status.isBlank();
         return jdbc.sql("select o.order_no, o.user_id, coalesce(u.username, '（已注销）') as username, "
                         + "o.plan_code, o.amount_cents, o.credits, o.status, o.provider, "
-                        + "o.created_at, o.paid_at "
+                        + "o.created_at, o.paid_at, o.refunded_at, o.refund_reason "
                         + "from credit_orders o left join users u on u.id = o.user_id "
                         + (filtered ? "where o.status = :status " : "")
                         + "order by o.created_at desc, o.id desc limit :limit offset :offset")
@@ -426,7 +428,9 @@ public class AdminRepository {
                 rs.getString("status"),
                 rs.getString("provider"),
                 instantOrNull(rs.getTimestamp("created_at")),
-                instantOrNull(rs.getTimestamp("paid_at")));
+                instantOrNull(rs.getTimestamp("paid_at")),
+                instantOrNull(rs.getTimestamp("refunded_at")),
+                rs.getString("refund_reason"));
     }
 
     private static AuditRow mapAudit(ResultSet rs, int rowNum) throws SQLException {

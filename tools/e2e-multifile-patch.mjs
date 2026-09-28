@@ -16,6 +16,11 @@
  */
 
 const BASE = (process.env.BASE_URL ?? 'http://127.0.0.1:8080').replace(/\/$/, '');
+import { solveCaptcha, clearIpCounters } from './lib-captcha.mjs';
+
+// IP 限流窗口 10 分钟：连续跑几轮回归会把窗口打满（防线正确工作），
+// 先清掉本脚本的计数器保证回归确定性。
+await clearIpCounters();
 const TARGET_FILE = 'src/main/java/com/demo/UserService.java';
 const NEW_FILE = 'docs/refactor-notes.md';
 
@@ -128,7 +133,7 @@ async function main() {
   const username = `multi_${Math.random().toString(36).slice(2, 8)}`;
   const auth = await call('/api/auth/register', {
     method: 'POST',
-    body: { username, email: `${username}@example.com`, password: 'multi1234' },
+    body: { username, email: `${username}@example.com`, password: 'multi1234', ...(await solveCaptcha(BASE)) },
   });
   const token = auth.data?.accessToken;
   check('注册并拿到 JWT', typeof token === 'string' && token.length > 20, `HTTP ${auth.status}`);

@@ -2,8 +2,11 @@ package com.webcode.assistant.api;
 
 import com.webcode.assistant.security.AppUserPrincipal;
 import com.webcode.assistant.security.AuthService;
+import com.webcode.assistant.security.CaptchaService;
 import com.webcode.assistant.security.CurrentUser;
+import com.webcode.assistant.security.IpRateLimiter;
 import com.webcode.assistant.security.RefreshTokenRepository;
+import com.webcode.assistant.security.RequestContext;
 import com.webcode.assistant.security.UserAccount;
 import com.webcode.assistant.credit.CreditService;
 import com.webcode.assistant.mail.MailService;
@@ -38,23 +41,44 @@ public class AuthController {
     private final CreditService creditService;
     private final CurrentUser currentUser;
     private final MailService mailService;
+    private final CaptchaService captchaService;
+    private final IpRateLimiter ipRateLimiter;
+    private final RequestContext requestContext;
 
     public AuthController(AuthService authService, CreditService creditService,
-                          CurrentUser currentUser, MailService mailService) {
+                          CurrentUser currentUser, MailService mailService,
+                          CaptchaService captchaService, IpRateLimiter ipRateLimiter,
+                          RequestContext requestContext) {
         this.authService = authService;
         this.creditService = creditService;
         this.currentUser = currentUser;
         this.mailService = mailService;
+        this.captchaService = captchaService;
+        this.ipRateLimiter = ipRateLimiter;
+        this.requestContext = requestContext;
+    }
+
+    /**
+     * 取一张图形验证码（匿名）。dev 模式下答案随响应回显（见 CaptchaService 类注释），
+     * 生产（MAIL_MODE=smtp）下 {@code devAnswer} 恒为 null。
+     */
+    @GetMapping("/captcha")
+    public ApiModels.CaptchaChallenge captcha() {
+        CaptchaService.Challenge challenge = captchaService.issue();
+        return new ApiModels.CaptchaChallenge(challenge.id(), challenge.imagePngBase64(), challenge.devAnswer());
     }
 
     @PostMapping("/register")
     public ResponseEntity<ApiModels.AuthResponse> register(@Valid @RequestBody ApiModels.RegisterRequest request) {
+        ipRateLimiter.check(IpRateLimiter.Action.REGISTER, requestContext.ip());
+        captchaService.verifyAndConsume(request.captchaId(), request.captchaCode());
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(authService.register(
                 request.username(), request.email(), request.password())));
     }
 
     @PostMapping("/login")
     public ApiModels.AuthResponse login(@Valid @RequestBody ApiModels.LoginRequest request) {
+        ipRateLimiter.check(IpRateLimiter.Action.LOGIN, requestContext.ip());
         return toResponse(authService.login(request.username(), request.password()));
     }
 
@@ -105,6 +129,8 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public ApiModels.DispatchResponse forgotPassword(@Valid @RequestBody ApiModels.ForgotPasswordRequest request) {
+        ipRateLimiter.check(IpRateLimiter.Action.FORGOT, requestContext.ip());
+        captchaService.verifyAndConsume(request.captchaId(), request.captchaCode());
         AuthService.Dispatch dispatch = authService.requestPasswordReset(request.email());
         return new ApiModels.DispatchResponse(dispatch.sent(), dispatch.target(), dispatch.devToken());
     }

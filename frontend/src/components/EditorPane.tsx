@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { Editor } from '@monaco-editor/react';
 
-import type { FileContent } from '../lib/api';
+import type { FileContent, NavigateView } from '../lib/api';
 import { EDITOR_OPTIONS, WCA_THEME } from '../lib/monaco';
 import type { Selection } from '../lib/chat';
-import { TerminalMark, SaveIcon } from './icons';
+import { TerminalMark, SaveIcon, CloseIcon, SearchIcon } from './icons';
 
 /**
  * 中间的编辑器面板。
@@ -48,6 +48,13 @@ interface EditorPaneProps {
   onSelectionChange: (selection: Selection | null) => void;
   onCursorChange: (cursor: { line: number; column: number }) => void;
   onRequestCreate: () => void;
+  /** Ctrl+Click / F12 请求符号导航（文件 1-based 行列号）。 */
+  onNavigateSymbol: (file: string, line: number, column: number) => void;
+  /** 最近一次导航的结果；null 表示面板关闭。 */
+  navigate: NavigateView | null;
+  onCloseNavigate: () => void;
+  /** 点导航面板里的位置时打开对应文件并滚到那一行。 */
+  onOpenLocation: (file: string, line: number) => void;
 }
 
 export function EditorPane({
@@ -63,6 +70,10 @@ export function EditorPane({
   onSelectionChange,
   onCursorChange,
   onRequestCreate,
+  onNavigateSymbol,
+  navigate,
+  onCloseNavigate,
+  onOpenLocation,
 }: EditorPaneProps) {
   const readOnly = !file || file.binary || file.truncated;
 
@@ -70,6 +81,12 @@ export function EditorPane({
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
   const decorationsRef = useRef<any>(null);
+  // 导航回调需要「当前打开的文件」，而 onMount 闭包只会捕获挂载那一次的 props ——
+  // 用 ref 中转，保证 Ctrl+Click 永远拿到最新文件
+  const fileRef = useRef(file);
+  fileRef.current = file;
+  const navigateRef = useRef(onNavigateSymbol);
+  navigateRef.current = onNavigateSymbol;
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -201,6 +218,26 @@ export function EditorPane({
             onMount={(editor, monacoApi) => {
               editorRef.current = editor;
               monacoRef.current = monacoApi;
+
+              // 符号导航：Ctrl/Cmd+Click 或 Ctrl/Cmd+F12。
+              // 刻意不接管鼠标事件链（preventDefault 也只在这一分支里做），
+              // 普通点击、拖选完全不受影响。
+              const requestNavigate = (lineNumber: number, column: number) => {
+                const current = fileRef.current;
+                if (!current || current.binary) return;
+                navigateRef.current(current.path, lineNumber, column);
+              };
+              editor.onMouseDown((event) => {
+                const trigger = event.event as unknown as { ctrlKey?: boolean; metaKey?: boolean };
+                if (!(trigger.ctrlKey || trigger.metaKey) || !event.target.position) return;
+                event.event.preventDefault();
+                requestNavigate(event.target.position.lineNumber, event.target.position.column);
+              });
+              editor.addCommand(monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.F12, () => {
+                const position = editor.getPosition();
+                if (position) requestNavigate(position.lineNumber, position.column);
+              });
+
               editor.onDidChangeCursorPosition((event) => {
                 onCursorChange({ line: event.position.lineNumber, column: event.position.column });
               });
@@ -219,6 +256,58 @@ export function EditorPane({
               });
             }}
           />
+        )}
+
+        {/* 符号导航结果浮层：定义 + 引用，点击任何一条都直接跳 */}
+        {navigate && file && !file.binary && (
+          <div className="nav-panel">
+            <div className="nav-head">
+              <SearchIcon size={12} />
+              <span className="nav-symbol">{navigate.symbol}</span>
+              <span className="nav-count">
+                {navigate.definition ? '已跳转到定义' : '未找到定义'} · 引用 {navigate.references.length}
+              </span>
+              <div className="topbar-spacer" />
+              <button className="btn btn-sm" onClick={onCloseNavigate} title="关闭导航面板">
+                <CloseIcon size={12} />
+              </button>
+            </div>
+
+            <div className="nav-body">
+              {navigate.definition ? (
+                <button
+                  className="nav-item nav-def"
+                  onClick={() => onOpenLocation(navigate.definition!.file, navigate.definition!.line)}
+                  title={`打开 ${navigate.definition.file}:${navigate.definition.line}`}
+                >
+                  <b>定义</b>
+                  <span className="mono nav-path">{navigate.definition.file}:{navigate.definition.line}</span>
+                  <span className="nav-text">{navigate.definition.text.trim()}</span>
+                </button>
+              ) : (
+                <div className="nav-empty">
+                  工作区里没找到「{navigate.symbol}」的声明 —— 它可能来自依赖 jar，或是点在了字符串里。
+                </div>
+              )}
+
+              {navigate.references.length > 0 && (
+                <>
+                  <div className="nav-group">引用（{navigate.references.length}）</div>
+                  {navigate.references.map((ref, index) => (
+                    <button
+                      key={`${ref.file}:${ref.line}:${index}`}
+                      className="nav-item"
+                      onClick={() => onOpenLocation(ref.file, ref.line)}
+                      title={`打开 ${ref.file}:${ref.line}`}
+                    >
+                      <span className="mono nav-path">{ref.file}:{ref.line}</span>
+                      <span className="nav-text">{ref.text.trim()}</span>
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>

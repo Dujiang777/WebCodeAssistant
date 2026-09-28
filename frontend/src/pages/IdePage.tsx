@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { api, ensureAccessToken, HttpError, updateCredits } from '../lib/api';
 import type {
@@ -16,6 +16,7 @@ import type {
   GatePolicy,
   HealthInfo,
   ModelCatalog,
+  NavigateView,
   PatchRecord,
   PendingGate,
   TestRunResult,
@@ -782,6 +783,26 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     }
   };
 
+  /** 符号导航面板的最近一次结果；null = 关闭。（不能叫 navigate：与路由函数撞名） */
+  const [navResult, setNavResult] = useState<NavigateView | null>(null);
+
+  /** Ctrl+Click / F12 请求符号导航：先跳定义，再弹结果面板（引用列表可继续点）。 */
+  const runNavigate = useCallback(
+    async (path: string, line: number, column: number) => {
+      try {
+        const result = await api.navigate(workspaceId, path, line, column);
+        setNavResult(result);
+        if (result.definition) {
+          await openCitation(result.definition.file, result.definition.line);
+        }
+      } catch (err) {
+        toast.error(`符号导航失败：${messageOf(err)}`);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [workspaceId],
+  );
+
   const saveFile = async () => {
     const target = file;
     if (!target || target.binary || target.truncated) return;
@@ -1324,6 +1345,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           onSelectionChange={setSelection}
           onCursorChange={setCursor}
           onRequestCreate={() => setCreating({ parent: '', type: 'file' })}
+          onNavigateSymbol={(path, line, column) => void runNavigate(path, line, column)}
+          navigate={navResult}
+          onCloseNavigate={() => setNavResult(null)}
+          onOpenLocation={(path, line) => void openCitation(path, line)}
         />
 
         {chatVisible && (

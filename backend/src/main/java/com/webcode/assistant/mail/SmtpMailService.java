@@ -71,7 +71,10 @@ public class SmtpMailService implements MailService {
                       String action, String username, String footNote) {
         try {
             MimeMessage message = sender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
+            // 第二个参数 multipart=true：下面 setText(plain, html) 会同时给纯文本与
+            // HTML 两个 alternative，没有它就会抛
+            // "Not in multipart mode"（这个 bug 之前一直没暴露，因为 SMTP 通道从没被真的调过）
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
             helper.setFrom(properties.mail().from());
             helper.setTo(to);
             helper.setSubject(subject);

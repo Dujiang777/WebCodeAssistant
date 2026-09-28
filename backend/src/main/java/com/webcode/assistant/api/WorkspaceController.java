@@ -7,6 +7,7 @@ import com.webcode.assistant.common.ErrorCode;
 import com.webcode.assistant.constitution.ConstitutionService;
 import com.webcode.assistant.map.SpringMapService;
 import com.webcode.assistant.security.CurrentUser;
+import com.webcode.assistant.workspace.NavigateService;
 import com.webcode.assistant.workspace.FileContent;
 import com.webcode.assistant.workspace.FileNode;
 import com.webcode.assistant.workspace.Workspace;
@@ -46,19 +47,22 @@ public class WorkspaceController {
     private final SpringMapService springMapService;
     private final BuildService buildService;
     private final CurrentUser currentUser;
+    private final NavigateService navigateService;
 
     public WorkspaceController(WorkspaceService workspaceService,
                                WorkspaceFileService fileService,
                                ConstitutionService constitutionService,
                                SpringMapService springMapService,
                                BuildService buildService,
-                               CurrentUser currentUser) {
+                               CurrentUser currentUser,
+                               NavigateService navigateService) {
         this.workspaceService = workspaceService;
         this.fileService = fileService;
         this.constitutionService = constitutionService;
         this.springMapService = springMapService;
         this.buildService = buildService;
         this.currentUser = currentUser;
+        this.navigateService = navigateService;
     }
 
     // ------------------------------------------------------------- 工作区
@@ -206,6 +210,27 @@ public class WorkspaceController {
         fileService.delete(workspace, path);
         workspaceService.refreshSize(workspace);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 符号导航：跳转定义 + 查找引用。
+     *
+     * <p>前端在 Ctrl+Click / F12 时调用。definition 为 null 表示工作区里没找到声明
+     * （比如点在了字符串里、或符号来自依赖 jar），前端要如实提示而不是乱跳。
+     */
+    @PostMapping("/{id}/navigate")
+    public ApiModels.NavigateView navigate(@PathVariable long id,
+                                           @Valid @RequestBody ApiModels.NavigateRequest request) {
+        Workspace workspace = requireWorkspace(id);
+        NavigateService.NavigateResult result = navigateService.navigate(
+                workspace, request.file(), request.line(), request.column());
+        return new ApiModels.NavigateView(
+                result.symbol(),
+                result.definition() == null ? null : new ApiModels.NavigateLocation(
+                        result.definition().file(), result.definition().line(), result.definition().text()),
+                result.references().stream()
+                        .map(loc -> new ApiModels.NavigateLocation(loc.file(), loc.line(), loc.text()))
+                        .toList());
     }
 
     private Workspace requireWorkspace(long id) {

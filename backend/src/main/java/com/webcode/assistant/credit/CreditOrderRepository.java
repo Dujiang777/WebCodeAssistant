@@ -24,15 +24,16 @@ public class CreditOrderRepository {
     public static final String STATUS_PENDING = "PENDING";
     public static final String STATUS_PAID = "PAID";
     public static final String STATUS_CANCELLED = "CANCELLED";
+    public static final String STATUS_REFUNDED = "REFUNDED";
 
     public record CreditOrder(long id, String orderNo, long userId, String planCode, int amountCents,
                               long credits, String status, String provider, String providerTxnId,
-                              Instant paidAt, Instant createdAt) {
+                              Instant paidAt, Instant refundedAt, String refundReason, Instant createdAt) {
     }
 
     private static final String COLUMNS =
             "id, order_no, user_id, plan_code, amount_cents, credits, status, provider, "
-                    + "provider_txn_id, paid_at, created_at";
+                    + "provider_txn_id, paid_at, refunded_at, refund_reason, created_at";
 
     private final JdbcClient jdbc;
 
@@ -98,6 +99,7 @@ public class CreditOrderRepository {
 
     private static CreditOrder map(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
         Timestamp paidAt = rs.getTimestamp("paid_at");
+        Timestamp refundedAt = rs.getTimestamp("refunded_at");
         return new CreditOrder(
                 rs.getLong("id"),
                 rs.getString("order_no"),
@@ -109,6 +111,25 @@ public class CreditOrderRepository {
                 rs.getString("provider"),
                 rs.getString("provider_txn_id"),
                 paidAt == null ? null : paidAt.toInstant(),
+                refundedAt == null ? null : refundedAt.toInstant(),
+                rs.getString("refund_reason"),
                 rs.getTimestamp("created_at").toInstant());
+    }
+
+    /**
+     * 退款的状态跃迁：PAID → REFUNDED，条件更新保证同一订单只可能退一次
+     * （与 {@link #markPaid} 同一条幂等思路：数据层的闸门，业务层不写锁）。
+     *
+     * @return true 表示本次调用完成了跃迁（应继续扣回积分）；false 表示订单不是
+     *         已支付状态（未支付 / 已退款 / 已取消），什么都不能做
+     */
+    public boolean markRefunded(String orderNo, String reason) {
+        return jdbc.sql("update credit_orders set status = :refunded, refunded_at = now(6), refund_reason = :reason "
+                        + "where order_no = :no and status = :paid")
+                .param("refunded", STATUS_REFUNDED)
+                .param("reason", reason == null || reason.isBlank() ? null : reason)
+                .param("no", orderNo)
+                .param("paid", STATUS_PAID)
+                .update() == 1;
     }
 }

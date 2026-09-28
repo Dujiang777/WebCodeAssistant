@@ -22,6 +22,11 @@
 import { writeFileSync } from 'node:fs';
 
 const BASE = (process.env.BASE_URL ?? 'http://127.0.0.1:8080').replace(/\/$/, '');
+import { solveCaptcha, clearIpCounters } from './lib-captcha.mjs';
+
+// IP 限流窗口 10 分钟：连续跑几轮回归会把窗口打满（防线正确工作），
+// 先清掉本脚本的计数器保证回归确定性。
+await clearIpCounters();
 const TARGET_FILE = 'src/main/java/com/demo/UserService.java';
 const REPORT_FILE = process.env.REPORT_FILE ?? null;
 
@@ -148,7 +153,7 @@ async function main() {
   const username = `e2e_b4_${Date.now().toString(36)}`;
   const password = 'Passw0rd!23';
 
-  const reg = await call('/api/auth/register', { method: 'POST', body: { username, email: `${username}@example.com`, password } });
+  const reg = await call('/api/auth/register', { method: 'POST', body: { username, email: `${username}@example.com`, password, ...(await solveCaptcha(BASE)) } });
   check('注册新用户', reg.status === 201 || reg.status === 200, `HTTP ${reg.status}`);
   const token = reg.data?.accessToken;
   if (!token) throw new Error('拿不到 token，后续无法继续');
@@ -431,7 +436,7 @@ async function main() {
 
   const stranger = await call('/api/auth/register', {
     method: 'POST',
-    body: { username: `${username}_x`, email: `${username}_x@example.com`, password },
+    body: { username: `${username}_x`, email: `${username}_x@example.com`, password, ...(await solveCaptcha(BASE)) },
   });
   const strangerToken = stranger.data?.accessToken;
   const deskHack = await call(`/api/workspaces/${workspaceId}/desk?sessionId=${sessionId}`, { token: strangerToken });

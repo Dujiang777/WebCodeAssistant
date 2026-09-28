@@ -23,6 +23,11 @@
 import { writeFileSync } from 'node:fs';
 
 const BASE = (process.env.BASE_URL ?? 'http://127.0.0.1:8080').replace(/\/$/, '');
+import { solveCaptcha, clearIpCounters } from './lib-captcha.mjs';
+
+// IP 限流窗口 10 分钟：连续跑几轮回归会把窗口打满（防线正确工作），
+// 先清掉本脚本的计数器保证回归确定性。
+await clearIpCounters();
 const REPORT_FILE = process.env.REPORT_FILE ?? null;
 /** 每次运行都换一批账号，避免与上一轮的数据打架（尤其是锁定与冷却这两条）。 */
 const RUN = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
@@ -156,7 +161,10 @@ async function openStream(sessionId, token) {
 // ------------------------------------------------------------------ 辅助
 
 async function register(username, email, password) {
-  return call('/api/auth/register', { method: 'POST', body: { username, email, password } });
+  return call('/api/auth/register', {
+    method: 'POST',
+    body: { username, email, password, ...(await solveCaptcha(BASE)) },
+  });
 }
 
 async function login(identifier, password) {
@@ -326,16 +334,16 @@ async function main() {
   // ---------------------------------------------------------------- 5. 找回密码
   section('5. 找回密码（含防枚举与冷却）');
 
-  const unknown = await call('/api/auth/forgot-password', { method: 'POST', body: { email: `nobody_${RUN}@example.com` } });
+  const unknown = await call('/api/auth/forgot-password', { method: 'POST', body: { email: `nobody_${RUN}@example.com`, ...(await solveCaptcha(BASE)) } });
   check('未注册邮箱也返回「已发送」（防枚举）',
     unknown.status === 200 && unknown.data?.sent === true && !unknown.data?.devToken);
   check('未注册邮箱会打码', /^\S{1,2}\*\*\*@/.test(unknown.data?.target ?? ''), `"${unknown.data?.target}"`);
 
-  const forgot = await call('/api/auth/forgot-password', { method: 'POST', body: { email: emailA } });
+  const forgot = await call('/api/auth/forgot-password', { method: 'POST', body: { email: emailA, ...(await solveCaptcha(BASE)) } });
   check('已注册邮箱发出重置邮件', forgot.status === 200 && typeof forgot.data?.devToken === 'string');
   const resetToken = forgot.data?.devToken;
 
-  const cooldown = await call('/api/auth/forgot-password', { method: 'POST', body: { email: emailA } });
+  const cooldown = await call('/api/auth/forgot-password', { method: 'POST', body: { email: emailA, ...(await solveCaptcha(BASE)) } });
   check('冷却期内不重发（但对外的回答不变）',
     cooldown.status === 200 && cooldown.data?.sent === true && cooldown.data?.devToken === null,
     '第二次没有新令牌');
