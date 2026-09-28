@@ -59,11 +59,57 @@ export function navigate(path: string): void {
   window.location.hash = target;
 }
 
+/** 把 Route 还原成 hash 路径（previousPath 跟踪与测试都要用）。 */
+export function pathOf(route: Route): string {
+  switch (route.name) {
+    case 'login':
+      return '/login';
+    case 'workspaces':
+      return '/workspaces';
+    case 'credits':
+      return '/credits';
+    case 'account':
+      return '/account';
+    case 'models':
+      return '/models';
+    case 'admin':
+      return `/admin/${route.tab}`;
+    case 'verify-email':
+      return `/verify-email?token=${route.token}`;
+    case 'reset-password':
+      return `/reset-password?token=${route.token}`;
+    case 'ide':
+      return `/ide/${route.workspaceId}`;
+  }
+}
+
+// 「来时的路」：二级页（账号/积分/模型服务/管理后台）的返回按钮不该写死回
+// 工作区列表 —— 用户明明是从某个工作区的编辑器里点头像菜单进来的，回去就该
+// 回到那个编辑器。模块级变量挂在 useRoute 的 hashchange 上逐跳更新。
+let currentPath: string | null = null;
+let lastPath: string | null = null;
+
+/** 用户所在的上一个页面路径；没有上一跳（刚刷新落地）时为 null。 */
+export function previousPath(): string | null {
+  return lastPath;
+}
+
 export function useRoute(): Route {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
 
   useEffect(() => {
-    const onChange = () => setRoute(parseRoute(window.location.hash));
+    // 初次挂载先校准当前位置，否则第一次跳转时 previous 会少记一跳
+    if (currentPath === null) currentPath = pathOf(parseRoute(window.location.hash));
+
+    const onChange = () => {
+      const next = parseRoute(window.location.hash);
+      const nextPath = pathOf(next);
+      if (nextPath !== currentPath) {
+        lastPath = currentPath;
+        currentPath = nextPath;
+      }
+      setRoute(next);
+    };
     window.addEventListener('hashchange', onChange);
     return () => window.removeEventListener('hashchange', onChange);
   }, []);

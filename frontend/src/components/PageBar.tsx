@@ -1,4 +1,4 @@
-import { navigate } from '../lib/router';
+import { navigate, previousPath } from '../lib/router';
 import { AvatarMenu } from './AvatarMenu';
 import { TerminalMark, ChevronIcon } from './icons';
 
@@ -34,9 +34,15 @@ export function PageBar({ title, subtitle, balance, lowBalance, active, isAdmin,
         </div>
       </div>
 
-      <button className="btn btn-ghost btn-sm" onClick={onBack} title="返回工作区列表">
+      {/* 返回按钮的文案跟着来路走：从编辑器头像菜单进来的，回去就是编辑器；
+          从工作区列表进来的才叫「工作区」。文案只是提示，行为由 onBack 决定。 */}
+      <button
+        className="btn btn-ghost btn-sm"
+        onClick={onBack}
+        title={previousPath()?.startsWith('/ide/') ? '回到刚才的编辑器' : '返回工作区列表'}
+      >
         <ChevronIcon size={11} className="flip" />
-        工作区
+        {previousPath()?.startsWith('/ide/') ? '返回编辑器' : '工作区'}
       </button>
 
       <div className="crumbs">
