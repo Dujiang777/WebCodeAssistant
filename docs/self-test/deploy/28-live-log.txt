@@ -1,0 +1,24 @@
+# ui-probe start  steps=9
+
+$ agent-browser set viewport 1440 960
+✓ Done
+
+$ agent-browser open http://139.199.88.15:8081/#/login
+✓ Web Code Assistant · 网页版编码助手
+  http://139.199.88.15:8081/#/login
+
+$ sleep 4500
+
+$ agent-browser eval 'TITLE=' + document.title + ' THEME=' + document.documentElement.dataset.theme + ' FORM=' + (document.querySelector('.form-stack') ? 'yes' : 'no') + ' CAPTCHA=' + (document.querySelector('.captcha-row') || document.querySelector('.captcha-box') ? 'yes' : 'no')
+"TITLE=Web Code Assistant · 网页版编码助手 THEME=brass FORM=yes CAPTCHA=no"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\deploy\50-live-login.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\deploy\50-live-login.png
+
+$ agent-browser eval var s=Array.from(document.querySelectorAll('script[src]')).map(function(x){return x.getAttribute('src')}).join(','); 'ASSETS=' + s.slice(0, 120)
+"ASSETS=/assets/index-CSNy1WaQ.js"
+
+$ agent-browser eval 'ASSET_DIR=' + Array.from(document.querySelectorAll('link[rel=icon],script[src]')).length
+"ASSET_DIR=2"
+
+# ui-probe done
