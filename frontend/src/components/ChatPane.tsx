@@ -18,7 +18,8 @@ import type { StreamStatus } from '../lib/sse';
 import { CitationText } from './CitationText';
 import { GateCard } from './GateCard';
 import { PatchCard } from './PatchCard';
-import { BoltIcon, BookIcon, CloseIcon, PlusIcon, SearchIcon, SendIcon, ShieldIcon } from './icons';
+import { AvatarMenu } from './AvatarMenu';
+import { BoltIcon, BookIcon, CloseIcon, PlusIcon, SearchIcon, SendIcon, ShieldIcon, TerminalMark } from './icons';
 
 /**
  * 右侧对话面板。
@@ -87,6 +88,10 @@ interface ChatPaneProps extends PatchDeps {
   creditLow: boolean;
   /** 打开积分中心（顶栏徽标与横幅共用同一个入口）。 */
   onRecharge: () => void;
+  /** 退出登录 —— 输入区旁的头像菜单要用（账号/主题/模型服务的枢纽）。 */
+  onLogout: () => void;
+  /** 当前用户名：消息流左侧头像的首字母。 */
+  username: string;
 }
 
 function patchesOfMessage(message: ChatMessage, patches: PatchRecord[]): PatchRecord[] {
@@ -147,6 +152,8 @@ export function ChatPane({
   creditBalance,
   creditLow,
   onRecharge,
+  onLogout,
+  username,
   patchBusyId,
   compileBusyId,
   radiusOf,
@@ -293,7 +300,12 @@ export function ChatPane({
             <span>正在读取会话历史…</span>
           </div>
         ) : messages.length === 0 && !turn ? (
-          <div className="empty">
+          <div className="empty empty-hero">
+            <div className="empty-orbit" aria-hidden="true">
+              <span className="empty-orbit-ring" />
+              <span className="empty-orbit-ring slow" />
+              <TerminalMark size={30} className="empty-orbit-mark" />
+            </div>
             <div className="empty-title">开始一次对话</div>
             <p className="empty-sub">
               问我关于这个仓库的任何事。回答里的「路径:行号」都能点开核对；要我改代码，
@@ -320,51 +332,57 @@ export function ChatPane({
                 message={message}
                 patches={patches}
                 deps={deps}
+                username={username}
                 onOpenCitation={onOpenCitation}
               />
             ))}
 
             {turn && (
               <div className="msg msg-role-assistant">
-                <div className="msg-head">
-                  <span className="dot dot-warn" />
-                  <span>正在处理</span>
+                <span className="msg-avatar" aria-hidden="true">
+                  <TerminalMark size={13} />
+                </span>
+                <div className="msg-main">
+                  <div className="msg-head">
+                    <span className="dot dot-warn" />
+                    <span>正在处理</span>
+                  </div>
+
+                  {turn.tools.length > 0 && (
+                    <div className="stack-gap">
+                      {turn.tools.map((tool) => (
+                        <ToolCard key={tool.id} tool={tool} />
+                      ))}
+                    </div>
+                  )}
+
+                  {turn.text && (
+                    <div className="msg-body">
+                      <CitationText text={turn.text} citations={turn.citations} onOpen={onOpenCitation} />
+                      {sending && <span className="caret" />}
+                    </div>
+                  )}
+
+                  {!turn.text && sending && (
+                    <div className="thinking-row">
+                      <span className="dots">
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                      <span>模型正在思考…</span>
+                    </div>
+                  )}
+
+                  {livePatches.length > 0 && <div className="stack-gap">{livePatches.map(renderPatch)}</div>}
+
+                  {turn.error && (
+                    <div className="banner error">
+                      <span className="dot dot-err" />
+                      {turn.error}
+                    </div>
+                  )}
                 </div>
-
-                {turn.tools.length > 0 && (
-                  <div className="stack-gap">
-                    {turn.tools.map((tool) => (
-                      <ToolCard key={tool.id} tool={tool} />
-                    ))}
-                  </div>
-                )}
-
-                {turn.text && (
-                  <div className="msg-body">
-                    <CitationText text={turn.text} citations={turn.citations} onOpen={onOpenCitation} />
-                    {sending && <span className="caret" />}
-                  </div>
-                )}
-
-                {!turn.text && sending && (
-                  <div className="thinking-row">
-                    <span className="dots">
-                      <span />
-                      <span />
-                      <span />
-                    </span>
-                    <span>模型正在思考…</span>
-                  </div>
-                )}
-
-                {livePatches.length > 0 && <div className="stack-gap">{livePatches.map(renderPatch)}</div>}
-
-                {turn.error && (
-                  <div className="banner error">
-                    <span className="dot dot-err" />
-                    {turn.error}
-                  </div>
-                )}
               </div>
             )}
           </>
@@ -514,9 +532,17 @@ export function ChatPane({
           >
             补丁需你确认后才写盘
           </span>
-          <button className="btn btn-primary" disabled={sending || draft.trim().length === 0} onClick={submit}>
-            <SendIcon size={13} />
-            {sending ? '生成中…' : '发送'}
+          <span className="topbar-spacer" />
+          {/* 头像就在发送键旁边：设置、主题、模型服务在这里抬手即达，
+              这是 2026-09-28 重构的核心 —— 用户不该为了换个主题去右上角找入口 */}
+          <AvatarMenu direction="up" onLogout={onLogout} />
+          <button
+            className="composer-send"
+            disabled={sending || draft.trim().length === 0}
+            onClick={submit}
+            title={sending ? '生成中…' : '发送（Ctrl/⌘ + Enter）'}
+          >
+            {sending ? <span className="spinner" /> : <SendIcon size={14} />}
           </button>
         </div>
       </div>
@@ -528,11 +554,13 @@ function MessageBlock({
   message,
   patches,
   deps,
+  username,
   onOpenCitation,
 }: {
   message: ChatMessage;
   patches: PatchRecord[];
   deps: PatchDeps;
+  username: string;
   onOpenCitation: (file: string, line: number | null) => void;
 }) {
   const isUser = message.role === 'user';
@@ -546,64 +574,70 @@ function MessageBlock({
 
   return (
     <div className={`msg msg-role-${isUser ? 'user' : 'assistant'}`}>
-      <div className="msg-head">
-        <span className={`dot ${isUser ? 'dot-ok' : 'dot-warn'}`} />
-        <span>{isUser ? '你' : 'AI'}</span>
-        {mode && <span className="msg-meta">{MODE_META[mode as AgentMode]?.label ?? mode}</span>}
-        {model && <span className="msg-meta">{model}</span>}
-        {!isUser && citeCount > 0 && (
-          <span className="msg-meta" title={`这条回答挂了 ${citeCount} 处引用`}>
-            引用 {citeCount}
-          </span>
-        )}
-        {!isUser && invalid > 0 && (
-          <span className="msg-meta msg-meta-bad" title="这些引用指向的文件在工作区里不存在，或行号越界">
-            {invalid} 处引用存疑
-          </span>
-        )}
-        {credits !== null && (
-          <span className="msg-meta" title="这一轮按真实 token 用量结算后的扣费（预扣额度会多退少补）">
-            −{credits} 分
-          </span>
-        )}
-        <span className="msg-meta">{new Date(message.createdAt).toLocaleTimeString()}</span>
-      </div>
+      <span className={`msg-avatar${isUser ? ' msg-avatar-user' : ''}`} aria-hidden="true">
+        {isUser ? username.charAt(0).toUpperCase() : <TerminalMark size={13} />}
+      </span>
 
-      <div className="msg-body">
-        {isUser ? (
-          message.content || '（空消息）'
-        ) : (
-          <CitationText text={message.content || '（空消息）'} citations={citations} onOpen={onOpenCitation} />
-        )}
-      </div>
-
-      {attached.length > 0 && (
-        <div className="stack-gap">
-          {attached.map((patch) => (
-            <PatchCard
-              key={patch.id}
-              patch={patch}
-              busy={deps.patchBusyId === patch.id}
-              radius={deps.radiusOf(patch.id)}
-              radiusLoading={deps.radiusLoading(patch.id)}
-              radiusError={deps.radiusErrorOf(patch.id)}
-              flag={deps.flagOf(patch.id)}
-              flagLoading={deps.flagLoading(patch.id)}
-              flagError={deps.flagErrorOf(patch.id)}
-              flagAcked={deps.flagAckedOf(patch.id)}
-              onAckFlag={deps.onAckFlag}
-              compileBusy={deps.compileBusyId === patch.id}
-              compile={deps.compileOf(patch.id)}
-              onApply={deps.onApplyPatch}
-              onReject={deps.onRejectPatch}
-              onView={deps.onViewPatch}
-              onCompile={deps.onCompilePatch}
-              onFixFromCompile={deps.onFixFromCompile}
-              onOpenRef={deps.onOpenCitation}
-            />
-          ))}
+      <div className="msg-main">
+        <div className="msg-head">
+          <span className={`dot ${isUser ? 'dot-ok' : 'dot-warn'}`} />
+          <span>{isUser ? '你' : 'AI'}</span>
+          {mode && <span className="msg-meta">{MODE_META[mode as AgentMode]?.label ?? mode}</span>}
+          {model && <span className="msg-meta">{model}</span>}
+          {!isUser && citeCount > 0 && (
+            <span className="msg-meta" title={`这条回答挂了 ${citeCount} 处引用`}>
+              引用 {citeCount}
+            </span>
+          )}
+          {!isUser && invalid > 0 && (
+            <span className="msg-meta msg-meta-bad" title="这些引用指向的文件在工作区里不存在，或行号越界">
+              {invalid} 处引用存疑
+            </span>
+          )}
+          {credits !== null && (
+            <span className="msg-meta" title="这一轮按真实 token 用量结算后的扣费（预扣额度会多退少补）">
+              −{credits} 分
+            </span>
+          )}
+          <span className="msg-meta">{new Date(message.createdAt).toLocaleTimeString()}</span>
         </div>
-      )}
+
+        <div className="msg-body">
+          {isUser ? (
+            message.content || '（空消息）'
+          ) : (
+            <CitationText text={message.content || '（空消息）'} citations={citations} onOpen={onOpenCitation} />
+          )}
+        </div>
+
+        {attached.length > 0 && (
+          <div className="stack-gap">
+            {attached.map((patch) => (
+              <PatchCard
+                key={patch.id}
+                patch={patch}
+                busy={deps.patchBusyId === patch.id}
+                radius={deps.radiusOf(patch.id)}
+                radiusLoading={deps.radiusLoading(patch.id)}
+                radiusError={deps.radiusErrorOf(patch.id)}
+                flag={deps.flagOf(patch.id)}
+                flagLoading={deps.flagLoading(patch.id)}
+                flagError={deps.flagErrorOf(patch.id)}
+                flagAcked={deps.flagAckedOf(patch.id)}
+                onAckFlag={deps.onAckFlag}
+                compileBusy={deps.compileBusyId === patch.id}
+                compile={deps.compileOf(patch.id)}
+                onApply={deps.onApplyPatch}
+                onReject={deps.onRejectPatch}
+                onView={deps.onViewPatch}
+                onCompile={deps.onCompilePatch}
+                onFixFromCompile={deps.onFixFromCompile}
+                onOpenRef={deps.onOpenCitation}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

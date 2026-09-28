@@ -20,7 +20,7 @@
   { "note": "send multi-file refactor message" },
   ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; var t=document.querySelector('.composer-input'); s.call(t, '请把这个类一次改好几个文件：字段注入改成构造器注入，再补一份说明文档。'); t.dispatchEvent(new Event('input', { bubbles: true })); 'typed:' + (t ? 'yes' : 'no')"],
   { "sleep": 400 },
-  ["eval", "var btn=document.querySelector('.composer-actions .btn-primary'); var before=btn && btn.disabled; btn && btn.click(); 'SENT disabled-before=' + before"],
+  ["eval", "var btn=document.querySelector('.composer-send'); var before=btn && btn.disabled; btn && btn.click(); 'SENT disabled-before=' + before"],
   { "sleep": 25000 },
   ["eval", "var cards=document.querySelectorAll('.patch-card'); var sums=document.querySelectorAll('.patch-summary'); 'TRY1 CARDS=' + cards.length + ' SUMMARY=' + sums.length + ' TEXT=' + (sums.length ? sums[0].innerText.slice(0, 30) : 'none')"],
   { "sleep": 15000 },

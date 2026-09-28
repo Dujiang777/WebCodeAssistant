@@ -5,6 +5,7 @@ import { adoptAuth, api } from '../lib/api';
 import type { AuthResult, AuthUser, Dispatch } from '../lib/api';
 import { messageOf } from '../lib/chat';
 import { TerminalMark } from '../components/icons';
+import { TypingTerminal } from '../components/TypingTerminal';
 
 /**
  * 登录 / 注册 / 忘记密码。
@@ -145,7 +146,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
   const title = { login: '登录', register: '创建账号', forgot: '找回密码', verify: '验证邮箱' }[mode];
 
   return (
-    <div className="auth-wrap">
+    <div className="auth-wrap auth-wrap-v2">
       <section className="auth-hero">
         <div className="brand" style={{ borderRight: 'none', paddingRight: 0 }}>
           <TerminalMark size={30} className="brand-mark" />
@@ -167,6 +168,8 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
           左边是文件树，中间是真编辑器，右边是能读代码、能搜代码的 AI。
           它改代码的方式只有一种：给你一份 diff，你点确认它才写盘。
         </p>
+
+        <TypingTerminal />
 
         <ul className="auth-features">
           <li>

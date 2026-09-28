@@ -1384,6 +1384,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               creditBalance={credits?.balance ?? null}
               creditLow={credits?.lowBalance ?? false}
               onRecharge={() => navigate('/credits')}
+              onLogout={onLogout}
+              username={username}
             />
           </div>
         )}

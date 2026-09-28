@@ -1,0 +1,42 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "login as admin" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'admin'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'WcaAdmin!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3200 },
+
+  { "note": "open first workspace" },
+  ["eval", "var row=document.querySelector('.workspace-row'); row && row.click(), 'opened:' + (row ? 'yes' : 'no')"],
+  { "sleep": 5000 },
+
+  { "note": "avatar button lives next to the send key inside the composer" },
+  ["eval", "var btns=document.querySelectorAll('.composer .avatar-btn'); 'AVATAR_IN_COMPOSER=' + btns.length + ' SEND=' + (document.querySelector('.composer-send') ? 'yes' : 'no')"],
+  ["eval", "document.querySelector('.composer .avatar-btn').click(), 'clicked'"],
+  { "sleep": 600 },
+  ["eval", "var m=document.querySelector('.avatar-menu-up'); var items=document.querySelectorAll('.avatar-item').length; var themes=document.querySelectorAll('.avatar-theme').length; 'MENU=' + (m ? 'yes' : 'no') + ' ITEMS=' + items + ' THEMES=' + themes + ' ID=' + ((document.querySelector('.avatar-id-name') || { innerText: 'none' }).innerText.slice(0, 16))"],
+  ["screenshot", "docs/self-test/v7/40-avatar-menu.png"],
+
+  { "note": "switch theme to emerald" },
+  ["eval", "var cards=Array.from(document.querySelectorAll('.avatar-theme')); var t=cards.find(function (x) { return x.innerText.indexOf('emerald') >= 0 || x.innerText.indexOf('\\u58a8\\u7389') >= 0; }); t && t.click(); 'CLICK=' + (t ? 'yes' : 'no')"],
+  { "sleep": 500 },
+  ["eval", "'THEME=' + document.documentElement.dataset.theme + ' MENU_STILL_OPEN=' + (document.querySelector('.avatar-menu') ? 'yes' : 'no')"],
+  ["screenshot", "docs/self-test/v7/41-theme-emerald.png"],
+
+  { "note": "switch theme to ivory (light)" },
+  ["eval", "var cards=Array.from(document.querySelectorAll('.avatar-theme')); var t=cards.find(function (x) { return x.innerText.indexOf('ivory') >= 0 || x.innerText.indexOf('\\u6696\\u7eb8') >= 0; }); t && t.click(); 'CLICK=' + (t ? 'yes' : 'no')"],
+  { "sleep": 500 },
+  ["eval", "'THEME=' + document.documentElement.dataset.theme + ' COLORSCHEME=' + getComputedStyle(document.documentElement).colorScheme"],
+  ["screenshot", "docs/self-test/v7/42-theme-ivory.png"],
+
+  { "note": "back to default brass, close menu" },
+  ["eval", "var cards=Array.from(document.querySelectorAll('.avatar-theme')); var t=cards.find(function (x) { return x.innerText.indexOf('brass') >= 0 || x.innerText.indexOf('\\u9ec4\\u94dc') >= 0; }); t && t.click(); 'CLICK=' + (t ? 'yes' : 'no')"],
+  { "sleep": 400 },
+  ["eval", "'THEME=' + document.documentElement.dataset.theme + ' ON=' + ((document.querySelector('.avatar-theme.on .avatar-theme-name') || { innerText: 'none' }).innerText)"],
+  ["eval", "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 'esc'"],
+  { "sleep": 400 },
+  ["eval", "'MENU_CLOSED=' + (document.querySelector('.avatar-menu') ? 'no' : 'yes')"]
+]

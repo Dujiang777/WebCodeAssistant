@@ -1,4 +1,5 @@
 import { TerminalMark, ChevronIcon } from './icons';
+import { AvatarMenu } from './AvatarMenu';
 import { ModelPicker } from './ModelPicker';
 import type { HealthInfo, ModelOption } from '../lib/api';
 
@@ -54,7 +55,6 @@ export function TopBar({
   credits,
   creditLow,
   onOpenCredits,
-  onOpenAccount,
   models,
   modelKey,
   onPickModel,
@@ -129,12 +129,9 @@ export function TopBar({
       <span className="chip" title={`已登录：${username}`}>
         {username}
       </span>
-      <button className="btn btn-ghost btn-sm" onClick={onOpenAccount} title="账号与安全：改密码、登录设备">
-        账号
-      </button>
-      <button className="btn btn-ghost btn-sm" onClick={onLogout}>
-        退出
-      </button>
+      {/* 用户区收敛成一颗头像：账号、主题、模型服务、退出全部收进弹出菜单，
+          顶栏不再平铺「账号」「退出」两颗裸按钮 */}
+      <AvatarMenu direction="down" onLogout={onLogout} />
     </header>
   );
 }
