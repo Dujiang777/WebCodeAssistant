@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Maven 镜像配置（服务器版）。
+
+  BuildService 在「编译闭环」里会调用 mvn 去编译用户工作区，默认从
+  repo1.maven.org 拉依赖 —— 国内服务器上慢到不可用。这里把中央仓库指向
+  阿里云镜像，并通过环境变量 COMPILE_MVN_SETTINGS 告诉后端用这份文件。
+
+  安装位置：/opt/wca/maven-settings.xml
+-->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+  <mirrors>
+    <mirror>
+      <id>aliyun-public</id>
+      <name>Aliyun Public</name>
+      <url>https://maven.aliyun.com/repository/public</url>
+      <mirrorOf>central</mirrorOf>
+    </mirror>
+  </mirrors>
+</settings>

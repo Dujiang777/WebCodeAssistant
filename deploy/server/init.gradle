@@ -1,0 +1,29 @@
+// Gradle 初始化脚本：把仓库解析换到阿里云镜像。
+//
+// 为什么需要它：build.gradle.kts 里只有 mavenCentral()，从国内服务器拉
+// Spring Boot / LangChain4j 那一坨依赖会慢到不可用。这里在构建开始前把
+// 镜像插到前面（保留官方源兜底：镜像偶发缺包时仍能成功）。
+//
+// 用法：./gradlew --init-script /opt/wca/init.gradle bootJar
+settingsEvaluated { settings ->
+    settings.pluginManagement {
+        repositories {
+            maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+            maven { url 'https://maven.aliyun.com/repository/public' }
+            gradlePluginPortal()
+        }
+    }
+}
+
+allprojects {
+    buildscript {
+        repositories {
+            maven { url 'https://maven.aliyun.com/repository/public' }
+            maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+        }
+    }
+    repositories {
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        mavenCentral()
+    }
+}
