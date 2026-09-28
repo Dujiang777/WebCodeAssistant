@@ -174,6 +174,69 @@ public class UserRepository {
                 .update();
     }
 
+    /**
+     * 用户选定的默认模型。
+     *
+     * <p>单独一个查询而不是塞进 {@link UserAccount}：那个读模型被鉴权链路每请求都用一次，
+     * 多加一个只有设置页与对话入口关心的字段，等于让所有请求都多搬一次数据。
+     */
+    public Optional<String> findDefaultModelKey(long userId) {
+        return jdbc.sql("select default_model_key from users where id = :id")
+                .param("id", userId)
+                .query(String.class)
+                .optional()
+                .filter(value -> value != null && !value.isBlank());
+    }
+
+    /** 记住用户的模型选择。传 null 表示「跟随平台默认」。 */
+    public void updateDefaultModelKey(long userId, String modelKey) {
+        jdbc.sql("update users set default_model_key = :key where id = :id")
+                .param("key", modelKey)
+                .param("id", userId)
+                .update();
+    }
+
+    /** 会话世代。签 access token 时写进令牌，校验时比对。 */
+    public long findTokenEpoch(long userId) {
+        return jdbc.sql("select token_epoch from users where id = :id")
+                .param("id", userId)
+                .query(Long.class)
+                .optional()
+                .orElse(0L);
+    }
+
+    /**
+     * 鉴权过滤器快检用的轻量读模型：停用状态 + 会话世代，一条 SQL 一起拿。
+     *
+     * <p>刻意不复用 {@link UserAccount}：过滤器每个请求都要跑一次，
+     * 它只需要这两个字段，搬整个用户行（含密码哈希）既浪费又扩大了泄露面。
+     */
+    public record StatusAndEpoch(boolean disabled, long epoch) {
+    }
+
+    /** 用户不存在时返回空 —— 由调用方决定「不存在」意味着什么（Guard 视为拒绝）。 */
+    public Optional<StatusAndEpoch> findStatusAndEpoch(long userId) {
+        return jdbc.sql("select status, token_epoch from users where id = :id")
+                .param("id", userId)
+                .query((rs, rowNum) -> new StatusAndEpoch(
+                        !"ACTIVE".equals(rs.getString("status")),
+                        rs.getLong("token_epoch")))
+                .optional();
+    }
+
+    /**
+     * 让此前签发的全部 access token 立刻作废。
+     *
+     * <p>用在「改密 / 管理员重置密码 / 强制下线 / 停用 / 降权」这些场景：
+     * 光吊销 refresh token 只能挡住「下次刷新」，手上那张还有效的 access token
+     * 会继续畅通到自然过期 —— 而上面每一个动作的语义都是<b>立刻马上生效</b>。
+     */
+    public void bumpTokenEpoch(long userId) {
+        jdbc.sql("update users set token_epoch = token_epoch + 1 where id = :id")
+                .param("id", userId)
+                .update();
+    }
+
     private static Instant instantOrNull(Timestamp timestamp) {
         return timestamp == null ? null : timestamp.toInstant();
     }

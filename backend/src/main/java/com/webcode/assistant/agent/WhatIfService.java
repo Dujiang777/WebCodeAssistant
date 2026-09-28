@@ -3,6 +3,7 @@ package com.webcode.assistant.agent;
 import com.webcode.assistant.common.ApiException;
 import com.webcode.assistant.common.ErrorCode;
 import com.webcode.assistant.llm.ChatModelConfig;
+import com.webcode.assistant.llm.ResolvedModel;
 import com.webcode.assistant.workspace.ShadowWorkspaceService;
 import com.webcode.assistant.workspace.Workspace;
 import com.webcode.assistant.workspace.WorkspaceFileService;
@@ -125,7 +126,7 @@ public class WhatIfService {
         int removed = 0;
 
         try {
-            raw = complete(prompt);
+            raw = complete(prompt, modelGateway.resolve(userId, null));
         } catch (ApiException ex) {
             status = STATUS_UNAVAILABLE;
             note = "模型不可用：" + ex.getMessage();
@@ -296,10 +297,10 @@ public class WhatIfService {
     }
 
     /** 同步拿一次完整回答：复用项目里已验证的 TokenStream 模式，避免引入新的模型 API。 */
-    private String complete(String prompt) {
-        dev.langchain4j.model.chat.StreamingChatModel model = modelGateway.require();
+    private String complete(String prompt, ResolvedModel model) {
+        dev.langchain4j.model.chat.StreamingChatModel client = modelGateway.require(model);
         Assistant assistant = AiServices.builder(Assistant.class)
-                .streamingChatModel(model)
+                .streamingChatModel(client)
                 .build();
 
         StringBuilder answer = new StringBuilder();

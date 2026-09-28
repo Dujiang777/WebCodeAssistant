@@ -15,6 +15,7 @@ import type {
   FlagView,
   GatePolicy,
   HealthInfo,
+  ModelCatalog,
   PatchRecord,
   PendingGate,
   TestRunResult,
@@ -263,6 +264,12 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   /** 余额不足被后端拒掉时置位：输入区上方改为显示「去充值」，而不是一句红字了事。 */
   const [creditBlocked, setCreditBlocked] = useState(false);
 
+  // ------------------------------------------------- V6：模型选择
+  /** 模型目录（顶栏下拉）。拉不到就退化为原来的状态 chip，不影响对话。 */
+  const [modelCatalog, setModelCatalog] = useState<ModelCatalog | null>(null);
+  /** 本轮对话选用的模型；null = 跟随默认（后端按「用户默认 → 平台默认」解析）。 */
+  const [modelKey, setModelKey] = useState<string | null>(null);
+
   /**
    * 刷新余额。
    *
@@ -271,11 +278,23 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
    */
   const refreshCredits = async () => {
     try {
-      const summary = await api.creditSummary();
+      const summary = await api.creditSummary(modelKey ?? undefined);
       setCredits(summary);
       updateCredits(summary.balance, summary.lowBalance);
     } catch {
       // 积分是增强信息，拉不到不影响主流程
+    }
+  };
+
+  /** 拉模型目录：进页面一次 + 每轮对话结束刷新（价格/可用性可能因 BYOK 变化）。 */
+  const refreshModels = async () => {
+    try {
+      const catalog = await api.modelCatalog();
+      setModelCatalog(catalog);
+      // 目录里已没有这个 key（被删了）→ 回到跟随默认
+      setModelKey((key) => (key && catalog.models.some((m) => m.modelKey === key) ? key : null));
+    } catch {
+      // 目录是增强信息，拉不到顶栏退化为状态 chip
     }
   };
 
@@ -328,6 +347,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   // 积分概览：进页面拉一次即可（结算后的刷新由 finishTurn 负责）
   useEffect(() => {
     void refreshCredits();
+    void refreshModels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1055,6 +1075,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           ? { startLine: selection.startLine, endLine: selection.endLine, text: selection.text }
           : null,
         mode,
+        model: modelKey,
       });
       setMessages((list) =>
         list.map((message) => (message.id === optimisticId ? { ...message, id: response.messageId } : message)),
@@ -1207,6 +1228,9 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         creditLow={credits?.lowBalance ?? false}
         onOpenCredits={() => navigate('/credits')}
         onOpenAccount={() => navigate('/account')}
+        models={modelCatalog?.models ?? null}
+        modelKey={modelKey}
+        onPickModel={(key) => { setModelKey(key); void refreshCredits(); }}
       />
 
       <div className="workbench" style={{ gridTemplateColumns: columns }}>

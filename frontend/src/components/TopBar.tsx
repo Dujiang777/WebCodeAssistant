@@ -1,5 +1,6 @@
 import { TerminalMark, ChevronIcon } from './icons';
-import type { HealthInfo } from '../lib/api';
+import { ModelPicker } from './ModelPicker';
+import type { HealthInfo, ModelOption } from '../lib/api';
 
 /**
  * 顶栏。左侧是品牌与面包屑，右侧是「模型连接状态 + 积分 + 当前用户」。
@@ -33,6 +34,12 @@ interface TopBarProps {
   onOpenCredits: () => void;
   /** 打开账号与安全（改密码 / 登录设备）。 */
   onOpenAccount: () => void;
+  /** 模型目录；null 表示还没拉到 —— 此时顶栏退化为纯状态 chip。 */
+  models: ModelOption[] | null;
+  /** 本轮对话选用的模型 key；null = 跟随默认。 */
+  modelKey: string | null;
+  /** 在下拉里选了模型（只影响下一轮，不改全局默认）。 */
+  onPickModel: (modelKey: string | null) => void;
 }
 
 export function TopBar({
@@ -48,6 +55,9 @@ export function TopBar({
   creditLow,
   onOpenCredits,
   onOpenAccount,
+  models,
+  modelKey,
+  onPickModel,
 }: TopBarProps) {
   const modelReady = health?.modelConfigured ?? false;
 
@@ -85,17 +95,21 @@ export function TopBar({
         </span>
       )}
 
-      <span
-        className="chip"
-        title={
-          modelReady
-            ? `模型：${health?.model ?? '已配置'}　·　检索引擎：${health?.grepEngine ?? '未知'}　·　Redis：${health?.redisAvailable ? '可用' : '降级'}`
-            : '未配置模型，仅可浏览与编辑文件'
-        }
-      >
-        <span className={`dot ${modelReady ? 'dot-ok' : 'dot-warn'}`} />
-        {modelReady ? health?.model ?? '模型已就绪' : '模型未配置'}
-      </span>
+      {models === null ? (
+        <span
+          className="chip"
+          title={
+            modelReady
+              ? `模型：${health?.model ?? '已配置'}　·　检索引擎：${health?.grepEngine ?? '未知'}　·　Redis：${health?.redisAvailable ? '可用' : '降级'}`
+              : '未配置模型，仅可浏览与编辑文件'
+          }
+        >
+          <span className={`dot ${modelReady ? 'dot-ok' : 'dot-warn'}`} />
+          {modelReady ? health?.model ?? '模型已就绪' : '模型未配置'}
+        </span>
+      ) : (
+        <ModelPicker models={models} currentKey={modelKey} healthReady={modelReady} onPick={onPickModel} />
+      )}
 
       {credits !== null && (
         <button

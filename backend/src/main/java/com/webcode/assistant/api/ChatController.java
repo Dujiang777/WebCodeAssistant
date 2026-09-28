@@ -92,7 +92,8 @@ public class ChatController {
                 request.content(),
                 request.currentFile(),
                 request.toSelection(),
-                AgentRequest.normalizeMode(request.mode()));
+                AgentRequest.normalizeMode(request.mode()),
+                request.model());
 
         long messageId = orchestrator.start(agentRequest);
         return ResponseEntity.accepted().body(new ApiModels.SendMessageResponse(messageId, sid));

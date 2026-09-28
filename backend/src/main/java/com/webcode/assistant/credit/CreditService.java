@@ -2,6 +2,7 @@ package com.webcode.assistant.credit;
 
 import com.webcode.assistant.common.ApiException;
 import com.webcode.assistant.common.ErrorCode;
+import com.webcode.assistant.llm.ResolvedModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,12 @@ import java.util.UUID;
  *   <li><b>预扣 - 结算 - 退款</b>三段式：预算不住的钱先扣着，按实际用量多退少补，
  *       跑失败就全额退回。没有预扣，余额 1 分的账号也能发起一轮消耗 5 万 token 的对话。</li>
  * </ol>
+ *
+ * <p><b>V6 起所有入口都多带一个 {@link ResolvedModel}</b>：单价与「是否计费」
+ * 都由模型决定（见 {@link PricingService}）。自带 Key 的模型
+ * {@code billable=false}，会跳过余额闸门、跳过预扣、结算直接记 0 ——
+ * 三条链路都必须一致地跳过，漏一处就会出现「免积分模型却扣了钱」或者
+ * 「免积分模型因为余额不足被拦下」。
  */
 @Service
 public class CreditService {
@@ -54,7 +61,8 @@ public class CreditService {
 
     public record Summary(long balance, long totalGranted, long totalConsumed,
                           boolean lowBalance, boolean enforceBalance, long lowBalanceThreshold,
-                          long holdCredits, long signupBonus, String pricingNote) {
+                          long holdCredits, long signupBonus, String pricingNote,
+                          boolean byok, String modelName, long per1kInput, long per1kOutput) {
     }
 
     public record RechargeResult(CreditOrderRepository.CreditOrder order, Map<String, Object> payment) {
@@ -93,50 +101,66 @@ public class CreditService {
     }
 
     public Summary summary(long userId) {
-        return accounts.find(userId)
-                .map(account -> new Summary(
-                        account.balance(),
-                        account.totalGranted(),
-                        account.totalConsumed(),
-                        account.balance() < pricing.lowBalanceThreshold(),
-                        pricing.enforceBalance(),
-                        pricing.lowBalanceThreshold(),
-                        pricing.holdCredits(),
-                        pricing.signupBonus(),
-                        pricing.explain()))
-                .orElseGet(() -> new Summary(0, 0, 0, true, pricing.enforceBalance(),
-                        pricing.lowBalanceThreshold(), pricing.holdCredits(),
-                        pricing.signupBonus(), pricing.explain()));
+        return summary(userId, null);
     }
 
-    /** 对话前的余额闸门。不足时抛 402，前端据此直接引导充值。 */
-    public void requireAffordable(long userId) {
+    /** 带模型视图的余额摘要：前端据此显示「这个模型的价」与「本轮预扣多少」。 */
+    public Summary summary(long userId, ResolvedModel model) {
+        boolean byok = model != null && !model.billable();
+        CreditAccountRepository.CreditAccount account = accounts.find(userId).orElse(null);
+        long balance = account == null ? 0 : account.balance();
+        return new Summary(
+                balance,
+                account == null ? 0 : account.totalGranted(),
+                account == null ? 0 : account.totalConsumed(),
+                balance < pricing.lowBalanceThreshold(),
+                pricing.enforceBalance(),
+                pricing.lowBalanceThreshold(),
+                byok ? 0 : pricing.holdCredits(),
+                pricing.signupBonus(),
+                pricing.explain(model),
+                byok,
+                model == null ? null : model.displayName(),
+                model == null ? pricing.per1kInput() : model.per1kInput(),
+                model == null ? pricing.per1kOutput() : model.per1kOutput());
+    }
+
+    /**
+     * 对话前的余额闸门。不足时抛 402，前端据此直接引导充值。
+     *
+     * <p>自带 Key 的模型直接放行：它的算力钱不走平台账，余额为 0 也不该拦。
+     */
+    public void requireAffordable(long userId, ResolvedModel model) {
         if (!pricing.enforceBalance()) {
+            return;
+        }
+        if (model != null && !model.billable()) {
             return;
         }
         long balance = accounts.balance(userId);
         long min = pricing.minChargePerTurn();
         if (balance < min) {
             throw new ApiException(ErrorCode.INSUFFICIENT_CREDITS,
-                    "积分不足（当前 " + balance + " 分，单轮最低需要 " + min + " 分），充值后即可继续");
+                    "积分不足（当前 " + balance + " 分，单轮最低需要 " + min + " 分），充值后即可继续；"
+                            + "也可以在「模型设置」里填自己的 API Key，用自带 Key 的模型不消耗积分");
         }
     }
 
     /**
-     * 预扣。返回实际预扣的积分数（可能为 0：余额刚好只够最低消费时不再预扣）。
+     * 预扣。返回实际预扣的积分数（可能为 0：余额刚好只够最低消费、或用的是自带 Key 的模型）。
      *
      * @param refId 本轮的唯一标识（用落库后的用户消息 id），结算与退款都靠它对齐
      */
     @Transactional
-    public long hold(long userId, String refId) {
-        if (!pricing.enforceBalance()) {
+    public long hold(long userId, String refId, ResolvedModel model) {
+        if (!pricing.enforceBalance() || (model != null && !model.billable())) {
             return 0;
         }
-        requireAffordable(userId);
+        requireAffordable(userId, model);
         accounts.ensureAccount(userId);
 
         long balance = accounts.balance(userId);
-        long amount = pricing.estimateHold(balance);
+        long amount = pricing.estimateHold(balance, model);
         if (amount <= 0) {
             return 0;
         }
@@ -150,7 +174,7 @@ public class CreditService {
                     "积分不足（当前 " + accounts.balance(userId) + " 分），充值后即可继续");
         }
         ledger.insert(userId, CreditLedgerRepository.KIND_HOLD, -amount, accounts.balance(userId),
-                "本轮对话预扣", "CHAT", refId, key);
+                "本轮对话预扣（" + describeModel(model) + "）", "CHAT", refId, key);
         return amount;
     }
 
@@ -160,11 +184,21 @@ public class CreditService {
      * @return 本轮最终计入的积分数
      */
     @Transactional
-    public long settle(long userId, String refId, long held, long inputTokens, long outputTokens) {
-        long actual = pricing.costFor(inputTokens, outputTokens);
+    public long settle(long userId, String refId, long held, ResolvedModel model,
+                       long inputTokens, long outputTokens) {
+        long actual = pricing.costFor(model, inputTokens, outputTokens);
         String key = idempotencyKey(CreditLedgerRepository.KIND_SETTLE, userId, refId);
         if (ledger.existsByIdempotencyKey(key)) {
             return actual;
+        }
+
+        if (actual <= 0 && held <= 0) {
+            // 免积分模型（自带 Key）：不产生任何余额变动，但仍记一条 0 额流水，
+            // 这样「这一轮到底算了多少钱」在账本里查得到，而不是彻底没有痕迹。
+            accounts.ensureAccount(userId);
+            ledger.insert(userId, CreditLedgerRepository.KIND_SETTLE, 0, accounts.balance(userId),
+                    "本轮对话结算（" + describeModel(model) + "，自带 Key 免积分）", "CHAT", refId, key);
+            return 0;
         }
 
         // 能收到多少：真实消耗与实际余额取小。收不满时不追债 —— 欠款追讨是另一个系统的事，
@@ -184,8 +218,8 @@ public class CreditService {
         }
 
         ledger.insert(userId, CreditLedgerRepository.KIND_SETTLE, balanceDelta, accounts.balance(userId),
-                "本轮对话结算（输入 " + inputTokens + " / 输出 " + outputTokens + " token）",
-                "CHAT", refId, key);
+                "本轮对话结算（" + describeModel(model) + "，输入 " + inputTokens + " / 输出 "
+                        + outputTokens + " token）", "CHAT", refId, key);
         return chargeable;
     }
 
@@ -214,7 +248,7 @@ public class CreditService {
      * 这也是审计该有的样子。
      */
     @Transactional
-    public long adjust(long userId, long amount, String reason, long operatorId) {
+    public long adjust(long userId, long amount, String reason, long operatorId, String operatorName) {
         if (amount == 0) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "调整额度不能为 0");
         }
@@ -225,10 +259,18 @@ public class CreditService {
             throw new ApiException(ErrorCode.VALIDATION_FAILED,
                     "扣减额度超过当前余额（" + accounts.balance(userId) + " 分）");
         }
+        String operator = operatorName == null || operatorName.isBlank()
+                ? "#" + operatorId : operatorName + " (#" + operatorId + ")";
         ledger.insert(userId, CreditLedgerRepository.KIND_ADJUST, amount, accounts.balance(userId),
-                (reason == null || reason.isBlank() ? "管理员调整" : reason) + "｜操作人 #" + operatorId,
+                (reason == null || reason.isBlank() ? "管理员调整" : reason) + "｜操作人 " + operator,
                 "ADMIN", String.valueOf(operatorId), null);
         return accounts.balance(userId);
+    }
+
+    /** 兼容旧调用：没有操作人名时只记 id。 */
+    @Transactional
+    public long adjust(long userId, long amount, String reason, long operatorId) {
+        return adjust(userId, amount, reason, operatorId, null);
     }
 
     public CreditLedgerRepository.LedgerPage ledger(long userId, int limit, int offset) {
@@ -374,6 +416,22 @@ public class CreditService {
     public CreditAccountRepository.CreditAccount accountOf(String username) {
         return accounts.findByUsername(username)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "用户不存在或尚无积分账户"));
+    }
+
+    /** 管理端：按用户 id 查积分账户。 */
+    public CreditAccountRepository.CreditAccount accountOfUser(long userId) {
+        return accounts.find(userId)
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "该用户尚无积分账户"));
+    }
+
+    // ------------------------------------------------------------ 内部
+
+    /** 流水里的模型描述。免积分也写出来 —— 账本要能回答「这轮用的什么模型」。 */
+    private static String describeModel(ResolvedModel model) {
+        if (model == null) {
+            return "默认模型";
+        }
+        return model.displayName() + "/" + model.modelKey();
     }
 
     private static String idempotencyKey(String kind, long userId, String refId) {

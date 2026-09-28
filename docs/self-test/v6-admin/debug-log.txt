@@ -1,0 +1,33 @@
+# ui-probe start  steps=13
+
+$ agent-browser set viewport 1512 950
+✓ Done
+
+$ agent-browser open http://127.0.0.1:5173/#/login
+✓ Web Code Assistant · 网页版编码助手
+  http://127.0.0.1:5173/#/login
+
+$ sleep 2400
+
+$ agent-browser eval var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'admin'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'WcaAdmin!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'
+"filled"
+
+$ sleep 300
+
+$ agent-browser eval document.querySelector('.form-stack .btn-primary').click(), 'submitted'
+"submitted"
+
+$ sleep 3200
+
+$ agent-browser eval var btns=Array.from(document.querySelectorAll('.btn')).map(function (b) { return b.innerText.trim(); }).join(' | '); 'BTNS=' + btns.slice(0, 160)
+"BTNS=积分中心 | 模型服务 | 管理后台 | 账号 | 刷新 | 退出 | 去验证 | 创建工作区"
+
+$ agent-browser eval fetch('/api/workspaces', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('wca.access') }, body: JSON.stringify({ name: 'probe-demo', sample: true }) }).then(function (r) { return r.text(); }).then(function (t) { window.__ws = t; return 'done'; })
+"done"
+
+$ sleep 5000
+
+$ agent-browser eval 'WS_API=' + String(window.__ws || 'pending').slice(0, 200)
+"WS_API={\"id\":44,\"name\":\"probe-demo\",\"gitUrl\":null,\"sizeBytes\":13664,\"createdAt\":\"2026-09-28T02:47:54.672983Z\"}"
+
+# ui-probe done

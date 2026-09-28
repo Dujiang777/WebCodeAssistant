@@ -4,6 +4,8 @@ import com.webcode.assistant.credit.CreditLedgerRepository;
 import com.webcode.assistant.credit.CreditOrderRepository;
 import com.webcode.assistant.credit.CreditPlanRepository;
 import com.webcode.assistant.credit.CreditService;
+import com.webcode.assistant.llm.ChatModelConfig;
+import com.webcode.assistant.llm.ResolvedModel;
 import com.webcode.assistant.security.CurrentUser;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,16 +33,38 @@ public class CreditController {
     private static final int MAX_LIMIT = 100;
 
     private final CreditService creditService;
+    private final ChatModelConfig.ModelGateway modelGateway;
     private final CurrentUser currentUser;
 
-    public CreditController(CreditService creditService, CurrentUser currentUser) {
+    public CreditController(CreditService creditService,
+                            ChatModelConfig.ModelGateway modelGateway,
+                            CurrentUser currentUser) {
         this.creditService = creditService;
+        this.modelGateway = modelGateway;
         this.currentUser = currentUser;
     }
 
+    /**
+     * 积分概览。
+     *
+     * <p>可以带一个 {@code model} 参数：带上它时，{@code pricingNote} 与 {@code holdCredits}
+     * 说的是那个模型的价与预扣额。不带则说的是兜底价。
+     * 让前端「切换模型时立刻看到扣费怎么变」，而不是切完还得去查文档。
+     */
     @GetMapping("/summary")
-    public ApiModels.CreditSummaryResponse summary() {
-        return toSummary(creditService.summary(currentUser.require().userId()));
+    public ApiModels.CreditSummaryResponse summary(
+            @RequestParam(value = "model", required = false) String model) {
+        long userId = currentUser.require().userId();
+        ResolvedModel resolved = null;
+        if (model != null && !model.isBlank()) {
+            try {
+                resolved = modelGateway.resolve(userId, model);
+            } catch (RuntimeException ex) {
+                // 指定的模型不可用不该让余额接口整个失败 —— 概览是页面骨架，必须能渲染
+                resolved = null;
+            }
+        }
+        return toSummary(creditService.summary(userId, resolved));
     }
 
     @GetMapping("/ledger")
@@ -114,7 +138,8 @@ public class CreditController {
         return new ApiModels.CreditSummaryResponse(summary.balance(), summary.totalGranted(),
                 summary.totalConsumed(), summary.lowBalance(), summary.enforceBalance(),
                 summary.lowBalanceThreshold(), summary.holdCredits(), summary.signupBonus(),
-                summary.pricingNote());
+                summary.pricingNote(), summary.byok(), summary.modelName(),
+                summary.per1kInput(), summary.per1kOutput());
     }
 
     private static ApiModels.LedgerEntryView toEntry(CreditLedgerRepository.LedgerEntry entry) {

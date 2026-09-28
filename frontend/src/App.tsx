@@ -4,10 +4,12 @@ import { api, clearSession, loadRefreshToken, loadUser, patchUser, subscribeSess
 import type { AuthUser } from './lib/api';
 import { navigate, useRoute } from './lib/router';
 import { AccountPage } from './pages/AccountPage';
+import { AdminPage } from './pages/AdminPage';
 import { ResetPasswordPage, VerifyEmailPage } from './pages/AuthTokenPage';
 import { CreditsPage } from './pages/CreditsPage';
 import { IdePage } from './pages/IdePage';
 import { LoginPage } from './pages/LoginPage';
+import { ModelsPage } from './pages/ModelsPage';
 import { WorkspaceListPage } from './pages/WorkspaceListPage';
 
 /** 不需要登录态就能打开的页面（邮件链接落点、登录页）。 */
@@ -92,6 +94,32 @@ export function App() {
 
   if (route.name === 'account') {
     return <AccountPage onBack={() => navigate('/workspaces')} onLogout={handleLogout} />;
+  }
+
+  if (route.name === 'models') {
+    return (
+      <ModelsPage
+        onBack={() => navigate('/workspaces')}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
+  if (route.name === 'admin') {
+    // 管理后台的权限真源在后端（每个接口都会现读角色）；前端这层只负责
+    // 「非管理员别把入口渲染出来」—— 直接手打 URL 的请求会被 403 挡回去。
+    if (user.role !== 'ADMIN') {
+      navigate('/workspaces');
+      return null;
+    }
+    return (
+      <AdminPage
+        key={route.tab}
+        initialTab={route.tab}
+        onBack={() => navigate('/workspaces')}
+        onLogout={handleLogout}
+      />
+    );
   }
 
   if (route.name === 'ide') {
