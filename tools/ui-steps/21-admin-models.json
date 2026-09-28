@@ -42,7 +42,7 @@
   ["screenshot", "docs/self-test/v6-admin/15-audit.png"],
 
   { "note": "models page" },
-  ["eval", "Array.from(document.querySelectorAll('.btn')).find(function (b) { return b.innerText.indexOf('工作区') >= 0; }).click(), 'back'"],
+  ["eval", "Array.from(document.querySelectorAll('.btn')).find(function (b) { return b.innerText.indexOf('工作区') >= 0 || b.innerText.indexOf('返回编辑器') >= 0; }).click(), 'back'"],
   { "sleep": 1200 },
   ["eval", "Array.from(document.querySelectorAll('.btn')).find(function (b) { return b.innerText.indexOf('模型服务') >= 0; }).click(), 'to-models'"],
   { "sleep": 2000 },
@@ -56,7 +56,7 @@
   ["screenshot", "docs/self-test/v6-admin/17-provider-form.png"],
   ["eval", "document.querySelector('.modal .icon-btn').click(), 'closed-dialog'"],
   { "sleep": 400 },
-  ["eval", "Array.from(document.querySelectorAll('.btn')).find(function (b) { return b.innerText.indexOf('工作区') >= 0; }).click(), 'back'"],
+  ["eval", "Array.from(document.querySelectorAll('.btn')).find(function (b) { return b.innerText.indexOf('工作区') >= 0 || b.innerText.indexOf('返回编辑器') >= 0; }).click(), 'back'"],
   { "sleep": 1200 },
   ["screenshot", "docs/self-test/v6-admin/18-workspaces.png"]
 ]

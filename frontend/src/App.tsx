@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { api, clearSession, loadRefreshToken, loadUser, patchUser, subscribeSession } from './lib/api';
 import type { AuthUser } from './lib/api';
-import { navigate, useRoute } from './lib/router';
+import { navigate, previousPath, useRoute } from './lib/router';
 import { initTheme } from './lib/theme';
 import { AccountPage } from './pages/AccountPage';
 import { AdminPage } from './pages/AdminPage';
@@ -93,18 +93,23 @@ export function App() {
     return <LoginPage onAuthenticated={setUser} />;
   }
 
+  // 二级页的返回目标：从哪个界面进来就回哪个 —— 从编辑器头像菜单进来的
+  // 用户点「返回」应该回到编辑器，而不是被扔回工作区列表重新选一遍。
+  // 刷新落地（没有上一跳）时兜底回工作区列表。
+  const backTarget = () => previousPath() ?? '/workspaces';
+
   if (route.name === 'credits') {
-    return <CreditsPage onBack={() => navigate('/workspaces')} onLogout={handleLogout} />;
+    return <CreditsPage onBack={() => navigate(backTarget())} onLogout={handleLogout} />;
   }
 
   if (route.name === 'account') {
-    return <AccountPage onBack={() => navigate('/workspaces')} onLogout={handleLogout} />;
+    return <AccountPage onBack={() => navigate(backTarget())} onLogout={handleLogout} />;
   }
 
   if (route.name === 'models') {
     return (
       <ModelsPage
-        onBack={() => navigate('/workspaces')}
+        onBack={() => navigate(backTarget())}
         onLogout={handleLogout}
       />
     );
@@ -121,7 +126,7 @@ export function App() {
       <AdminPage
         key={route.tab}
         initialTab={route.tab}
-        onBack={() => navigate('/workspaces')}
+        onBack={() => navigate(backTarget())}
         onLogout={handleLogout}
       />
     );

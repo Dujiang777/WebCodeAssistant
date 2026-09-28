@@ -5911,6 +5911,14 @@ button.risk-chip:hover {
   box-shadow: 0 6px 18px rgba(90, 70, 30, 0.18), 0 1px 6px rgba(156, 109, 20, 0.2);
 }
 
+/* ivory 是浅色主题：--fg-0 翻转成了深墨字色，不能再用它当「白纸」的底 ——
+   否则深底配硬编码的墨字（.msg-role-user .msg-body 的 #171208），字全糊掉。
+   纸色固定用纸白 + 细边框；深底主题下 --fg-0 本身就是象牙白，不吃这条覆盖。 */
+[data-theme='ivory'] .msg.msg-role-user .msg-main {
+  background: #fdfaf0;
+  border: 1px solid var(--line);
+}
+
 .msg-avatar {
   flex: none;
   width: 26px;
