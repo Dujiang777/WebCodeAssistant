@@ -1,6 +1,6 @@
 # 服务器部署（腾讯云轻量 · Ubuntu 24.04 · 无 Docker）
 
-线上实例：`139.199.88.15`（轻量应用服务器 `lhins-d32cso4p`，广州，2 vCPU / 2 GB / 50 GB SSD，已配 3.9 GB swap）
+线上实例：`139.199.88.15`（站点监听 8081 —— 80 被 Caddy 占着：`/etc/caddy/Caddyfile`）（轻量应用服务器 `lhins-d32cso4p`，广州，2 vCPU / 2 GB / 50 GB SSD，已配 3.9 GB swap）
 
 ## 为什么走原生部署而不是 docker compose
 
@@ -82,7 +82,7 @@ sudo systemctl restart wca-backend
 journalctl -u wca-backend -f          # 后端实时日志
 systemctl status wca-backend          # 服务状态
 curl -s http://127.0.0.1:8080/api/health   # 后端健康（含模型是否配置）
-curl -sI http://127.0.0.1/            # nginx 是否在服务静态站点
+curl -sI http://127.0.0.1:8081/       # nginx 是否在服务静态站点
 free -m                               # 2G 机器，先看内存再决定加堆
 ```
 
@@ -98,5 +98,8 @@ free -m                               # 2G 机器，先看内存再决定加堆
 3. **`ADMIN_USERNAMES` 建完首位管理员要清空**，否则这个名字永远是管理员。
 4. **`LLM_EMBED_*` 留空 = 语义检索降级**（关键词检索仍可用）。DeepSeek 官方没有
    `/v1/embeddings`，要真语义检索得另接一家 embedding 服务。
-5. **端口暴露**：后端 8080 只监听本机、由 nginx 反代；轻量服务器的防火墙
-   （控制台「防火墙」页）只需放行 22 / 80（加 HTTPS 时再放行 443）。
+5. **端口分配**：后端 8080 只监听本机、由 nginx 反代；**nginx 站点监听 8081**
+   （80 与 443 已经被 Caddy 占着，那是另一个项目，别动）。
+   轻量服务器防火墙只需放行 22 / 8081（要上 HTTPS 时再放行 443）。
+   有域名之后的正解：给 WCA 一个子域名，让 Caddy 反代到 127.0.0.1:8081，
+   这样就不用暴露端口号了。
