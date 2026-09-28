@@ -1,94 +1,82 @@
 package com.webcode.assistant.llm;
 
-import com.webcode.assistant.common.ApiException;
-import com.webcode.assistant.common.ErrorCode;
 import dev.langchain4j.model.chat.StreamingChatModel;
-import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.List;
+
 /**
- * 模型客户端配置。
+ * 模型访问的统一入口。
  *
  * <p><b>为什么不用 {@code langchain4j-spring-boot-starter}：</b>该 starter 目前最新只到
  * {@code 1.0.0-beta5}，落后于核心库 1.0.0，混用会出现 API 不一致。这里直接用核心库 +
- * 显式 {@code @Bean}，好处是：模型参数、超时、日志开关全在一处可见，也便于将来按用户覆盖配置。
+ * 显式装配，好处是模型参数、超时、日志开关全在一处可见。
  *
- * <p>接口完全按 OpenAI 兼容协议对接，因此 DeepSeek、硅基流动、各类中转、官方 OpenAI
- * 都只是 {@code baseUrl / apiKey / model} 三个值不同，代码无需改动。
+ * <p><b>V6 起不再是「一个全局模型 Bean」</b>：模型改由
+ * {@link ModelCatalogService} 按用户解析，客户端由 {@link ChatModelFactory} 按需构建。
+ * 原来那种写死的单例撑不住「用户可以选模型、可以自带 Key」这个需求 ——
+ * 单例意味着进程里只有一把地址和一把密钥。
  *
- * <p>未配置模型时不创建 Bean：后端依然能启动，文件浏览与编辑照常可用，
- * 只有对话接口会返回 {@link ErrorCode#LLM_NOT_CONFIGURED}，而不是启动即失败。
+ * <p>未配置任何模型时后端依然能启动：文件浏览与编辑照常可用，
+ * 只有对话接口会返回 {@code LLM_NOT_CONFIGURED}，而不是启动即失败。
  */
 @Configuration
 public class ChatModelConfig {
 
-    private static final Logger log = LoggerFactory.getLogger(ChatModelConfig.class);
-
+    /** 供 Agent 使用的模型访问点。所有「取模型」的动作都收敛在这里，避免各处重复判空。 */
     @Bean
-    public OpenAiStreamingChatModel openAiStreamingChatModel(LlmProperties properties) {
-        if (!properties.isConfigured()) {
-            log.warn("LLM 未配置，跳过模型 Bean 创建");
-            return null;
-        }
-        log.info("初始化模型: {} @ {}（temperature={}, maxTokens={}, timeout={}）",
-                properties.model(), properties.baseUrl(), properties.temperature(),
-                properties.maxTokens(), properties.timeout());
-
-        return OpenAiStreamingChatModel.builder()
-                .baseUrl(properties.baseUrl())
-                .apiKey(properties.apiKey())
-                .modelName(properties.model())
-                .temperature(properties.temperature())
-                .maxTokens(properties.maxTokens())
-                .timeout(properties.timeout())
-                // 请求/响应日志默认开，便于排查「模型到底看到了什么」；
-                // 注意它会把 prompt 打到 INFO 级，生产环境请设为 false。
-                .logRequests(properties.logRequests())
-                .logResponses(properties.logRequests())
-                .build();
-    }
-
-    /**
-     * 供 Agent 使用的模型访问点。Bean 可能为 null（未配置模型），
-     * 这里收敛成「要么拿到模型，要么抛出带明确错误码的异常」，避免到处判空。
-     */
-    @Bean
-    public ModelGateway modelGateway(OpenAiStreamingChatModel model, LlmProperties properties) {
-        return new ModelGateway(model, properties);
+    public ModelGateway modelGateway(ModelCatalogService catalog, ChatModelFactory factory) {
+        return new ModelGateway(catalog, factory);
     }
 
     /** 模型访问的薄封装。 */
     public static class ModelGateway {
 
-        private final StreamingChatModel model;
-        private final LlmProperties properties;
+        private final ModelCatalogService catalog;
+        private final ChatModelFactory factory;
 
-        ModelGateway(StreamingChatModel model, LlmProperties properties) {
-            this.model = model;
-            this.properties = properties;
+        ModelGateway(ModelCatalogService catalog, ChatModelFactory factory) {
+            this.catalog = catalog;
+            this.factory = factory;
         }
 
-        public StreamingChatModel require() {
-            if (model == null) {
-                throw new ApiException(ErrorCode.LLM_NOT_CONFIGURED,
-                        "后端未配置 LLM_BASE_URL / LLM_API_KEY / LLM_MODEL，无法发起对话");
-            }
-            return model;
-        }
-
-        public LlmProperties properties() {
-            return properties;
-        }
-
-        public String modelName() {
-            return properties.model();
-        }
-
+        /** 平台侧是否至少有一个可用模型（健康检查用，不带用户视角）。 */
         public boolean configured() {
-            return model != null;
+            return catalog.platformConfigured();
+        }
+
+        /** 平台默认模型的显示名；没有任何可用模型时返回 null。 */
+        public String defaultModelName() {
+            return catalog.platformDefaultModelName();
+        }
+
+        /** 这个用户此刻是否有模型可用（平台可用 或 他自己填了 Key）。 */
+        public boolean availableFor(long userId) {
+            return catalog.anyAvailable(userId);
+        }
+
+        /**
+         * 解析本轮要用的模型。永不返回 null —— 一个都没有时抛带明确错误码的异常，
+         * 让用户看到「去配一个 Key」而不是一个空指针。
+         */
+        public ResolvedModel resolve(long userId, String modelKey) {
+            return catalog.resolve(userId, modelKey);
+        }
+
+        /** 取（或构建）该模型的流式客户端。 */
+        public StreamingChatModel require(ResolvedModel model) {
+            return factory.get(model);
+        }
+
+        /** 界面上能看到的模型清单（含不可用项与原因）。 */
+        public List<ModelCatalogService.ModelOption> options(long userId) {
+            return catalog.options(userId);
+        }
+
+        /** 展示用的模型名。 */
+        public String modelName(ResolvedModel model) {
+            return model.displayName();
         }
     }
 }

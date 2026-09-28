@@ -197,6 +197,7 @@ export function CreditsPage({ onBack, onLogout }: { onBack: () => void; onLogout
         balance={balance}
         lowBalance={summary?.lowBalance ?? false}
         active="credits"
+        isAdmin={user?.role === 'ADMIN'}
         onBack={onBack}
         onLogout={onLogout}
       />

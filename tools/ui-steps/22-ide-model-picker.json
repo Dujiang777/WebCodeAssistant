@@ -1,0 +1,29 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "login as admin" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'admin'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'WcaAdmin!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3200 },
+
+  { "note": "open first workspace row" },
+  ["eval", "var row=document.querySelector('.workspace-row'); row && row.click(), 'opened'"],
+  { "sleep": 5000 },
+  ["eval", "'HASH=' + location.hash.slice(0, 14) + ' PICKER=' + (document.querySelector('.md-picker') ? 'yes' : 'no') + ' CHIP=' + ((document.querySelector('.md-picker .chip') || { innerText: 'none' }).innerText.slice(0, 20))"],
+  ["screenshot", "docs/self-test/v6-admin/20-ide-picker.png"],
+
+  { "note": "open model dropdown" },
+  ["eval", "document.querySelector('.md-picker .chip').click(), 'opened'"],
+  { "sleep": 800 },
+  ["eval", "'MENU=' + (document.querySelector('.md-picker-menu') ? 'yes' : 'no') + ' ITEMS=' + document.querySelectorAll('.md-picker-item').length + ' MANAGE=' + (document.querySelector('.md-picker-manage') ? 'yes' : 'no')"],
+  ["screenshot", "docs/self-test/v6-admin/21-model-dropdown.png"],
+
+  { "note": "pick a model and verify chip + menu closed" },
+  ["eval", "var items=Array.from(document.querySelectorAll('.md-picker-item')); var target=items.find(function (i) { return i.innerText.indexOf('本地模拟模型') >= 0; }); target && target.click(), 'picked'"],
+  { "sleep": 600 },
+  ["eval", "'CHIP_AFTER=' + ((document.querySelector('.md-picker .chip') || { innerText: 'none' }).innerText.slice(0, 20)) + ' MENU_CLOSED=' + (document.querySelector('.md-picker-menu') ? 'no' : 'yes')"],
+  ["screenshot", "docs/self-test/v6-admin/22-picked.png"]
+]

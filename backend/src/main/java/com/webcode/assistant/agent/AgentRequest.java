@@ -10,6 +10,10 @@ package com.webcode.assistant.agent;
  * @param currentFile 编辑器当前打开的文件（相对路径），可为 null
  * @param selection   用户在编辑器里选中的片段，可为 null
  * @param mode        {@code deliver}（默认，少说话直接给结果）或 {@code teach}（讲清为什么）
+ * @param modelKey    本轮指定使用的模型；null/空表示跟随用户默认 → 平台默认。
+ *                    解析与回落逻辑全在 {@code ModelCatalogService.resolve} 里，
+ *                    这一层不做任何「指定的模型不存在就报错」的判断 ——
+ *                    用户上次选的模型被下架时，对话应该照常跑。
  */
 public record AgentRequest(
         long sessionId,
@@ -18,7 +22,8 @@ public record AgentRequest(
         String content,
         String currentFile,
         Selection selection,
-        String mode
+        String mode,
+        String modelKey
 ) {
 
     /** 交付模式：结论优先，不解释过程。 */

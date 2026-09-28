@@ -1,0 +1,55 @@
+# ui-probe start  steps=23
+
+$ agent-browser set viewport 1512 950
+✓ Done
+
+$ agent-browser open http://127.0.0.1:5173/#/login
+✓ Web Code Assistant · 网页版编码助手
+  http://127.0.0.1:5173/#/login
+
+$ sleep 2400
+
+$ agent-browser eval var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'admin'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'WcaAdmin!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'
+"filled"
+
+$ sleep 300
+
+$ agent-browser eval document.querySelector('.form-stack .btn-primary').click(), 'submitted'
+"submitted"
+
+$ sleep 3200
+
+$ agent-browser eval var row=document.querySelector('.workspace-row'); row && row.click(), 'opened'
+"opened"
+
+$ sleep 5000
+
+$ agent-browser eval 'HASH=' + location.hash.slice(0, 14) + ' PICKER=' + (document.querySelector('.md-picker') ? 'yes' : 'no') + ' CHIP=' + ((document.querySelector('.md-picker .chip') || { innerText: 'none' }).innerText.slice(0, 20))
+"HASH=#/ide/44 PICKER=yes CHIP=默认模型\n▾"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\20-ide-picker.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\20-ide-picker.png
+
+$ agent-browser eval document.querySelector('.md-picker .chip').click(), 'opened'
+"opened"
+
+$ sleep 800
+
+$ agent-browser eval 'MENU=' + (document.querySelector('.md-picker-menu') ? 'yes' : 'no') + ' ITEMS=' + document.querySelectorAll('.md-picker-item').length + ' MANAGE=' + (document.querySelector('.md-picker-manage') ? 'yes' : 'no')
+"MENU=yes ITEMS=5 MANAGE=yes"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\21-model-dropdown.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\21-model-dropdown.png
+
+$ agent-browser eval var items=Array.from(document.querySelectorAll('.md-picker-item')); var target=items.find(function (i) { return i.innerText.indexOf('本地模拟模型') >= 0; }); target && target.click(), 'picked'
+"picked"
+
+$ sleep 600
+
+$ agent-browser eval 'CHIP_AFTER=' + ((document.querySelector('.md-picker .chip') || { innerText: 'none' }).innerText.slice(0, 20)) + ' MENU_CLOSED=' + (document.querySelector('.md-picker-menu') ? 'no' : 'yes')
+"CHIP_AFTER=本地模拟模型\n▾ MENU_CLOSED=yes"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\22-picked.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\22-picked.png
+
+# ui-probe done

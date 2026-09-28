@@ -77,7 +77,7 @@ public class TokenService {
         String rawRefresh = Tokens.newRaw();
         refreshTokenRepository.insert(userId, Tokens.hash(rawRefresh), device, ip, refreshExpiry);
         return new IssuedTokens(
-                jwtService.issue(userId, username),
+                jwtService.issue(userId, username, userRepository.findTokenEpoch(userId)),
                 jwtService.ttlSeconds(),
                 rawRefresh,
                 properties.jwt().refreshTtl().toSeconds());
@@ -137,7 +137,8 @@ public class TokenService {
         refreshTokenRepository.insert(account.id(), nextHash, device, ip, refreshExpiry);
 
         return new Rotated(account.id(), new IssuedTokens(
-                jwtService.issue(account.id(), account.username()),
+                jwtService.issue(account.id(), account.username(),
+                        userRepository.findTokenEpoch(account.id())),
                 jwtService.ttlSeconds(),
                 rawNext,
                 properties.jwt().refreshTtl().toSeconds()));

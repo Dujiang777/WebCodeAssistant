@@ -70,6 +70,8 @@ public class AuthService {
     private final CreditService creditService;
     private final MailService mailService;
     private final RequestContext requestContext;
+    /** 世代递增后要让鉴权快检缓存立刻失效，否则新令牌会在 TTL 窗口内被旧缓存误杀。 */
+    private final AccountStatusGuard statusGuard;
     private final AppProperties properties;
 
     public AuthService(UserRepository userRepository,
@@ -81,6 +83,7 @@ public class AuthService {
                        CreditService creditService,
                        MailService mailService,
                        RequestContext requestContext,
+                       AccountStatusGuard statusGuard,
                        AppProperties properties) {
         this.userRepository = userRepository;
         this.emailTokenRepository = emailTokenRepository;
@@ -91,6 +94,7 @@ public class AuthService {
         this.creditService = creditService;
         this.mailService = mailService;
         this.requestContext = requestContext;
+        this.statusGuard = statusGuard;
         this.properties = properties;
     }
 
@@ -307,7 +311,12 @@ public class AuthService {
         userRepository.updatePassword(userId, passwordEncoder.encode(newPassword));
         // 改密码 = 之前所有登录态一律作废。这正是 refresh 落库的意义：
         // 「我密码泄露了，改完就没事了」必须成立。
+        // 世代 +1 让还没过期的 access token 也立刻作废 —— 光吊销 refresh 挡不住正在跑的请求。
         int revoked = tokenService.revokeAll(userId);
+        userRepository.bumpTokenEpoch(userId);
+        // 缓存里可能还存着旧世代：不失效的话，重置后的新令牌会在 TTL 窗口内
+        // 被旧缓存误判成「世代对不上」而 401 —— 用户改完密码反而被登出。
+        statusGuard.invalidate(userId);
         log.info("密码已重置 userId={} 同时吊销会话数={}", userId, revoked);
     }
 
@@ -330,6 +339,12 @@ public class AuthService {
 
         userRepository.updatePassword(userId, passwordEncoder.encode(newPassword));
         int revoked = tokenService.revokeAll(userId);
+        // 顺序不能反：先把世代 +1，再签新令牌 —— 新令牌才会带上新世代。
+        // 反过来的话，刚签出的 access token 会立刻被过滤器当成旧世代作废，
+        // 用户改完密码当场被登出（看起来就像「改密码失败了」）。
+        userRepository.bumpTokenEpoch(userId);
+        // 同一代化规则：改完世代立刻失效快检缓存，当前设备的新令牌才能畅行。
+        statusGuard.invalidate(userId);
         TokenService.IssuedTokens tokens = tokenService.issue(userId, account.username(),
                 requestContext.device(), requestContext.ip());
         log.info("修改密码 userId={} 其他会话已吊销 {}", userId, revoked);

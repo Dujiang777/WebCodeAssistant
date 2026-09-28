@@ -36,7 +36,7 @@ public class HealthController {
         return new ApiModels.HealthResponse(
                 "ok",
                 modelGateway.configured(),
-                modelGateway.configured() ? modelGateway.modelName() : null,
+                modelGateway.defaultModelName(),
                 grepService.engineName(),
                 usageGuard.probeRedis());
     }

@@ -9,6 +9,7 @@ import com.webcode.assistant.config.AppProperties;
 import com.webcode.assistant.config.ExecutorConfig;
 import com.webcode.assistant.llm.ChatModelConfig;
 import com.webcode.assistant.llm.LlmProperties;
+import com.webcode.assistant.llm.ResolvedModel;
 import com.webcode.assistant.llm.UsageGuard;
 import com.webcode.assistant.credit.CreditService;
 import com.webcode.assistant.security.AuthService;
@@ -160,12 +161,14 @@ public class AgentOrchestrator {
     private static final class Charge {
         private final String refId;
         private final long held;
+        private final ResolvedModel model;
         private boolean settled;
         private boolean handedOff;
 
-        Charge(String refId, long held) {
+        Charge(String refId, long held, ResolvedModel model) {
             this.refId = refId;
             this.held = held;
+            this.model = model;
         }
 
         String refId() {
@@ -174,6 +177,11 @@ public class AgentOrchestrator {
 
         long held() {
             return held;
+        }
+
+        /** 本轮用的模型。结算要按它的单价算，所以必须跟着 Charge 一起走到回调线程。 */
+        ResolvedModel model() {
+            return model;
         }
 
         void settleDone() {
@@ -208,27 +216,31 @@ public class AgentOrchestrator {
                     "workspaceId 与所属会话不一致");
         }
 
+        // 先解析本轮用哪个模型：单价与「是否计费」都由它决定，余额闸门与预扣都依赖它。
+        // 放在最前面还有一个好处 —— 没有任何可用模型时，用户消息根本不会落库。
+        ResolvedModel model = modelGateway.resolve(request.userId(), request.modelKey());
+
         // 两道闸门都在写库之前：邮箱未验证 / 积分不足时，不该在会话里留下一条
         // 「永远等不到回答」的用户消息。宁可让客户端拿一个明确的错误码。
         requireVerifiedEmail(request.userId());
-        creditService.requireAffordable(request.userId());
+        creditService.requireAffordable(request.userId(), model);
 
         // 先把用户消息落库，保证「已发送」的消息立刻可见（刷新页面也不会丢）
         long userMessageId = messageRepository.insert(request.sessionId(),
-                ChatMessageRecord.ROLE_USER, request.content(), userMessageMeta(request));
+                ChatMessageRecord.ROLE_USER, request.content(), userMessageMeta(request, model));
         sessionRepository.touch(request.sessionId());
 
         // 预扣：refId 用刚生成的用户消息 id —— 它天然唯一，结算与退款都靠它对账。
         String refId = "msg:" + userMessageId;
         long held;
         try {
-            held = creditService.hold(request.userId(), refId);
+            held = creditService.hold(request.userId(), refId, model);
         } catch (ApiException ex) {
             // 并发下余额被另一轮抢光：把这条消息补一句失败说明，避免它悬在那里没人管
             persistAssistantError(request.sessionId(), ex.getMessage());
             throw ex;
         }
-        Charge charge = new Charge(refId, held);
+        Charge charge = new Charge(refId, held, model);
 
         ChatEventPublisher publisher = eventHub.publisher(request.sessionId());
         executors.agent().submit(() -> {
@@ -278,13 +290,10 @@ public class AgentOrchestrator {
             return;
         }
 
-        if (!modelGateway.configured()) {
-            String message = "后端未配置模型服务（LLM_BASE_URL / LLM_API_KEY / LLM_MODEL）。"
-                    + "文件浏览与编辑仍可正常使用，配置模型后即可开始对话。";
-            persistAssistantError(request.sessionId(), message);
-            publisher.error(message);
-            return;
-        }
+        // 走到这里一定已经解析出模型了（start 里 resolve 失败会直接抛给调用方，
+        // 不会走到这个虚拟线程）。所以不再有「模型未配置」这一分支 ——
+        // 那个判断在 V6 之前是必要的，现在它会让用户拿不到真正的错误原因。
+        ResolvedModel model = charge.model();
 
         StringBuilder answer = new StringBuilder();
         long[] assistantMessageId = {-1L};
@@ -299,7 +308,7 @@ public class AgentOrchestrator {
                     appProperties, deskService, gateService, request.sessionId(), llmProperties.maxToolSteps());
 
             Assistant assistant = AiServices.builder(Assistant.class)
-                    .streamingChatModel(modelGateway.require())
+                    .streamingChatModel(modelGateway.require(model))
                     .tools(toolbox)
                     .chatMemory(memory)
                     .build();
@@ -385,8 +394,13 @@ public class AgentOrchestrator {
         List<Citation> citations = citationVerifier.verify(workspace, text);
         long invalidCitations = citations.stream().filter(citation -> !citation.valid()).count();
 
+        ResolvedModel model = charge.model();
         Map<String, Object> meta = new LinkedHashMap<>();
-        meta.put("model", modelGateway.modelName());
+        meta.put("model", model.modelKey());
+        meta.put("modelName", model.displayName());
+        meta.put("modelProvider", model.providerName());
+        // 免积分模型要让前端知道「这轮不花钱」，否则它会显示一个没有意义的 −0 分
+        meta.put("billable", model.billable());
         meta.put("mode", request.normalizedMode());
         if (response.tokenUsage() != null) {
             meta.put("inputTokens", response.tokenUsage().inputTokenCount());
@@ -396,10 +410,9 @@ public class AgentOrchestrator {
 
         // 结算必须发生在落库之前：这样「本轮花了多少积分、还剩多少」能直接写进消息 meta，
         // 前端不用为每个气泡再发一次请求。
-        long charged = settle(request.userId(), charge,
-                tokenOf(response, true), tokenOf(response, false));
+        long charged = settle(request.userId(), charge, tokenOf(response, true), tokenOf(response, false));
         meta.put("credits", charged);
-        meta.put("creditsBalance", creditService.summary(request.userId()).balance());
+        meta.put("creditsBalance", creditService.summary(request.userId(), model).balance());
 
         meta.put("patches", toolbox.proposedPatches().stream().map(UUID::toString).toList());
         meta.put("citations", citations);
@@ -437,7 +450,8 @@ public class AgentOrchestrator {
      */
     private long settle(long userId, Charge charge, long inputTokens, long outputTokens) {
         try {
-            return creditService.settle(userId, charge.refId(), charge.held(), inputTokens, outputTokens);
+            return creditService.settle(userId, charge.refId(), charge.held(), charge.model(),
+                    inputTokens, outputTokens);
         } catch (RuntimeException ex) {
             log.error("结算积分失败 userId={} refId={}", userId, charge.refId(), ex);
             return charge.held();
@@ -488,8 +502,13 @@ public class AgentOrchestrator {
         }
     }
 
-    private String userMessageMeta(AgentRequest request) {
+    private String userMessageMeta(AgentRequest request, ResolvedModel model) {
         Map<String, Object> meta = new LinkedHashMap<>();
+        // 把本轮用哪个模型记在用户消息上：刷新页面后，气泡旁的「−N 分」要能
+        // 说清是哪次调用花的，而不用去翻 assistant 消息。
+        meta.put("model", model.modelKey());
+        meta.put("modelName", model.displayName());
+        meta.put("billable", model.billable());
         if (request.currentFile() != null && !request.currentFile().isBlank()) {
             meta.put("currentFile", request.currentFile());
         }

@@ -17,6 +17,8 @@ export type Route =
   | { name: 'workspaces' }
   | { name: 'credits' }
   | { name: 'account' }
+  | { name: 'models' }
+  | { name: 'admin'; tab: string }
   | { name: 'verify-email'; token: string }
   | { name: 'reset-password'; token: string }
   | { name: 'ide'; workspaceId: number };
@@ -37,6 +39,9 @@ export function parseRoute(hash: string): Route {
   if (segments[0] === 'workspaces') return { name: 'workspaces' };
   if (segments[0] === 'credits') return { name: 'credits' };
   if (segments[0] === 'account') return { name: 'account' };
+  if (segments[0] === 'models') return { name: 'models' };
+  // /#/admin 或 /#/admin/users —— tab 进 hash，刷新后停在同一页
+  if (segments[0] === 'admin') return { name: 'admin', tab: segments[1] ?? 'dashboard' };
   // token 缺失时也照样返回该路由，让页面自己提示「链接不完整」——
   // 静默跳回工作区列表只会让人以为是网站坏了。
   if (segments[0] === 'verify-email') return { name: 'verify-email', token: query.get('token') ?? '' };

@@ -429,6 +429,9 @@ async function main() {
       check('没通过时必须说明原因', Boolean(compiled.data?.note), compiled.data?.note ?? '（没有 note）');
       note(`编译未通过：status=${status}｜${compiled.data?.note ?? ''}`);
       if (status === 'failed') {
+        // 诊断排查口：失败但解析不出结构化诊断时，把命令与原始输出亮出来
+        note(`诊断排查：tool=${compiled.data?.buildSystem} exit=${compiled.data?.exitCode} cmd=${compiled.data?.command ?? ''}`);
+        note(`原始输出前 600 字：${(compiled.data?.output ?? '(空)').slice(0, 600).replace(/\s+\n/g, '\n')}`);
         check('失败时给出了结构化诊断', (compiled.data?.issues ?? []).length > 0, `${compiled.data?.issues?.length ?? 0} 条`);
       }
     }

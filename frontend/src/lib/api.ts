@@ -679,7 +679,9 @@ export const api = {
 
   // ---------------------------------------------------------------- 积分
 
-  creditSummary: () => request<CreditSummary>('/api/credits/summary'),
+  /** 传 modelKey 可以看到「换成这个模型后怎么扣」——切换模型前先看价。 */
+  creditSummary: (modelKey?: string) =>
+    request<CreditSummary>(modelKey ? `/api/credits/summary?model=${encodeURIComponent(modelKey)}` : '/api/credits/summary'),
 
   creditLedger: (limit = 20, offset = 0) =>
     request<LedgerPage>(`/api/credits/ledger?limit=${limit}&offset=${offset}`),
@@ -786,6 +788,8 @@ export const api = {
       currentFile?: string | null;
       selection?: { startLine: number; endLine: number; text: string } | null;
       mode?: AgentMode;
+      /** 本轮指定模型；缺省时后端按「用户默认 → 平台默认」解析。 */
+      model?: string | null;
     },
   ) =>
     request<{ messageId: number; sessionId: number }>(`/api/chat/sessions/${sessionId}/messages`, {
@@ -963,6 +967,120 @@ export const api = {
    * 前端展示「为什么不需要开关」，而不是空着。
    */
   featureFlag: (patchId: string) => request<FlagView>(`/api/patches/${patchId}/feature-flag`),
+
+  // ---------------------------------------------------------------- 模型目录（V6）
+
+  /** 模型设置页一次拿全：可选模型 + 服务商明细 + 当前默认。 */
+  modelCatalog: () => request<ModelCatalog>('/api/models'),
+
+  /** 新增（不带 id）/ 修改（带 id）自带服务商。apiKey 留空 = 不改密钥。 */
+  saveProvider: (body: SaveProviderBody, providerId?: number) =>
+    request<ProviderView>(
+      providerId ? `/api/models/providers/${providerId}` : '/api/models/providers',
+      { method: providerId ? 'PUT' : 'POST', body: JSON.stringify(body) },
+    ),
+
+  deleteProvider: (providerId: number) =>
+    request<void>(`/api/models/providers/${providerId}`, { method: 'DELETE' }),
+
+  /** 试连：用给定地址拉一次模型列表，用户不用手打模型名。 */
+  probeModels: (body: ProbeModelsBody) =>
+    request<ProbeResult>('/api/models/providers/probe', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /** 设为默认模型；传空串 = 恢复「跟随平台默认」。 */
+  setDefaultModel: (modelKey: string) =>
+    request<{ defaultModelKey: string | null }>('/api/models/default', {
+      method: 'PUT',
+      body: JSON.stringify({ modelKey }),
+    }),
+
+  // ---------------------------------------------------------------- 管理端（V6）
+
+  adminStats: () => request<AdminStats>('/api/admin/stats'),
+
+  adminTrend: (days = 14) => request<AdminTrendPoint[]>(`/api/admin/trend?days=${days}`),
+
+  adminUsers: (params: {
+    keyword?: string;
+    role?: string;
+    status?: string;
+    verified?: boolean;
+    sort?: string;
+    page?: number;
+    size?: number;
+  }) => {
+    const q = new URLSearchParams();
+    if (params.keyword) q.set('keyword', params.keyword);
+    if (params.role) q.set('role', params.role);
+    if (params.status) q.set('status', params.status);
+    if (params.verified !== undefined && params.verified !== null) {
+      q.set('verified', String(params.verified));
+    }
+    if (params.sort) q.set('sort', params.sort);
+    q.set('page', String(params.page ?? 1));
+    q.set('size', String(params.size ?? 20));
+    return request<AdminUserPage>(`/api/admin/users?${q.toString()}`);
+  },
+
+  adminUserDetail: (userId: number) =>
+    request<AdminUserDetail>(`/api/admin/users/${userId}`),
+
+  adminSetStatus: (userId: number, status: 'ACTIVE' | 'DISABLED', reason?: string) =>
+    request<AdminUserRow>(`/api/admin/users/${userId}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status, ...(reason ? { reason } : {}) }),
+    }),
+
+  adminUnlock: (userId: number) =>
+    request<AdminUserRow>(`/api/admin/users/${userId}/unlock`, { method: 'POST' }),
+
+  adminSetRole: (userId: number, role: 'ADMIN' | 'USER') =>
+    request<AdminUserRow>(`/api/admin/users/${userId}/role`, {
+      method: 'POST',
+      body: JSON.stringify({ role }),
+    }),
+
+  /** 临时密码只在这一次响应里出现 —— 前端要引导管理员立刻复制交给用户。 */
+  adminResetPassword: (userId: number) =>
+    request<{ temporaryPassword: string }>(`/api/admin/users/${userId}/reset-password`, {
+      method: 'POST',
+    }),
+
+  adminRevokeSessions: (userId: number) =>
+    request<{ count: number }>(`/api/admin/users/${userId}/revoke-sessions`, { method: 'POST' }),
+
+  adminAdjustCredits: (userId: number, amount: number, reason?: string) =>
+    request<ReconcileResult>(`/api/admin/users/${userId}/credits`, {
+      method: 'POST',
+      body: JSON.stringify({ amount, ...(reason ? { reason } : {}) }),
+    }),
+
+  adminReconcile: (userId: number) =>
+    request<ReconcileResult>(`/api/admin/users/${userId}/reconcile`, { method: 'POST' }),
+
+  adminOrders: (params: { status?: string; page?: number; size?: number }) => {
+    const q = new URLSearchParams();
+    if (params.status) q.set('status', params.status);
+    q.set('page', String(params.page ?? 1));
+    q.set('size', String(params.size ?? 20));
+    return request<AdminOrderPage>(`/api/admin/orders?${q.toString()}`);
+  },
+
+  adminCancelOrder: (orderNo: string) =>
+    request<{ count: number }>(`/api/admin/orders/${encodeURIComponent(orderNo)}/cancel`, {
+      method: 'POST',
+    }),
+
+  adminAudit: (params: { action?: string; page?: number; size?: number }) => {
+    const q = new URLSearchParams();
+    if (params.action) q.set('action', params.action);
+    q.set('page', String(params.page ?? 1));
+    q.set('size', String(params.size ?? 20));
+    return request<AdminAuditPage>(`/api/admin/audit?${q.toString()}`);
+  },
 };
 
 // ------------------------------------------------------------------ 功能 13-16 模型
@@ -1096,6 +1214,11 @@ export interface CreditSummary {
   holdCredits: number;
   signupBonus: number;
   pricingNote: string;
+  /** 本轮定价对应的模型（?model= 参数或用户默认）。BYOK 时 byok=true 且单价无意义。 */
+  byok: boolean;
+  modelName: string | null;
+  per1kInput: number;
+  per1kOutput: number;
 }
 
 /** 一条流水。`delta` 正数入账、负数出账；`balanceAfter` 是这一笔之后的余额。 */
@@ -1204,3 +1327,193 @@ export function formatBytes(bytes: number | null): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
+
+// ------------------------------------------------------------------ 模型目录类型
+
+/** 模型档位 → 中文名与配色语义（前端展示用，不参与任何计算）。 */
+export const MODEL_TIERS: Record<string, { label: string; tone: 'light' | 'mid' | 'heavy' }> = {
+  LIGHT: { label: '轻量 · 快', tone: 'light' },
+  STANDARD: { label: '标准 · 均衡', tone: 'mid' },
+  FLAGSHIP: { label: '旗舰 · 强', tone: 'heavy' },
+};
+
+export interface ModelOption {
+  id: number;
+  modelKey: string;
+  displayName: string;
+  tier: string;
+  providerCode: string;
+  providerName: string;
+  /** true = 用你自己配的 Key，这一轮不扣积分。 */
+  byok: boolean;
+  available: boolean;
+  unavailableReason: string | null;
+  /** 每千输入 / 输出 token 的积分单价（平台模型才有意义）。 */
+  per1kInput: number;
+  per1kOutput: number;
+  contextWindow: number | null;
+  note: string | null;
+}
+
+export interface ProviderView {
+  id: number;
+  /** PLATFORM = 平台提供（Key 在服务端，不扣自己的额度）；USER = 自带 Key。 */
+  scope: 'PLATFORM' | 'USER' | string;
+  code: string;
+  name: string;
+  baseUrl: string;
+  homepage: string | null;
+  /** 密钥尾号（如 ****a1b2）。任何接口都不会回明文。 */
+  apiKeyHint: string | null;
+  enabled: boolean;
+  ready: boolean;
+  unavailableReason: string | null;
+  models: ModelOption[];
+}
+
+export interface ModelCatalog {
+  models: ModelOption[];
+  providers: ProviderView[];
+  defaultModelKey: string | null;
+  anyAvailable: boolean;
+  byokFree: boolean;
+  signupBonus: number;
+}
+
+export interface SaveProviderBody {
+  name: string;
+  baseUrl: string;
+  /** 留空表示不改已保存的密钥（界面上密钥只回显尾号，没法原样提交）。 */
+  apiKey?: string;
+  homepage?: string;
+  models?: string[];
+}
+
+export interface ProbeModelsBody {
+  baseUrl: string;
+  apiKey?: string;
+  providerId?: number;
+}
+
+export interface ProbeResult {
+  ok: boolean;
+  message: string;
+  models: string[];
+}
+
+// ------------------------------------------------------------------ 管理端类型
+
+export interface AdminUserRow {
+  id: number;
+  username: string;
+  email: string | null;
+  emailVerified: boolean;
+  role: 'ADMIN' | 'USER' | string;
+  status: 'ACTIVE' | 'DISABLED' | string;
+  /** 后端算好的布尔（locked_until > now），前端不用拿时间戳自己比。 */
+  locked: boolean;
+  disabledReason: string | null;
+  balance: number;
+  totalGranted: number;
+  totalConsumed: number;
+  lastLoginAt: string | null;
+  createdAt: string | null;
+}
+
+export interface AdminUserPage {
+  items: AdminUserRow[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface AdminSessionRow {
+  id: number;
+  device: string;
+  ip: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface AdminAuditRow {
+  id: number;
+  operatorId: number;
+  operatorName: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  targetName: string | null;
+  detail: string | null;
+  ip: string | null;
+  createdAt: string;
+}
+
+export interface AdminUserDetail {
+  user: AdminUserRow;
+  ledger: LedgerEntry[];
+  sessions: AdminSessionRow[];
+  audit: AdminAuditRow[];
+}
+
+export interface AdminOrderRow {
+  orderNo: string;
+  userId: number;
+  username: string;
+  planCode: string;
+  amountCents: number;
+  credits: number;
+  status: OrderStatus;
+  provider: string | null;
+  createdAt: string | null;
+  paidAt: string | null;
+}
+
+export interface AdminOrderPage {
+  items: AdminOrderRow[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface AdminAuditPage {
+  items: AdminAuditRow[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface AdminStats {
+  totalUsers: number;
+  newUsersToday: number;
+  activeToday: number;
+  admins: number;
+  disabledUsers: number;
+  lockedUsers: number;
+  unverifiedEmail: number;
+  pendingOrders: number;
+  paidOrders: number;
+  totalCreditsGranted: number;
+  totalCreditsConsumed: number;
+  creditsToday: number;
+  turnsToday: number;
+}
+
+export interface AdminTrendPoint {
+  /** yyyy-MM-dd */
+  day: string;
+  signups: number;
+  credits: number;
+}
+
+/** 管理端动作代码 → 人话。审计表里存的是代码，展示时翻译。 */
+export const ADMIN_ACTIONS: Record<string, string> = {
+  USER_DISABLE: '停用账号',
+  USER_ENABLE: '启用账号',
+  USER_UNLOCK: '解除锁定',
+  ROLE_CHANGE: '调整角色',
+  ADMIN_RESET_PASSWORD: '重置密码',
+  REVOKE_SESSIONS: '强制下线',
+  CREDIT_ADJUST: '调整积分',
+  RECONCILE: '对账修正',
+  ORDER_CANCEL: '撤销订单',
+};

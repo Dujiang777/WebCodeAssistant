@@ -173,7 +173,14 @@ public final class ApiModels {
             @NotBlank(message = "不能为空") @Size(max = 20000, message = "单条消息不能超过 20000 字") String content,
             @Size(max = 1024, message = "路径过长") String currentFile,
             SelectionDto selection,
-            @Size(max = 16, message = "取值过长") String mode
+            @Size(max = 16, message = "取值过长") String mode,
+            /**
+             * 本轮使用的模型 key。留空则跟随「用户默认模型 → 平台默认」。
+             *
+             * <p>模型由客户端指定而不是记在服务端会话上：同一个会话里换模型是常见操作
+             * （先让便宜的模型读代码，再让旗舰模型动手改），记在服务端反而会打架。
+             */
+            @Size(max = 96, message = "模型名过长") String model
     ) {
 
         public AgentRequest.Selection toSelection() {
@@ -307,7 +314,10 @@ public final class ApiModels {
      */
     public record CreditSummaryResponse(long balance, long totalGranted, long totalConsumed,
                                         boolean lowBalance, boolean enforceBalance, long lowBalanceThreshold,
-                                        long holdCredits, long signupBonus, String pricingNote) {
+                                        long holdCredits, long signupBonus, String pricingNote,
+                                        /** true = 当前选中的模型用自带 Key，不消耗积分。 */
+                                        boolean byok, String modelName,
+                                        long per1kInput, long per1kOutput) {
     }
 
     /** 流水条目。{@code delta} 正数入账、负数出账；{@code balanceAfter} 是这一笔之后的余额。 */
@@ -348,9 +358,154 @@ public final class ApiModels {
                                       @Size(max = 200, message = "长度不能超过 200") String reason) {
     }
 
+    /**
+     * 管理端：按路径里的 userId 调整积分。
+     *
+     * <p>刻意不复用 {@link AdjustCreditRequest}：那个记录里的 {@code userId} 是必填的，
+     * 而路径式接口的语义是「userId 由 URL 决定」。复用会让调用方必须把同一个 id
+     * 写两遍（还给了「路径是 A、body 是 B」这种打架的可能），
+     * 更重要的是——**凭证只该有一个来源**，多一个就等于多一个被篡改的面。
+     */
+    public record AdminCreditAdjustRequest(@NotNull(message = "不能为空") Long amount,
+                                           @Size(max = 200, message = "长度不能超过 200") String reason) {
+    }
+
     /** 管理端：账号视图，顺带带上账本累计值，便于直接看出「快照与账本是否一致」。 */
     public record AdminAccountView(long userId, String username, String email, String role, String status,
                                    long balance, long totalGranted, long totalConsumed,
                                    long ledgerSum, boolean consistent) {
+    }
+
+    // --------------------------------------------------------- 模型目录（V6）
+
+    /**
+     * 模型选项。
+     *
+     * <p><b>刻意不带任何密钥字段</b> —— 连「平台是否配了 Key」这种布尔都不单独下发，
+     * 而是折进 {@code available} 与 {@code unavailableReason}。
+     * 少一个字段就少一次「以后有人不小心把密钥塞进来」的机会。
+     */
+    public record ModelOptionView(long id, String modelKey, String displayName, String tier,
+                                  String providerCode, String providerName, boolean byok,
+                                  boolean available, String unavailableReason,
+                                  long per1kInput, long per1kOutput, Integer contextWindow, String note) {
+    }
+
+    /** 服务商视图。{@code apiKeyHint} 是尾号（{@code ****a1b2}），永远不回明文。 */
+    public record ProviderView(long id, String scope, String code, String name, String baseUrl,
+                               String homepage, String apiKeyHint, boolean enabled, boolean ready,
+                               String unavailableReason, List<ModelOptionView> models) {
+    }
+
+    /** 模型设置页一次拿全：可选模型 + 服务商明细 + 当前默认。 */
+    public record ModelCatalogResponse(List<ModelOptionView> models, List<ProviderView> providers,
+                                       String defaultModelKey, boolean anyAvailable,
+                                       boolean byokFree, long signupBonus) {
+    }
+
+    /**
+     * 新增 / 修改自带服务商。
+     *
+     * <p>修改时 {@code apiKey} 留空表示<b>不改密钥</b> —— 界面上密钥只回显尾号，
+     * 没法「原样提交」。这个约定必须写进接口文档，否则用户改个名字就会把 Key 清掉。
+     */
+    public record SaveProviderRequest(@NotBlank(message = "不能为空") @Size(max = 80, message = "名称过长") String name,
+                                      @NotBlank(message = "不能为空") @Size(max = 255, message = "地址过长") String baseUrl,
+                                      @Size(max = 400, message = "密钥过长") String apiKey,
+                                      @Size(max = 255, message = "地址过长") String homepage,
+                                      List<@Size(max = 96, message = "模型名过长") String> models) {
+    }
+
+    /** 设置为默认模型。{@code modelKey} 传空表示恢复「跟随平台默认」。 */
+    public record DefaultModelRequest(@Size(max = 96, message = "模型名过长") String modelKey) {
+    }
+
+    /**
+     * 试连：用给定地址与密钥拉一次模型列表。
+     *
+     * <p>{@code apiKey} 可以留空 —— 那时用该服务商已保存的密钥
+     * （用户在编辑已有服务商时不必重新粘贴 Key）。
+     */
+    public record ProbeModelsRequest(@NotBlank(message = "不能为空") @Size(max = 255, message = "地址过长") String baseUrl,
+                                     @Size(max = 400, message = "密钥过长") String apiKey,
+                                     Long providerId) {
+    }
+
+    /** 试连结果。{@code ok=false} 时 {@code message} 是可读的失败原因（含上游 HTTP 状态）。 */
+    public record ProbeModelsResponse(boolean ok, String message, List<String> models) {
+    }
+
+    // --------------------------------------------------------- 企业级管理端（V6）
+
+    /**
+     * 管理列表里的一行用户。
+     *
+     * <p>{@code locked} 是后端算好的布尔（{@code locked_until > now}），不是让前端拿时间戳
+     * 跟自己比 —— 前端的时间可能不准，而「这个人是否被锁」是个直接影响操作的判断。
+     */
+    public record AdminUserRowView(long id, String username, String email, boolean emailVerified,
+                                   String role, String status, boolean locked, String disabledReason,
+                                   long balance, long totalGranted, long totalConsumed,
+                                   String lastLoginAt, String createdAt) {
+    }
+
+    public record AdminUserPage(List<AdminUserRowView> items, long total, int page, int size) {
+    }
+
+    public record AdminSessionView(long id, String device, String ip, String createdAt, String expiresAt) {
+    }
+
+    public record AdminAuditView(long id, long operatorId, String operatorName, String action,
+                                 String targetType, String targetId, String targetName,
+                                 String detail, String ip, String createdAt) {
+    }
+
+    /** 用户详情：一个屏里看完「他是谁、有多少钱、最近干了什么、被谁动过」。 */
+    public record AdminUserDetailView(AdminUserRowView user, List<LedgerEntryView> ledger,
+                                      List<AdminSessionView> sessions, List<AdminAuditView> audit) {
+    }
+
+    public record AdminOrderView(String orderNo, long userId, String username, String planCode,
+                                 int amountCents, long credits, String status, String provider,
+                                 String createdAt, String paidAt) {
+    }
+
+    public record AdminOrderPage(List<AdminOrderView> items, long total, int page, int size) {
+    }
+
+    public record AdminAuditPage(List<AdminAuditView> items, long total, int page, int size) {
+    }
+
+    public record AdminStatsView(long totalUsers, long newUsersToday, long activeToday, long admins,
+                                 long disabledUsers, long lockedUsers, long unverifiedEmail,
+                                 long pendingOrders, long paidOrders, long totalCreditsGranted,
+                                 long totalCreditsConsumed, long creditsToday, long turnsToday) {
+    }
+
+    /** 看板走势的一个点。{@code day} 是 {@code yyyy-MM-dd}。 */
+    public record AdminTrendPoint(String day, long signups, long credits) {
+    }
+
+    /** 停用 / 启用。停用时 {@code reason} 必填 —— 客服要据此回答「我账号怎么不能用了」。 */
+    public record AdminStatusRequest(@NotBlank(message = "不能为空") String status,
+                                     @Size(max = 200, message = "原因不能超过 200 字") String reason) {
+    }
+
+    public record AdminRoleRequest(@NotBlank(message = "不能为空") String role) {
+    }
+
+    /**
+     * 管理员重置密码的结果。
+     *
+     * <p>临时密码只在这里返回一次、不落库、不打日志。做成「也发一封邮件」反而更差：
+     * 用户来找管理员重置，往往正是因为邮箱也进不去了。
+     */
+    public record AdminResetPasswordResponse(String temporaryPassword) {
+    }
+
+    public record AdminCountResponse(int count) {
+    }
+
+    public record AdminBalanceResponse(long balance, long ledgerSum, boolean consistent) {
     }
 }

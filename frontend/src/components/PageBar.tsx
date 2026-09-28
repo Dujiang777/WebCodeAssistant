@@ -15,12 +15,14 @@ interface PageBarProps {
   balance: number | null;
   lowBalance: boolean;
   /** 当前停在哪个页面，用于给导航按钮加选中态。 */
-  active: 'credits' | 'account';
+  active: 'credits' | 'account' | 'models' | 'admin';
+  /** 仅管理员可见「管理后台」入口。 */
+  isAdmin?: boolean;
   onBack: () => void;
   onLogout: () => void;
 }
 
-export function PageBar({ title, subtitle, balance, lowBalance, active, onBack, onLogout }: PageBarProps) {
+export function PageBar({ title, subtitle, balance, lowBalance, active, isAdmin, onBack, onLogout }: PageBarProps) {
   return (
     <header className="topbar">
       <div className="brand">
@@ -62,11 +64,27 @@ export function PageBar({ title, subtitle, balance, lowBalance, active, onBack, 
         积分中心
       </button>
       <button
+        className={`btn btn-sm ${active === 'models' ? 'btn-primary' : 'btn-ghost'}`}
+        onClick={() => navigate('/models')}
+        title="选择对话用的大模型，或配置自己的 API Key（自带 Key 不扣平台积分）"
+      >
+        模型服务
+      </button>
+      <button
         className={`btn btn-sm ${active === 'account' ? 'btn-primary' : 'btn-ghost'}`}
         onClick={() => navigate('/account')}
       >
         账号与安全
       </button>
+      {isAdmin && (
+        <button
+          className={`btn btn-sm ${active === 'admin' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => navigate('/admin')}
+          title="用户管理、订单与审计日志"
+        >
+          管理后台
+        </button>
+      )}
       <button className="btn btn-ghost btn-sm" onClick={onLogout}>
         退出
       </button>

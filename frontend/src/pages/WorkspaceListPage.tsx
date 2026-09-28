@@ -118,6 +118,14 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
           <button className="btn btn-sm" onClick={() => navigate('/credits')} title="积分中心：账单 / 套餐 / 充值">
             积分中心
           </button>
+          <button className="btn btn-sm" onClick={() => navigate('/models')} title="模型服务：选模型 / 配置自己的 API Key（免积分）">
+            模型服务
+          </button>
+          {user?.role === 'ADMIN' && (
+            <button className="btn btn-sm" onClick={() => navigate('/admin')} title="管理后台：用户管理 / 订单 / 审计">
+              管理后台
+            </button>
+          )}
           <button className="btn btn-sm" onClick={() => navigate('/account')} title="账号与安全：邮箱验证 / 改密码 / 登录设备">
             账号
           </button>

@@ -133,6 +133,7 @@ export function AccountPage({ onBack, onLogout }: { onBack: () => void; onLogout
         balance={me?.credits ?? user?.credits ?? null}
         lowBalance={me?.lowBalance ?? user?.lowBalance ?? false}
         active="account"
+        isAdmin={(me?.role ?? user?.role) === 'ADMIN'}
         onBack={onBack}
         onLogout={onLogout}
       />

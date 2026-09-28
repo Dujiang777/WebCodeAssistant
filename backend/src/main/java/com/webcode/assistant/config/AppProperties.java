@@ -57,7 +57,10 @@ public record AppProperties(
         @DefaultValue Mail mail,
 
         /** AI 用量积分：赠送额度、计价单价、预扣估算值。 */
-        @DefaultValue Credit credit
+        @DefaultValue Credit credit,
+
+        /** 本地加密：用户自带的模型 API Key 在入库前用它做 AES-GCM 加密。 */
+        @DefaultValue Secrets secrets
 ) {
 
     public record Cors(
@@ -239,7 +242,42 @@ public record AppProperties(
             @DefaultValue("50") long lowBalanceThreshold,
 
             /** true = 余额为 0 时直接拒绝对话；false 则只提示不拦截（便于本地演示）。 */
-            @DefaultValue("true") boolean enforceBalance
+            @DefaultValue("true") boolean enforceBalance,
+
+            /**
+             * 用户自带 API Key（BYOK）的模型是否免积分。
+             *
+             * <p>默认 <b>true</b>：那笔算力钱是用户自己付给模型厂商的，
+             * 平台再扣一遍积分等于同一个 token 收两次费。
+             * 若要把「平台能力（工具循环、闸门、编译闭环）」本身当成计费对象，
+             * 把它改成 false —— 那时 BYOK 模型也会按自己的倍率扣分。
+             */
+            @DefaultValue("true") boolean byokFree,
+
+            /**
+             * 预扣的兜底上限：即使模型单价很高，单轮预扣也不会超过这个数。
+             *
+             * <p>没有它的话，一个 12 分/1k 输入的旗舰模型单轮会预扣上百积分，
+             * 而用户可能只是想问一句「这个文件干什么的」。
+             */
+            @DefaultValue("600") long holdCeiling
+    ) {
+    }
+
+    /**
+     * 本地加密配置。
+     *
+     * <p>为什么需要它：用户可以在界面上填自己的模型 API Key，那把 Key 必须落库
+     * （否则用户每次开新设备都要重填）。明文存 = 一次拖库就泄漏所有人的模型账号，
+     * 所以用 AES-GCM 加密，密钥从这里来。
+     *
+     * <p>留空时密钥由 {@code JWT_SECRET} 派生 —— 本地开发不用多配一个变量也不会退化成明文；
+     * <b>生产环境强烈建议单独设 APP_SECRET</b>：换 JWT 密钥时不应该把所有用户的
+     * 模型 Key 一起变成解不开的密文。
+     */
+    public record Secrets(
+            /** AES-GCM 主密钥（任意长度字符串，内部做 SHA-256 派生）。留空则回退到 JWT_SECRET。 */
+            @DefaultValue("") String secretKey
     ) {
     }
 }

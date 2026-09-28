@@ -128,6 +128,15 @@ app:
     hold-credits: ${CREDIT_HOLD:30}
     low-balance-threshold: ${CREDIT_LOW_THRESHOLD:50}
     enforce-balance: ${CREDIT_ENFORCE:true}
+    # 用户自带 API Key 的模型是否免积分。默认 true —— 那笔算力钱用户已经付给模型厂商了。
+    byok-free: ${CREDIT_BYOK_FREE:true}
+    # 单轮预扣的上限，防止旗舰模型一次预扣掉几百积分。
+    hold-ceiling: ${CREDIT_HOLD_CEILING:600}
+
+  # 用户自带 API Key 的加密主密钥。留空则回退 JWT_SECRET（本地开发不用多配一个变量）。
+  # 生产建议单独设：换 JWT 密钥时不该把用户填的模型 Key 一起变成解不开的密文。
+  secrets:
+    secret-key: ${APP_SECRET:}
 
 llm:
   base-url: ${LLM_BASE_URL:}
