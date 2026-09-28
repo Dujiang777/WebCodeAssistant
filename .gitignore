@@ -1,10 +1,17 @@
 # 依赖与构建产物
+# ★ 这些路径必须锚定（带前导 /），不能写裸 `build/`：
+#   Spring Boot 的源码包就叫 com.webcode.assistant.build，
+#   裸模式会把整个编译闭环的源码一起忽略掉 —— 本地文件齐全、
+#   仓库里却是空的，只有换机器或上新服务器编译时才炸。
+#   2026-09-28 部署到云服务器时踩到：clone 下来编译报「找不到符号 BuildService」。
+#   （注意 `!src/**/build/` 这类反选是无效的：git 不允许在父目录被排除后再包含它。）
 node_modules/
-dist/
-build/
-.gradle/
-target/
-out/
+/backend/build/
+/frontend/dist/
+/build/
+/.gradle/
+/target/
+/out/
 
 # 本地数据（工作区里的用户代码、上传的压缩包）
 data/
