@@ -41,7 +41,7 @@ rm -f /etc/nginx/sites-enabled/default
 if nginx -t; then
   systemctl enable nginx >/dev/null 2>&1
   systemctl reload nginx || systemctl restart nginx
-  echo ">>> nginx 已就绪（80 端口）"
+  echo ">>> nginx 已就绪（8081 端口）"
 else
   echo "!! nginx 配置校验失败，请检查上面输出"
 fi
@@ -62,4 +62,4 @@ echo
 echo "=== DONE ==="
 echo "看日志： journalctl -u wca-backend -f"
 echo "健康检查：curl -s http://127.0.0.1:8080/api/health"
-echo "站点： http://139.199.88.15"
+echo "站点： http://139.199.88.15:8081"
