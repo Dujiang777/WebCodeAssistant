@@ -1,0 +1,13 @@
+[
+  ["set", "viewport", "1440", "960"],
+
+  { "note": "线上地址：腾讯云轻量 139.199.88.15:8081（80 被 Caddy 占，WCA 走 8081）" },
+  ["open", "http://139.199.88.15:8081/#/login"],
+  { "sleep": 4500 },
+  ["eval", "'TITLE=' + document.title + ' THEME=' + document.documentElement.dataset.theme + ' FORM=' + (document.querySelector('.form-stack') ? 'yes' : 'no') + ' CAPTCHA=' + (document.querySelector('.captcha-row') || document.querySelector('.captcha-box') ? 'yes' : 'no')"],
+  ["screenshot", "docs/self-test/deploy/50-live-login.png"],
+
+  { "note": "确认静态资源是本次构建产物（带 hash 的 assets 目录）" },
+  ["eval", "var s=Array.from(document.querySelectorAll('script[src]')).map(function(x){return x.getAttribute('src')}).join(','); 'ASSETS=' + s.slice(0, 120)"],
+  ["eval", "'ASSET_DIR=' + Array.from(document.querySelectorAll('link[rel=icon],script[src]')).length"]
+]
