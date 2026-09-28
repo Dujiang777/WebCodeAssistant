@@ -25,12 +25,13 @@ public class PatchRepository {
             rs.getObject("message_id", Long.class),
             rs.getString("file_path"),
             rs.getString("diff_text"),
+            rs.getString("summary"),
             rs.getString("status"),
             rs.getTimestamp("created_at").toInstant(),
             rs.getTimestamp("applied_at") == null ? null : rs.getTimestamp("applied_at").toInstant());
 
     private static final String COLUMNS =
-            "id, session_id, message_id, file_path, diff_text, status, created_at, applied_at";
+            "id, session_id, message_id, file_path, diff_text, summary, status, created_at, applied_at";
 
     private final JdbcClient jdbc;
 
@@ -38,19 +39,29 @@ public class PatchRepository {
         this.jdbc = jdbc;
     }
 
-    public UUID insert(long sessionId, Long messageId, String filePath, String diffText) {
+    public UUID insert(long sessionId, Long messageId, String filePath, String diffText, String summary) {
         UUID id = UUID.randomUUID();
         jdbc.sql("""
-                        insert into patches (id, session_id, message_id, file_path, diff_text, status)
-                        values (:id, :sessionId, :messageId, :filePath, :diffText, 'pending')
+                        insert into patches (id, session_id, message_id, file_path, diff_text, summary, status)
+                        values (:id, :sessionId, :messageId, :filePath, :diffText, :summary, 'pending')
                         """)
                 .param("id", Uuids.toRaw(id))
                 .param("sessionId", sessionId)
                 .param("messageId", messageId)
                 .param("filePath", filePath)
                 .param("diffText", diffText)
+                .param("summary", truncateSummary(summary))
                 .update();
         return id;
+    }
+
+    /** summary 列宽 500 字符；模型的说明偶尔超长，超限直接截断而不是让整条 insert 失败。 */
+    private static String truncateSummary(String summary) {
+        if (summary == null) {
+            return null;
+        }
+        String cleaned = summary.strip();
+        return cleaned.length() > 500 ? cleaned.substring(0, 500) : cleaned;
     }
 
     public Optional<Patch> findById(UUID id) {
@@ -83,7 +94,7 @@ public class PatchRepository {
      */
     public Optional<Patch> findOwned(UUID id, long userId) {
         return jdbc.sql("""
-                        select p.id, p.session_id, p.message_id, p.file_path, p.diff_text,
+                        select p.id, p.session_id, p.message_id, p.file_path, p.diff_text, p.summary,
                                p.status, p.created_at, p.applied_at
                           from patches p
                           join chat_sessions s on s.id = p.session_id

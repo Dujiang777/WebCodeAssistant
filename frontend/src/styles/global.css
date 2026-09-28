@@ -1563,6 +1563,23 @@ a.link:hover,
   color: var(--fg-1);
 }
 
+/* 变更说明（模型写的 summary）：金底脚注风，一眼说清「这个 diff 为什么长这样」 */
+.patch-summary {
+  margin-top: 7px;
+  padding: 6px 10px;
+  border-left: 2px solid var(--signal);
+  border-radius: 0 8px 8px 0;
+  background: var(--signal-dim);
+  color: var(--fg-1);
+  font-size: 12px;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  animation: ad-fade-up 0.28s ease both;
+}
+
 .patch-file {
   color: var(--violet);
   font-weight: 600;

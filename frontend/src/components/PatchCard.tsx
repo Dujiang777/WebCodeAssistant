@@ -121,6 +121,12 @@ export function PatchCard({
         </span>
       </div>
 
+      {patch.summary && (
+        <div className="patch-summary" title={patch.summary}>
+          {patch.summary}
+        </div>
+      )}
+
       <div className="patch-preview">
         {preview.lines.map((line, index) => (
           <div key={index} className={`patch-line ${line.kind}`}>

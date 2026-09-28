@@ -145,6 +145,21 @@ public final class UnifiedDiffParser {
         int newStart = Integer.parseInt(matcher.group(3));
         int newCount = matcher.group(4) == null ? 1 : Integer.parseInt(matcher.group(4));
 
+        // 剥离 hunk 末尾的空上下文行。两个来源，都是解析 artifact 而非模型意图：
+        // 1) diff 文本以换行结尾时，split("\n", -1) 会在末尾产生一个空串，
+        //    在 hunk 进行中被当成一行空上下文吞进来 —— 「拆段重存后再解析」会凭空多出一行，
+        //    精确匹配直接 DIFF_CONFLICT（2026-09-28 smoke 实测踩中）；
+        // 2) 模型写多文件 diff 时，段与段之间的分隔空行会被吞进前一个 hunk 的尾部。
+        // 空上下文行对「在原文中定位」毫无贡献，留着只会让匹配凭空多要求一个空行。
+        while (!lines.isEmpty()) {
+            HunkLine last = lines.get(lines.size() - 1);
+            if (last.type() == ' ' && last.text().isEmpty()) {
+                lines.remove(lines.size() - 1);
+            } else {
+                break;
+            }
+        }
+
         Hunk hunk = new Hunk(oldStart, oldCount, newStart, newCount, lines);
 
         String effectiveOld = oldPath;

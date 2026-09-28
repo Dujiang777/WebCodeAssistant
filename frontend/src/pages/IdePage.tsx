@@ -600,6 +600,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           messageId: null,
           file: String(event.file ?? ''),
           diff: String(event.diff ?? ''),
+          summary: typeof event.summary === 'string' && event.summary ? event.summary : null,
           status: 'pending',
           createdAt: new Date().toISOString(),
           appliedAt: null,
