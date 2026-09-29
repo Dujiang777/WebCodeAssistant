@@ -274,6 +274,21 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   /** 本轮对话选用的模型；null = 跟随默认（后端按「用户默认 → 平台默认」解析）。 */
   const [modelKey, setModelKey] = useState<string | null>(null);
 
+  // 窄屏自动收栏：宽度 < 1280 时收起工位与文件树，只留编辑器 + 对话。
+  // 只在向下穿越阈值时收、不自动展开 —— 不和用户手动开合打架。
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 1279.98px)');
+    const collapse = (media: MediaQueryList | MediaQueryListEvent) => {
+      if (media.matches) {
+        setDeskVisible(false);
+        setTreeVisible(false);
+      }
+    };
+    collapse(mql);
+    mql.addEventListener('change', collapse);
+    return () => mql.removeEventListener('change', collapse);
+  }, []);
+
   /**
    * 刷新余额。
    *

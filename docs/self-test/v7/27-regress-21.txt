@@ -1,0 +1,128 @@
+# ui-probe start  steps=53
+
+$ agent-browser set viewport 1512 950
+✓ Done
+
+$ agent-browser open http://127.0.0.1:5173/#/login
+✓ Web Code Assistant · 网页版编码助手
+  http://127.0.0.1:5173/#/login
+
+$ sleep 2400
+
+$ agent-browser eval var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'admin'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'WcaAdmin!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'
+"filled"
+
+$ sleep 300
+
+$ agent-browser eval document.querySelector('.form-stack .btn-primary').click(), 'submitted'
+"submitted"
+
+$ sleep 3200
+
+$ agent-browser eval 'HASH=' + location.hash + ' ADMIN_BTN=' + (Array.from(document.querySelectorAll('.btn')).some(function (b) { return b.innerText.indexOf('admin') >= 0 || b.innerText.indexOf('管理后台') >= 0; }) ? 'yes' : 'no') + ' MODELS_BTN=' + (Array.from(document.querySelectorAll('.btn')).some(function (b) { return b.innerText.indexOf('模型服务') >= 0; }) ? 'yes' : 'no')
+"HASH=#/workspaces ADMIN_BTN=yes MODELS_BTN=yes"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\10-workspaces.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\10-workspaces.png
+
+$ agent-browser eval Array.from(document.querySelectorAll('.btn')).find(function (b) { return b.innerText.indexOf('管理后台') >= 0; }).click(), 'to-admin'
+"to-admin"
+
+$ sleep 2200
+
+$ agent-browser eval 'TABS=' + Array.from(document.querySelectorAll('.ad-tab')).map(function (t) { return t.innerText; }).join('/') + ' STAT_CARDS=' + document.querySelectorAll('.ad-stat-card').length + ' TREND=' + (document.querySelector('.ad-trend-svg') ? 'yes' : 'no') + ' LEGEND=' + document.querySelectorAll('.ad-legend-dot').length
+"TABS=看板/用户/订单/审计 STAT_CARDS=12 TREND=yes LEGEND=2"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\11-dashboard.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\11-dashboard.png
+
+$ agent-browser eval Array.from(document.querySelectorAll('.ad-tab')).find(function (t) { return t.innerText === '用户'; }).click(), 'users'
+"users"
+
+$ sleep 1500
+
+$ agent-browser eval 'SEARCH=' + (document.querySelector('.ad-search input') ? 'yes' : 'no') + ' SELECTS=' + document.querySelectorAll('.ad-select').length + ' ROWS=' + document.querySelectorAll('.ad-table tbody tr').length + ' BADGES=' + document.querySelectorAll('.ad-badge').length
+"SEARCH=yes SELECTS=3 ROWS=20 BADGES=40"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\12-users.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\12-users.png
+
+$ agent-browser eval var btns=document.querySelectorAll('.ad-table .act .btn'); btns.length ? (btns[btns.length-1].click(), 'opened') : 'no-rows'
+"opened"
+
+$ sleep 1600
+
+$ agent-browser eval 'DRAWER=' + (document.querySelector('.ad-drawer-panel') ? 'yes' : 'no') + ' SECTIONS=' + document.querySelectorAll('.ad-drawer-section').length + ' FOOT=' + (document.querySelector('.ad-drawer-foot .btn') ? 'yes' : 'no')
+"DRAWER=yes SECTIONS=3 FOOT=yes"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\13-user-drawer.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\13-user-drawer.png
+
+$ agent-browser eval var c=document.querySelector('.ad-drawer-close .icon-btn'); c && c.click(), 'closed'
+"closed"
+
+$ sleep 500
+
+$ agent-browser eval Array.from(document.querySelectorAll('.ad-tab')).find(function (t) { return t.innerText === '订单'; }).click(), 'orders'
+"orders"
+
+$ sleep 1300
+
+$ agent-browser eval 'ORDER_ROWS=' + document.querySelectorAll('.ad-table tbody tr').length + ' EMPTY=' + (document.querySelector('.cr-empty') ? document.querySelector('.cr-empty').innerText.slice(0, 12) : 'none')
+"ORDER_ROWS=20 EMPTY=none"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\14-orders.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\14-orders.png
+
+$ agent-browser eval Array.from(document.querySelectorAll('.ad-tab')).find(function (t) { return t.innerText === '审计'; }).click(), 'audit'
+"audit"
+
+$ sleep 1300
+
+$ agent-browser eval 'AUDIT_ITEMS=' + document.querySelectorAll('.ad-audit-item').length + ' SELECT=' + (document.querySelector('.ad-select') ? 'yes' : 'no')
+"AUDIT_ITEMS=20 SELECT=yes"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\15-audit.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\15-audit.png
+
+$ agent-browser eval Array.from(document.querySelectorAll('.btn')).find(function (b) { return b.innerText.indexOf('工作区') >= 0 || b.innerText.indexOf('返回编辑器') >= 0; }).click(), 'back'
+"back"
+
+$ sleep 1200
+
+$ agent-browser eval Array.from(document.querySelectorAll('.btn')).find(function (b) { return b.innerText.indexOf('模型服务') >= 0; }).click(), 'to-models'
+"to-models"
+
+$ sleep 2000
+
+$ agent-browser eval 'HERO=' + (document.querySelector('.md-hero-name') ? document.querySelector('.md-hero-name').innerText.slice(0, 16) : 'none') + ' CARDS=' + document.querySelectorAll('.md-card').length + ' PROVIDERS=' + document.querySelectorAll('.md-provider').length + ' ADD=' + (document.querySelector('.md-add') ? 'yes' : 'no')
+"HERO=跟随平台默认 CARDS=11 PROVIDERS=6 ADD=yes"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\16-models.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\16-models.png
+
+$ agent-browser eval document.querySelector('.md-add').click(), 'dialog'
+"dialog"
+
+$ sleep 900
+
+$ agent-browser eval 'DIALOG=' + (document.querySelector('.md-modal') ? 'yes' : 'no') + ' FIELDS=' + document.querySelectorAll('.ad-field').length + ' PROBE_BTN=' + (Array.from(document.querySelectorAll('.modal .btn')).some(function (b) { return b.innerText.indexOf('拉取模型') >= 0; }) ? 'yes' : 'no')
+"DIALOG=yes FIELDS=3 PROBE_BTN=yes"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\17-provider-form.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\17-provider-form.png
+
+$ agent-browser eval document.querySelector('.modal .icon-btn').click(), 'closed-dialog'
+"closed-dialog"
+
+$ sleep 400
+
+$ agent-browser eval Array.from(document.querySelectorAll('.btn')).find(function (b) { return b.innerText.indexOf('工作区') >= 0 || b.innerText.indexOf('返回编辑器') >= 0; }).click(), 'back'
+"back"
+
+$ sleep 1200
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\18-workspaces.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v6-admin\18-workspaces.png
+
+# ui-probe done

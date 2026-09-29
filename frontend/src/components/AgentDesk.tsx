@@ -77,7 +77,7 @@ export function AgentDesk({ desk, loading, live, onOpenFile, onClose }: AgentDes
     <div className="desk">
       <div className="pane-head">
         <WrenchIcon size={13} />
-        <span className="pane-label" style={{ letterSpacing: '0.1em' }}>
+        <span className="pane-label">
           工位
         </span>
         {desk && <span className="desk-count" title="本会话累计工具调用次数">{desk.toolCalls} 次调用</span>}

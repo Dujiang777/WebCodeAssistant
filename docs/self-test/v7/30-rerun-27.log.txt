@@ -1,0 +1,103 @@
+# ui-probe start  steps=45
+
+$ agent-browser set viewport 1512 950
+✓ Done
+
+$ agent-browser open http://127.0.0.1:5173/#/login
+✓ Web Code Assistant · 网页版编码助手
+  http://127.0.0.1:5173/#/login
+
+$ sleep 2400
+
+$ agent-browser eval var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'admin'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'WcaAdmin!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'
+"filled"
+
+$ sleep 300
+
+$ agent-browser eval document.querySelector('.form-stack .btn-primary').click(), 'submitted'
+"submitted"
+
+$ sleep 3200
+
+$ agent-browser eval var row=document.querySelector('.workspace-row'); row && row.click(), 'opened:' + (row ? 'yes' : 'no')
+"opened:yes"
+
+$ sleep 5000
+
+$ agent-browser eval document.querySelector('.composer .avatar-btn').click(), 'clicked'
+"clicked"
+
+$ sleep 600
+
+$ agent-browser eval var item=Array.from(document.querySelectorAll('.avatar-item')).find(function (x) { return x.innerText.indexOf('\u8d26\u53f7') >= 0; }); item && item.click(); 'CLICK=' + (item ? 'yes' : 'no')
+"CLICK=yes"
+
+$ sleep 2200
+
+$ agent-browser eval var back=Array.from(document.querySelectorAll('.btn')).find(function (b) { return b.innerText.indexOf('\u5de5\u4f5c\u533a') >= 0 || b.innerText.indexOf('\u8fd4\u56de\u7f16\u8f91\u5668') >= 0; }); 'HASH=' + location.hash + ' BACK_LABEL=' + (back ? back.innerText.trim() : 'none')
+"HASH=#/account BACK_LABEL=返回编辑器"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v7\46-account-from-ide.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v7\46-account-from-ide.png
+
+$ agent-browser eval var back=Array.from(document.querySelectorAll('.btn')).find(function (b) { return b.innerText.indexOf('\u5de5\u4f5c\u533a') >= 0 || b.innerText.indexOf('\u8fd4\u56de\u7f16\u8f91\u5668') >= 0; }); back && back.click(), 'clicked'
+"clicked"
+
+$ sleep 4200
+
+$ agent-browser eval 'HASH=' + location.hash + ' COMPOSER=' + (document.querySelector('.composer') ? 'yes' : 'no') + ' WORKSPACE_LIST=' + (document.querySelector('.workspace-row') ? 'yes' : 'no')
+"HASH=#/ide/53 COMPOSER=yes WORKSPACE_LIST=no"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v7\47-back-to-editor.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v7\47-back-to-editor.png
+
+$ agent-browser eval var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; var t=document.querySelector('.composer-input'); s.call(t, '\u4f60\u4f1a\u4ec0\u4e48'); t.dispatchEvent(new Event('input', { bubbles: true })); 'typed'
+"typed"
+
+$ sleep 300
+
+$ agent-browser eval document.querySelector('.composer-send').click(), 'sent'
+"sent"
+
+$ sleep 7000
+
+$ agent-browser eval document.querySelector('.composer .avatar-btn').click(), 'clicked'
+"clicked"
+
+$ sleep 600
+
+$ agent-browser eval var cards=Array.from(document.querySelectorAll('.avatar-theme')); var t=cards.find(function (x) { return x.innerText.indexOf('ivory') >= 0 || x.innerText.indexOf('\u6696\u7eb8') >= 0; }); t && t.click(); 'CLICK=' + (t ? 'yes' : 'no')
+"CLICK=yes"
+
+$ sleep 600
+
+$ agent-browser eval document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 'esc'
+"esc"
+
+$ sleep 400
+
+$ agent-browser eval var m=document.querySelector('.msg-role-user .msg-main'); var b=document.querySelector('.msg-role-user .msg-body'); 'THEME=' + document.documentElement.dataset.theme + ' BUBBLE_BG=' + (m ? getComputedStyle(m).backgroundColor : 'none') + ' TEXT_COLOR=' + (b ? getComputedStyle(b).color : 'none') + ' USER_MSGS=' + document.querySelectorAll('.msg-role-user').length
+"THEME=ivory BUBBLE_BG=rgb(253, 250, 240) TEXT_COLOR=rgb(23, 18, 8) USER_MSGS=7"
+
+$ agent-browser eval var msgs=document.querySelectorAll('.msg-role-user'); var last=msgs[msgs.length-1]; last && last.scrollIntoView({block:'center'}); 'SCROLLED=' + msgs.length
+"SCROLLED=7"
+
+$ sleep 500
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v7\48-ivory-bubble.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v7\48-ivory-bubble.png
+
+$ agent-browser eval document.querySelector('.composer .avatar-btn').click(), 'clicked'
+"clicked"
+
+$ sleep 500
+
+$ agent-browser eval var cards=Array.from(document.querySelectorAll('.avatar-theme')); var t=cards.find(function (x) { return x.innerText.indexOf('brass') >= 0 || x.innerText.indexOf('\u9ec4\u94dc') >= 0; }); t && t.click(); 'CLICK=' + (t ? 'yes' : 'no')
+"CLICK=yes"
+
+$ sleep 400
+
+$ agent-browser eval 'THEME=' + document.documentElement.dataset.theme
+"THEME=brass"
+
+# ui-probe done
