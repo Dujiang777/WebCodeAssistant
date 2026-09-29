@@ -174,13 +174,21 @@ public record AppProperties(
              * 是否启用注册 / 找回密码的图形验证码。
              *
              * <p>这两个接口匿名可达且会产生副作用（建号、发信），是脚本刷号 / 邮件轰炸
-             * 的天然入口。登录不需要验证码：它有账号级失败锁定，且给登录加验证码
-             * 对真实用户的摩擦远大于收益。
+             * 的天然入口。登录平时不需要验证码（账号级失败锁定足够），只有撞库嫌疑
+             * （见 {@code loginFailCaptchaThreshold}）时才升级要求。
              */
             @DefaultValue("true") boolean captchaEnabled,
 
             /** 图形验证码的有效期。 */
             @DefaultValue("PT5M") Duration captchaTtl,
+
+            /**
+             * 同一 IP 在窗口内登录失败过的<b>不同用户名</b>达到该数后，登录强制图形验证码。
+             *
+             * <p>横向撞库的签名：攻击者拿用户名字典，每个号只试两三个密码绕开单账号锁定。
+             * 正常人不会在十分钟里用三个账号都输错密码。0 = 关闭该防线。
+             */
+            @DefaultValue("3") int loginFailCaptchaThreshold,
 
             /** IP 限流的统计窗口。 */
             @DefaultValue("PT10M") Duration ipWindow,

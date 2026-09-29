@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 
 import { adoptAuth, api } from '../lib/api';
+import { HttpError } from '../lib/api';
 import type { AuthResult, AuthUser, CaptchaChallenge, Dispatch } from '../lib/api';
 import { messageOf } from '../lib/chat';
 import { RefreshIcon, TerminalMark } from '../components/icons';
@@ -60,6 +61,8 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
   const [captchaCode, setCaptchaCode] = useState('');
   /** 演示账号在无 devAnswer 的生产模式下，先在登录页内联过一道验证码。 */
   const [awaitingDemoCaptcha, setAwaitingDemoCaptcha] = useState(false);
+  /** 撞库防线：同 IP 多账号连败后，后端要求登录也带验证码（CAPTCHA_INVALID 触发）。 */
+  const [loginCaptchaRequired, setLoginCaptchaRequired] = useState(false);
 
   /** 拉一张新验证码。失败不阻断表单（后端关了验证码时 /captcha 返回空 id）。 */
   const loadCaptcha = async () => {
@@ -89,7 +92,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
 
   /** 验证码是一次性的：提交失败后必须换新的一张。 */
   const refreshCaptchaAfterFailure = () => {
-    if (mode === 'register' || mode === 'forgot' || awaitingDemoCaptcha) {
+    if (mode === 'register' || mode === 'forgot' || awaitingDemoCaptcha || loginCaptchaRequired) {
       void loadCaptcha();
     }
   };
@@ -135,7 +138,11 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
     setNotice(null);
     try {
       if (mode === 'login') {
-        const result = await api.login(username.trim(), password);
+        const solved =
+          loginCaptchaRequired && captcha && captchaCode.trim().length > 0
+            ? { id: captcha.id, code: captchaCode.trim() }
+            : undefined;
+        const result = await api.login(username.trim(), password, solved);
         onAuthenticated(adoptAuth(result));
       } else if (mode === 'register') {
         await registerLocal(username.trim(), email.trim(), password, false);
@@ -151,6 +158,11 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
         );
       }
     } catch (err) {
+      // 撞库防线：后端要求登录验证码 → 弹出验证码框，用户填完原样重试即可
+      if (err instanceof HttpError && err.code === 'CAPTCHA_INVALID' && mode === 'login' && !loginCaptchaRequired) {
+        setLoginCaptchaRequired(true);
+        void loadCaptcha();
+      }
       setError(messageOf(err));
       refreshCaptchaAfterFailure();
     } finally {
@@ -192,7 +204,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
 
   const ready =
     mode === 'login'
-      ? awaitingDemoCaptcha
+      ? awaitingDemoCaptcha || loginCaptchaRequired
         ? username.trim().length >= 3 && captchaCode.trim().length > 0
         : username.trim().length > 0 && password.length > 0
       : mode === 'register'
@@ -359,7 +371,8 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
                 </div>
               )}
 
-              {(mode === 'register' || mode === 'forgot' || awaitingDemoCaptcha) && captcha && (
+              {(mode === 'register' || mode === 'forgot' || awaitingDemoCaptcha ||
+                (mode === 'login' && loginCaptchaRequired)) && captcha && (
                 <div className="field">
                   <label htmlFor="captcha-code">图形验证码</label>
                   <div className="captcha-row">
@@ -391,6 +404,11 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
                   </div>
                   {awaitingDemoCaptcha && (
                     <span className="field-hint">创建演示账号也需要通过验证码（防脚本刷号）。</span>
+                  )}
+                  {mode === 'login' && loginCaptchaRequired && (
+                    <span className="field-hint">
+                      你的网络最近有多个账号连续登录失败，需要验证码确认是真人（防撞库攻击）。
+                    </span>
                   )}
                 </div>
               )}

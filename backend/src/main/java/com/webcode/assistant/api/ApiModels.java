@@ -45,10 +45,16 @@ public final class ApiModels {
     ) {
     }
 
-    /** 登录。{@code username} 一个框同时收用户名和邮箱，字段名保持向后兼容。 */
+    /**
+     * 登录。{@code username} 一个框同时收用户名和邮箱，字段名保持向后兼容。
+     * {@code captchaId/captchaCode} 平时可不带 —— 只有同 IP 多账号连败（撞库嫌疑）时才强制，
+     * 后端以 CAPTCHA_INVALID 拒绝缺验证码的请求，前端据此弹出验证码框。
+     */
     public record LoginRequest(
             @NotBlank(message = "不能为空") String username,
-            @NotBlank(message = "不能为空") String password
+            @NotBlank(message = "不能为空") String password,
+            String captchaId,
+            String captchaCode
     ) {
     }
 

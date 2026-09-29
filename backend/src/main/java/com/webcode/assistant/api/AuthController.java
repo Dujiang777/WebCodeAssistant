@@ -1,5 +1,7 @@
 package com.webcode.assistant.api;
 
+import com.webcode.assistant.common.ApiException;
+import com.webcode.assistant.common.ErrorCode;
 import com.webcode.assistant.security.AppUserPrincipal;
 import com.webcode.assistant.security.AuthService;
 import com.webcode.assistant.security.CaptchaService;
@@ -78,8 +80,29 @@ public class AuthController {
 
     @PostMapping("/login")
     public ApiModels.AuthResponse login(@Valid @RequestBody ApiModels.LoginRequest request) {
-        ipRateLimiter.check(IpRateLimiter.Action.LOGIN, requestContext.ip());
-        return toResponse(authService.login(request.username(), request.password()));
+        String ip = requestContext.ip();
+        ipRateLimiter.check(IpRateLimiter.Action.LOGIN, ip);
+        // 横向撞库防线：同 IP 窗口内失败过的不同用户名达到阈值 → 强制图形验证码。
+        // 平时不摩擦真实用户；只有撞库签名出现才升级。
+        int threshold = ipRateLimiter.loginFailCaptchaThreshold();
+        if (threshold > 0 && ipRateLimiter.distinctLoginFailures(ip) >= threshold) {
+            try {
+                captchaService.verifyAndConsume(request.captchaId(), request.captchaCode());
+            } catch (ApiException ex) {
+                throw new ApiException(ErrorCode.CAPTCHA_INVALID,
+                        "检测到多个账号连续登录失败，请输入图形验证码后再试");
+            }
+        }
+        try {
+            ApiModels.AuthResponse response = toResponse(authService.login(request.username(), request.password()));
+            return response;
+        } catch (ApiException ex) {
+            // 只有「认证没通过」才算撞库信号：参数校验失败、限流 429 不算
+            if (ex.code() == ErrorCode.UNAUTHORIZED || ex.code() == ErrorCode.ACCOUNT_LOCKED) {
+                ipRateLimiter.recordLoginFailure(ip, request.username());
+            }
+            throw ex;
+        }
     }
 
     /** 用 refresh token 换一对新令牌。前端在 access 过期时静默调用，用户无感。 */

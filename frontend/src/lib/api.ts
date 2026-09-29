@@ -661,11 +661,23 @@ export const api = {
       { retryOn401: false },
     ),
 
-  /** `identifier` 一个框同时收用户名和邮箱 —— 用户不该被迫记住自己当初填的是哪个。 */
-  login: (identifier: string, password: string) =>
+  /**
+   * `identifier` 一个框同时收用户名和邮箱 —— 用户不该被迫记住自己当初填的是哪个。
+   * `captcha` 平时不带；后端检测到同 IP 多账号连败（撞库嫌疑）会以 CAPTCHA_INVALID 拒绝，
+   * 前端据此弹验证码框后带上重试。
+   */
+  login: (identifier: string, password: string, captcha?: { id: string; code: string }) =>
     request<AuthResult>(
       '/api/auth/login',
-      { method: 'POST', body: JSON.stringify({ username: identifier, password }) },
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          username: identifier,
+          password,
+          captchaId: captcha?.id,
+          captchaCode: captcha?.code,
+        }),
+      },
       { retryOn401: false },
     ),
 
