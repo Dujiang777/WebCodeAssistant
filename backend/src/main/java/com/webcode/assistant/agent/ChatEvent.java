@@ -44,6 +44,12 @@ public record ChatEvent(long seq, String type, Map<String, Object> body) {
     public static final String TYPE_DONE = "done";
 
     /**
+     * 用户停止了本轮。之后紧跟一条 {@code done}（携带半截回答的落库 messageId），
+     * 前端据「canceled」把运行中的工具卡片标成「已停止」，而不是等 done 才反应。
+     */
+    public static final String TYPE_CANCELED = "canceled";
+
+    /**
      * Agent 工位（影子工作区）状态快照。
      *
      * <p>功能 13：把「它打开了哪些文件、光标在哪、正在 grep 什么、草稿 diff 怎么长出来」

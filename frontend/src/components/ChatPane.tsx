@@ -20,7 +20,7 @@ import { GateCard } from './GateCard';
 import { PatchCard } from './PatchCard';
 import { AvatarMenu } from './AvatarMenu';
 import { QuotaBar } from './QuotaBar';
-import { BoltIcon, BookIcon, CloseIcon, PlusIcon, SearchIcon, SendIcon, ShieldIcon, TerminalMark } from './icons';
+import { BoltIcon, BookIcon, CloseIcon, PlusIcon, SearchIcon, SendIcon, ShieldIcon, StopIcon, TerminalMark } from './icons';
 
 /**
  * 右侧对话面板。
@@ -70,6 +70,8 @@ interface ChatPaneProps extends PatchDeps {
   mode: AgentMode;
   onModeChange: (mode: AgentMode) => void;
   onSend: (content: string) => void;
+  /** 停止当前回合（sending 时输入区旁出现停止按钮）。 */
+  onStop: () => void;
   onSelectSession: (id: number) => void;
   onNewSession: () => void;
   onClearSelection: () => void;
@@ -146,6 +148,7 @@ export function ChatPane({
   mode,
   onModeChange,
   onSend,
+  onStop,
   onSelectSession,
   onNewSession,
   onClearSelection,
@@ -188,6 +191,15 @@ export function ChatPane({
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const stickToBottom = useRef(true);
+  // 回合进行中每秒走一次的时钟：running 工具卡显示「已执行 Ns」
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!sending) return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [sending]);
 
   // 自动滚到底，但用户手动往上翻时不打断他 —— 这是聊天界面的基本礼貌
   useEffect(() => {
@@ -360,14 +372,24 @@ export function ChatPane({
                 </span>
                 <div className="msg-main">
                   <div className="msg-head">
-                    <span className="dot dot-warn" />
-                    <span>正在处理</span>
+                    <span className={`dot ${turn.stopped ? 'dot-idle' : 'dot-warn'}`} />
+                    <span>{turn.stopped ? '已停止' : '正在处理'}</span>
+                    {!turn.stopped && sending && (
+                      <button
+                        className="composer-stop tool-stop"
+                        onClick={onStop}
+                        title="停止本轮：当前工具跑完即停，半截回答会保留，已预扣的积分退回"
+                      >
+                        <StopIcon size={11} />
+                        停止
+                      </button>
+                    )}
                   </div>
 
                   {turn.tools.length > 0 && (
                     <div className="stack-gap">
                       {turn.tools.map((tool) => (
-                        <ToolCard key={tool.id} tool={tool} />
+                        <ToolCard key={tool.id} tool={tool} now={now} />
                       ))}
                     </div>
                   )}
@@ -566,6 +588,15 @@ export function ChatPane({
           {/* 头像就在发送键旁边：设置、主题、模型服务在这里抬手即达，
               这是 2026-09-28 重构的核心 —— 用户不该为了换个主题去右上角找入口 */}
           <AvatarMenu direction="up" onLogout={onLogout} />
+          {sending && (
+            <button
+              className="composer-stop"
+              onClick={onStop}
+              title="停止本轮：当前工具跑完即停，半截回答会保留，已预扣的积分退回"
+            >
+              <StopIcon size={13} />
+            </button>
+          )}
           <button
             className="composer-send"
             disabled={sending || draft.trim().length === 0}
@@ -612,6 +643,11 @@ function MessageBlock({
         <div className="msg-head">
           <span className={`dot ${isUser ? 'dot-ok' : 'dot-warn'}`} />
           <span>{isUser ? '你' : 'AI'}</span>
+          {!isUser && message.meta?.stopped === true && (
+            <span className="msg-meta" title="你在生成过程中点了停止：已跑完的步骤保留，预扣积分已全额退回">
+              已停止 · 积分已退回
+            </span>
+          )}
           {mode && <span className="msg-meta">{MODE_META[mode as AgentMode]?.label ?? mode}</span>}
           {model && <span className="msg-meta">{model}</span>}
           {!isUser && citeCount > 0 && (
@@ -672,9 +708,11 @@ function MessageBlock({
   );
 }
 
-function ToolCard({ tool }: { tool: ToolItem }) {
+function ToolCard({ tool, now }: { tool: ToolItem; now: number }) {
   const [open, setOpen] = useState(false);
   const tone = tool.status === 'failed' ? 'failed' : tool.status === 'running' ? 'pending' : '';
+  const elapsed =
+    tool.status === 'running' ? Math.max(0, Math.round((now - tool.startedAt) / 1000)) : null;
 
   return (
     <div className={`tool-card ${tone}`}>
@@ -690,7 +728,7 @@ function ToolCard({ tool }: { tool: ToolItem }) {
         </span>
         <span style={{ marginLeft: 'auto', color: 'var(--fg-3)', fontSize: 10.5, flex: 'none' }}>
           {tool.status === 'running'
-            ? '执行中…'
+            ? `执行中…${elapsed !== null && elapsed > 0 ? ` ${elapsed}s` : ''}`
             : tool.summary || (tool.status === 'done' ? '完成' : '失败')}
         </span>
       </div>

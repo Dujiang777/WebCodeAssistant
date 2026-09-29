@@ -851,6 +851,13 @@ export const api = {
     }),
 
   /**
+   * 停止当前会话正在跑的回合。协作式取消：模型流不可半途掐断，
+   * 但工具会在下一个边界终止，半截回答保留、预扣退还。幂等，回合不在跑也无害。
+   */
+  cancelTurn: (sessionId: number) =>
+    request<void>(`/api/chat/sessions/${sessionId}/cancel`, { method: 'POST' }),
+
+  /**
    * 应用补丁。改动代码行为的补丁必须先看过「开关关闭时的旧路径」并确认
    * （acknowledgeFlag=true），否则后端返回 FLAG_ACK_REQUIRED。
    */

@@ -24,6 +24,8 @@ export interface ToolItem {
   args: unknown;
   status: 'running' | 'done' | 'failed';
   summary: string;
+  /** tool_call 到达的本地时间戳；running 状态的卡片用它显示已执行秒数。 */
+  startedAt: number;
 }
 
 export interface LiveTurn {
@@ -33,6 +35,8 @@ export interface LiveTurn {
   /** 回合结束时由后端校验过的引用，用于把编造的引用标红。 */
   citations: Citation[];
   error: string | null;
+  /** 用户点了停止：后续增量一律忽略，工具卡片标「已停止」。 */
+  stopped?: boolean;
 }
 
 export const EMPTY_TURN: LiveTurn = { text: '', tools: [], patchIds: [], citations: [], error: null };

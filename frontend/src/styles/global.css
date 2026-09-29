@@ -6099,6 +6099,44 @@ button.risk-chip:hover {
   box-shadow: 0 6px 18px var(--signal-line);
 }
 
+/* 停止按钮：玫瑰红描边圆钮，一眼和金色的发送键区分开 —— 拦下/失败是玫红的语义 */
+.composer-stop {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+  border: 1px solid rgba(255, 81, 99, 0.5);
+  border-radius: 50%;
+  background: var(--rose-dim);
+  color: var(--rose);
+  transition: background 0.14s ease, border-color 0.14s ease, transform 0.14s ease;
+}
+
+.composer-stop:hover {
+  background: rgba(255, 81, 99, 0.22);
+  border-color: var(--rose);
+  transform: scale(1.06);
+}
+
+/* 「正在处理」行内的小号停止键：不用把鼠标挪到输入区，顺手就能点 */
+.tool-stop {
+  width: auto;
+  height: 18px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  margin-left: auto;
+}
+
+.tool-stop:hover {
+  transform: none;
+}
+
 .composer-send:disabled {
   opacity: 0.4;
   cursor: default;

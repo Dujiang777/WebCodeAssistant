@@ -115,6 +115,15 @@ export function SendIcon({ size = 14, className }: IconProps) {
   );
 }
 
+/** 停止：实心小方块 —— 生成中的「停」按钮 universally 用这个形。 */
+export function StopIcon({ size = 14, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} strokeWidth={0}>
+      <rect x="3.5" y="3.5" width="9" height="9" rx="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function CloseIcon({ size = 14, className }: IconProps) {
   return (
     <svg {...base(size)} className={className} strokeWidth={1.6}>

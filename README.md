@@ -554,6 +554,7 @@ MOCK_LLM_STEP_DELAY_MS=2500 node tools/mock-llm/server.mjs --port 8787
 | `GET` | `/chat/sessions?workspaceId=` | 会话列表 |
 | `GET` | `/chat/sessions/{sid}/messages` | 消息历史 |
 | `POST` | `/chat/sessions/{sid}/messages` | **发消息，立刻返回 202 + messageId** |
+| `POST` | `/chat/sessions/{sid}/cancel` | **停止当前回合**。协作式取消：工具在下一个边界终止，半截回答落库（`meta.stopped=true`）、预扣退还；幂等 |
 | `GET` | `/chat/sessions/{sid}/events` | **SSE 事件流**，支持 `?afterId=` 断线回放 |
 | `GET` | `/chat/sessions/{sid}/patches` | 本会话的补丁列表 |
 | `POST` | `/patches/{patchId}/apply` | 应用补丁（唯一会写盘的入口） |
@@ -635,11 +636,16 @@ data: {"seq":15,"type":"patch","id":"8f14e45f-...","file":"src/main/java/com/dem
 data: {"seq":16,"type":"citations","items":[{"file":"src/main/java/com/demo/UserService.java","line":23,"endLine":25,"valid":true,"reason":null}]}
 data: {"seq":17,"type":"error","message":"模型服务限流（429），请稍后再试。"}
 data: {"seq":18,"type":"done","messageId":"1234"}
+data: {"seq":19,"type":"canceled"}
 ```
 
 > `citations` 在 `done` **之前**发，内容与落库到 `meta.citations` 的完全一致 ——
 > 前端渲染引用 chip 时不需要再取一次消息，也就不会出现「先渲染成黑色、再跳成红色」的闪烁。
 > `seq` 刻意不叫 `id`：`patch` 事件的 `id` 按约定是补丁 uuid，两者同名会互相覆盖。
+> `canceled` 表示用户停止了本轮（`POST /api/chat/sessions/{sid}/cancel`），之后紧跟一条
+> `done` —— 半截回答已落库（`meta.stopped=true`）、预扣积分全额退还。
+> 停止是协作式取消：正在流式生成的文本不可半途掐断，但工具会在**下一个工具边界**
+> （`AgentToolbox.guard` 入口的取消检查点）立即终止。
 
 ---
 
@@ -786,8 +792,11 @@ refresh 落库换来的是这两件事都成立了：
 
 ## 9. 已知限制
 
-- **一轮对话内无法硬中断**：LangChain4j 的流式接口没有暴露中断点。所以用「工具调用次数上限」
-  （默认 12 次）来收敛：超限后工具会返回「请立即给出最终回答」，模型通常会停止。这不是硬保证。
+- **一轮对话无法做到「按下停止就掐断模型流」**：LangChain4j 的流式接口没有暴露中断点。
+  已实现的停止（`POST /cancel`）是**协作式取消**：正在生成的模型流不可半途掐断，但耗时的
+  工具会在下一个工具边界立即终止，半截回答保留、预扣全额退还 —— 用户感知是即时的，
+  极端情况下（模型正在长输出且不再调工具）本轮会自然跑完。另有「工具调用次数上限」
+  （默认 12 次）兜底死循环。
 - **大文件不能整文件保存**：超过 512 KB 的文件只读。改这类文件目前只能靠补丁（上限 8 MB）。
 - **补丁批量应用不做原子性**：多文件改动可以在一次 `propose_patch` diff 里连写多个文件段，
   后端会拆成逐文件补丁并整批校验（任何一个文件不能干净应用就整批拒绝），但「应用」阶段

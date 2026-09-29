@@ -8,6 +8,7 @@ import com.webcode.assistant.agent.ChatSession;
 import com.webcode.assistant.agent.ChatSessionService;
 import com.webcode.assistant.agent.Patch;
 import com.webcode.assistant.agent.PatchService;
+import com.webcode.assistant.agent.TurnCancellation;
 import com.webcode.assistant.security.CurrentUser;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -45,17 +46,20 @@ public class ChatController {
     private final ChatEventHub eventHub;
     private final PatchService patchService;
     private final CurrentUser currentUser;
+    private final TurnCancellation cancellation;
 
     public ChatController(ChatSessionService sessionService,
                           AgentOrchestrator orchestrator,
                           ChatEventHub eventHub,
                           PatchService patchService,
-                          CurrentUser currentUser) {
+                          CurrentUser currentUser,
+                          TurnCancellation cancellation) {
         this.sessionService = sessionService;
         this.orchestrator = orchestrator;
         this.eventHub = eventHub;
         this.patchService = patchService;
         this.currentUser = currentUser;
+        this.cancellation = cancellation;
     }
 
     @PostMapping
@@ -97,6 +101,21 @@ public class ChatController {
 
         long messageId = orchestrator.start(agentRequest);
         return ResponseEntity.accepted().body(new ApiModels.SendMessageResponse(messageId, sid));
+    }
+
+    /**
+     * 停止当前会话正在跑的回合。
+     *
+     * <p>语义：尽力而为的协作式取消 —— 置位停止标志后，正在执行的模型流不可半途掐断，
+     * 但耗时的工具会在<b>下一个工具边界</b>立即终止；随后后端把半截回答落库、
+     * 退还预扣，并推 {@code canceled} + {@code done} 事件收尾。回合不在跑时调用无害（幂等）。
+     */
+    @PostMapping("/{sid}/cancel")
+    public ResponseEntity<Void> cancel(@PathVariable long sid) {
+        sessionService.require(currentUser.requireId(), sid);
+        cancellation.cancel(sid);
+        eventHub.publisher(sid).canceled();
+        return ResponseEntity.accepted().build();
     }
 
     /**

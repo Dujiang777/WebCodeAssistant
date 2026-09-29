@@ -89,6 +89,7 @@ public class AgentOrchestrator {
     private final AuthService authService;
     private final ExecutorConfig.AppExecutors executors;
     private final ObjectMapper objectMapper;
+    private final TurnCancellation cancellation;
 
     public AgentOrchestrator(ChatModelConfig.ModelGateway modelGateway,
                              ChatEventHub eventHub,
@@ -112,7 +113,8 @@ public class AgentOrchestrator {
                              CreditService creditService,
                              AuthService authService,
                              ExecutorConfig.AppExecutors executors,
-                             ObjectMapper objectMapper) {
+                             ObjectMapper objectMapper,
+                             TurnCancellation cancellation) {
         this.modelGateway = modelGateway;
         this.eventHub = eventHub;
         this.messageRepository = messageRepository;
@@ -136,6 +138,7 @@ public class AgentOrchestrator {
         this.authService = authService;
         this.executors = executors;
         this.objectMapper = objectMapper;
+        this.cancellation = cancellation;
     }
 
     /**
@@ -243,6 +246,8 @@ public class AgentOrchestrator {
         Charge charge = new Charge(refId, held, model);
 
         ChatEventPublisher publisher = eventHub.publisher(request.sessionId());
+        // 新回合开始：清掉上一轮可能残留的「已停止」标志（用户在回合间隙点过停止也无妨）
+        cancellation.begin(request.sessionId());
         executors.agent().submit(() -> {
             try {
                 run(request, workspace, publisher, charge);
@@ -305,7 +310,8 @@ public class AgentOrchestrator {
             AgentToolbox toolbox = new AgentToolbox(
                     workspace, publisher, fileService, grepService, patchService,
                     blastRadiusService, buildService, springMapService, semanticService,
-                    appProperties, deskService, gateService, request.sessionId(), llmProperties.maxToolSteps());
+                    appProperties, deskService, gateService, request.sessionId(), llmProperties.maxToolSteps(),
+                    cancellation);
 
             Assistant assistant = AiServices.builder(Assistant.class)
                     .streamingChatModel(modelGateway.require(model))
@@ -324,6 +330,11 @@ public class AgentOrchestrator {
                     })
                     .onError(error -> {
                         log.warn("Agent 回合失败 session={}", request.sessionId(), error);
+                        if (cancellation.isCanceled(request.sessionId())) {
+                            // 用户停止：半截回答也要保留（不是失败），预扣全额退还
+                            finishStopped(request, answer, toolbox, publisher, charge);
+                            return;
+                        }
                         String message = describe(error);
                         persistAssistantError(request.sessionId(), message);
                         publisher.error(message);
@@ -383,6 +394,14 @@ public class AgentOrchestrator {
     private long finish(AgentRequest request, Workspace workspace, StringBuilder answer,
                         ChatResponse response, AgentToolbox toolbox, ChatEventPublisher publisher,
                         Charge charge) {
+        // 取消竞态兜底：工具抛出的 TurnCanceledException 会被 LangChain4j 当作
+        // 「工具失败结果」喂回模型，回合反而自然完成走进这里 —— 那就不能按正常结算收尾
+        //（用户点了停止却还被扣分、消息还没有 stopped 标记）。只要标志在，一律按停止处理。
+        if (cancellation.isCanceled(request.sessionId())) {
+            finishStopped(request, answer, toolbox, publisher, charge);
+            return -1L;
+        }
+
         String text = answer.length() > 0
                 ? answer.toString()
                 : (response.aiMessage() == null ? "" : response.aiMessage().text());
@@ -479,6 +498,50 @@ public class AgentOrchestrator {
         } catch (RuntimeException refundFailure) {
             log.error("退还预扣失败 userId={} refId={}", request.userId(), charge.refId(), refundFailure);
         }
+    }
+
+    /**
+     * 用户停止本轮的收尾：与失败不同，<b>这不是错误</b>。
+     *
+     * <p>已经流出到前端的半截回答要落库保留（前端刷新后依然可见），
+     * 已生成的补丁照常挂到这条消息上，预扣全额退还（模型侧 token 是否已消耗
+     * 不由用户买单 —— 停止是产品行为，不是事故）。事件顺序：
+     * {@code canceled}（前端立刻把运行中的工具卡标停）→ {@code done}（收尾渲染）。
+     *
+     * <p> {@code settleDone()} 必须先于 release：这一位是「本轮终局已定」的标记，
+     * 漏了它外层兜底/重复回调会再退一遍。
+     */
+    private void finishStopped(AgentRequest request, StringBuilder answer, AgentToolbox toolbox,
+                               ChatEventPublisher publisher, Charge charge) {
+        charge.settleDone();
+        try {
+            creditService.release(request.userId(), charge.refId(), charge.held(),
+                    "用户停止本轮，退还预扣");
+        } catch (RuntimeException refundFailure) {
+            log.error("停止退款失败 userId={} refId={}", request.userId(), charge.refId(), refundFailure);
+        }
+
+        String text = answer.length() > 0
+                ? answer.toString()
+                : "⏹ 已按你的要求停止本轮。已执行的工具步骤到此为止，没有产出结论。";
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("stopped", true);
+        meta.put("model", charge.model().modelKey());
+        meta.put("modelName", charge.model().displayName());
+        meta.put("billable", charge.model().billable());
+        meta.put("mode", request.normalizedMode());
+        meta.put("credits", 0);
+        long messageId = messageRepository.insert(request.sessionId(),
+                ChatMessageRecord.ROLE_ASSISTANT, text, toJson(meta));
+        sessionRepository.touch(request.sessionId());
+
+        // 半轮里可能已经产出补丁：照常挂消息，用户仍可审阅应用
+        for (UUID patchId : toolbox.proposedPatches()) {
+            patchService.attachMessage(patchId, messageId);
+        }
+
+        publisher.canceled();
+        publisher.done(messageId);
     }
 
     private static long tokenOf(ChatResponse response, boolean input) {

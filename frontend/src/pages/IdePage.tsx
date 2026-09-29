@@ -568,6 +568,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   };
 
   const handleEvent = (event: ChatEvent) => {
+    // 用户停止后只认收尾事件：模型流/工具的残余增量一律不再上屏
+    if (turnRef.current?.stopped && event.type !== 'done' && event.type !== 'error') {
+      return;
+    }
     switch (event.type) {
       case 'text': {
         const delta = typeof event.delta === 'string' ? event.delta : '';
@@ -586,6 +590,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           args: event.args ?? {},
           status: 'running',
           summary: '',
+          startedAt: Date.now(),
         };
         turnRef.current = { ...base, tools: [...base.tools, item] };
         setTurn(turnRef.current);
@@ -693,6 +698,21 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           setSending(false);
         }
         toast.error(message);
+        return;
+      }
+
+      case 'canceled': {
+        // 用户停止已被后端接受（工具边界生效）。运行中的工具卡立刻标停；
+        // 半截回答由后端落库后经 done 回来，这里只做即时视觉反馈。
+        const base = turnRef.current;
+        if (!base) return;
+        const tools = base.tools.map((tool) =>
+          tool.status === 'running'
+            ? { ...tool, status: 'failed' as const, summary: '已停止' }
+            : tool,
+        );
+        turnRef.current = { ...base, tools, stopped: true };
+        setTurn(turnRef.current);
         return;
       }
 
@@ -1137,6 +1157,24 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     }
   };
 
+  /**
+   * 停止当前回合。后端是协作式取消：置位标志后，工具在下一个边界终止，
+   * 半截回答落库保留、预扣退还，随后 canceled + done 事件过来收尾。
+   * 这里先做本地即时反馈（stopped=true 忽略残余增量），不等网络。
+   */
+  const stopTurn = async () => {
+    const sid = sessionId;
+    if (sid === null || !turnRef.current) return;
+    turnRef.current = { ...turnRef.current, stopped: true };
+    setTurn(turnRef.current);
+    try {
+      await api.cancelTurn(sid);
+    } catch (err) {
+      // 取消失败不该吓用户：回合要么已经结束，要么会自然跑完
+      toast.info(messageOf(err));
+    }
+  };
+
   const createSession = async () => {
     try {
       const session = await api.createSession(workspaceId);
@@ -1396,6 +1434,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               mode={mode}
               onModeChange={setMode}
               onSend={(content) => void send(content)}
+              onStop={() => void stopTurn()}
               onSelectSession={setSessionId}
               onNewSession={() => void createSession()}
               onClearSelection={() => setSelection(null)}
