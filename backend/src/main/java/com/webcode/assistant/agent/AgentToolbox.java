@@ -61,6 +61,8 @@ public class AgentToolbox {
     private final ToolGateService gateService;
     private final long sessionId;
     private final int maxToolSteps;
+    /** 用户停止标志：每个工具边界上检查一次（见 guard）。 */
+    private final TurnCancellation cancellation;
 
     /** 本轮已执行的工具调用次数，用于封顶，避免模型在死循环里烧 token。 */
     private final AtomicInteger toolCalls = new AtomicInteger();
@@ -81,7 +83,8 @@ public class AgentToolbox {
                         AgentDeskService deskService,
                         ToolGateService gateService,
                         long sessionId,
-                        int maxToolSteps) {
+                        int maxToolSteps,
+                        TurnCancellation cancellation) {
         this.workspace = workspace;
         this.publisher = publisher;
         this.fileService = fileService;
@@ -96,6 +99,7 @@ public class AgentToolbox {
         this.gateService = gateService;
         this.sessionId = sessionId;
         this.maxToolSteps = maxToolSteps;
+        this.cancellation = cancellation;
     }
 
     public List<UUID> proposedPatches() {
@@ -513,6 +517,13 @@ public class AgentToolbox {
      */
     private String guard(String toolName, Map<String, Object> args,
                          Function<ToolGateService.GateDecision, ToolOutcome> action) {
+        // 取消检查放在所有副作用之前：停止之后不该再发 tool_call、不该再动工作区。
+        // 抛出的 TurnCanceledException 由下面的 catch 原样放行，
+        // 穿透 LangChain4j 落进 onError，由编排层按「用户停止」收尾。
+        if (cancellation.isCanceled(sessionId)) {
+            throw new TurnCanceledException();
+        }
+
         publisher.toolCall(toolName, args);
         // 工位（功能 13）：每次工具动作都翻译成空间状态 —— 打开的文件、光标、正在搜什么
         deskService.toolStarted(sessionId, toolName, args);
@@ -548,6 +559,9 @@ public class AgentToolbox {
             publisher.toolResult(toolName, true, outcome.uiSummary());
             deskService.toolFinished(sessionId, toolName, true, outcome.uiSummary());
             return outcome.modelResult();
+        } catch (TurnCanceledException ex) {
+            // 用户停止：不许被下面的翻译兜底吞成「工具失败」文本 —— 原样抛给框架
+            throw ex;
         } catch (ApiException ex) {
             String message = ex.code().name() + ": " + ex.getMessage();
             publisher.toolResult(toolName, false, message);

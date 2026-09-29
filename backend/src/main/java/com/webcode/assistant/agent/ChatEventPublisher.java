@@ -64,6 +64,11 @@ public class ChatEventPublisher {
         channel.publish(ChatEvent.TYPE_ERROR, Map.of("message", message == null ? "未知错误" : message));
     }
 
+    /** 用户停止了本轮：前端立刻把运行中的工具卡片标成「已停止」。 */
+    public void canceled() {
+        channel.publish(ChatEvent.TYPE_CANCELED, Map.of());
+    }
+
     /**
      * 回答里引用的校验结果。
      *

@@ -1,0 +1,31 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "login as fixed probe account (has signup bonus balance)" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'stop-probe'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'StopProbe!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3200 },
+
+  { "note": "create sample workspace" },
+  ["click", ".form-stack .btn-primary"],
+  { "sleep": 2500 },
+  ["eval", "var row=document.querySelector('.workspace-row'); row && row.click(), 'opened:' + (row ? 'yes' : 'no')"],
+  { "sleep": 5000 },
+
+  { "note": "send message (slow mock: 2.5s per step) -> stop button appears" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; var t=document.querySelector('.composer-input'); s.call(t, '解释一下这个项目的结构，逐个文件看看'); t.dispatchEvent(new Event('input', { bubbles: true })); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.composer-send').click(), 'sent'"],
+  { "sleep": 1200 },
+  ["eval", "'STOP_BTN=' + !!document.querySelector('.composer-send ~ .composer-stop, .composer-actions .composer-stop') + ' SENDING_UI=' + !!document.querySelector('.composer-actions .spinner')"],
+  ["screenshot", "docs/self-test/v7/57-stop-button.png"],
+
+  { "note": "click stop -> turn marked stopped, composer returns" },
+  ["eval", "var b=document.querySelector('.composer-actions .composer-stop'); b && b.click(), 'stop-clicked:' + (b ? 'yes' : 'no')"],
+  { "sleep": 2500 },
+  ["eval", "var heads=Array.from(document.querySelectorAll('.msg-head')).map(function(h){return h.innerText.replace(/\\n/g,' ')}); 'HEADS=' + JSON.stringify(heads).slice(0, 200) + ' STOP_GONE=' + !document.querySelector('.composer-actions .composer-stop')"],
+  ["screenshot", "docs/self-test/v7/58-turn-stopped.png"]
+]
