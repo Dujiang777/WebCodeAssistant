@@ -386,6 +386,8 @@ export function ChatPane({
                     )}
                   </div>
 
+                  {turn.plan.length > 0 && <PlanCard steps={turn.plan} live={!turn.stopped} />}
+
                   {turn.tools.length > 0 && (
                     <div className="stack-gap">
                       {turn.tools.map((tool) => (
@@ -632,6 +634,9 @@ function MessageBlock({
   const citations = message.meta?.citations;
   const invalid = isUser ? 0 : countInvalid(citations);
   const citeCount = Array.isArray(citations) ? citations.length : 0;
+  const plan = !isUser && Array.isArray(message.meta?.plan)
+    ? (message.meta.plan as unknown[]).map((step) => String(step)).filter((step) => step.length > 0)
+    : [];
 
   return (
     <div className={`msg msg-role-${isUser ? 'user' : 'assistant'}`}>
@@ -669,6 +674,7 @@ function MessageBlock({
         </div>
 
         <div className="msg-body">
+          {plan.length > 0 && <PlanCard steps={plan} live={false} />}
           {isUser ? (
             message.content || '（空消息）'
           ) : (
@@ -704,6 +710,24 @@ function MessageBlock({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** 计划卡：模型动工前给出的步骤清单。live 时金色呼吸点表示「按这个推进中」。 */
+function PlanCard({ steps, live }: { steps: string[]; live: boolean }) {
+  return (
+    <div className={`plan-card${live ? ' plan-card-live' : ''}`}>
+      <div className="plan-head">
+        <span className={`dot ${live ? 'dot-warn' : 'dot-idle'}`} />
+        <span>执行计划</span>
+        <span className="plan-count">{steps.length} 步</span>
+      </div>
+      <ol className="plan-steps">
+        {steps.map((step, index) => (
+          <li key={`${index}-${step.slice(0, 8)}`}>{step}</li>
+        ))}
+      </ol>
     </div>
   );
 }

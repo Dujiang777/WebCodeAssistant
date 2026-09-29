@@ -106,6 +106,39 @@ public class AgentToolbox {
         return List.copyOf(proposedPatches);
     }
 
+    /** 本轮模型通过 set_plan 给出的执行计划（最后一次调用为准），回合结束随 meta 落库。 */
+    private volatile List<String> planSteps = List.of();
+
+    public List<String> planSteps() {
+        return planSteps;
+    }
+
+    // ------------------------------------------------------------ set_plan
+
+    @Tool(name = "set_plan", value = """
+            在开始多步工作之前，先用它给出本次任务的执行计划（3~6 步，每步一句短语，按执行顺序）。
+            计划会实时展示给用户 —— 用户先看到「你打算怎么做」，再看每一步的执行，理解成本最低。
+            执行中有重大变化时可以再次调用，新计划会整体替换旧计划。
+            只读问答、单文件小改动不需要计划，直接回答或直接给补丁即可。
+            """)
+    @SuppressWarnings("unchecked")
+    public String setPlan(@P("执行计划步骤，按顺序，每步一句短语") java.util.List<String> steps) {
+        List<String> cleaned = (steps == null ? List.<String>of() : steps).stream()
+                .filter(step -> step != null && !step.isBlank())
+                .map(String::trim)
+                .limit(8)
+                .toList();
+        return guard("set_plan", Map.of("steps", cleaned), decision -> {
+            planSteps = List.copyOf(cleaned);
+            publisher.plan(cleaned);
+            if (cleaned.isEmpty()) {
+                return outcome("计划为空，用户什么都没看到。请给出 3~6 条非空步骤。", "计划为空");
+            }
+            return outcome("计划已展示给用户（共 " + cleaned.size() + " 步）。请按计划开始执行，"
+                    + "不要在回答里再复述一遍计划。", "计划 " + cleaned.size() + " 步");
+        });
+    }
+
     // ------------------------------------------------------------ list_dir
 
     @Tool(name = "list_dir", value = """

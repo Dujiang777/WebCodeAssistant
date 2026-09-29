@@ -1,0 +1,64 @@
+# ui-probe start  steps=29
+
+$ agent-browser set viewport 1512 950
+✓ Done
+
+$ agent-browser open http://127.0.0.1:5173/#/login
+✓ Web Code Assistant · 网页版编码助手
+  http://127.0.0.1:5173/#/login
+
+$ sleep 2400
+
+$ agent-browser eval var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'stop-probe'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'StopProbe!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'
+"filled"
+
+$ sleep 300
+
+$ agent-browser eval document.querySelector('.form-stack .btn-primary').click(), 'submitted'
+"submitted"
+
+$ sleep 3200
+
+$ agent-browser click .form-stack .btn-primary
+✓ Done
+
+$ sleep 2500
+
+$ agent-browser eval var row=document.querySelector('.workspace-row'); row && row.click(), 'opened:' + (row ? 'yes' : 'no')
+"opened:no"
+
+$ sleep 5000
+
+$ agent-browser eval var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; var t=document.querySelector('.composer-input'); s.call(t, '请分步计划：解释这个项目的结构'); t.dispatchEvent(new Event('input', { bubbles: true })); 'filled'
+"filled"
+
+$ sleep 300
+
+$ agent-browser eval document.querySelector('.composer-send').click(), 'sent'
+"sent"
+
+$ sleep 5200
+
+$ agent-browser eval var card=document.querySelector('.plan-card-live'); 'PLAN_LIVE=' + !!card + ' STEPS=' + (card ? card.querySelectorAll('.plan-steps li').length : 0) + ' HEAD=' + (card ? card.querySelector('.plan-head').innerText.replace(/\n/g,' ') : '')
+"PLAN_LIVE=true STEPS=3 HEAD=执行计划 3 步"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v7\59-plan-live.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v7\59-plan-live.png
+
+$ agent-browser eval var gate=document.querySelector('.gate-stack'); 'GATE=' + !!gate
+"GATE=false"
+
+$ sleep 8000
+
+$ agent-browser eval var btns=Array.from(document.querySelectorAll('.gate-stack .btn')); var approve=btns.find(function(b){return /放行|批准|同意/.test(b.innerText)}); approve && approve.click(), 'approved:' + (approve ? approve.innerText : 'not-found')
+"approved:放行"
+
+$ sleep 9000
+
+$ agent-browser eval var cards=Array.from(document.querySelectorAll('.msg .plan-card:not(.plan-card-live)')); 'PLAN_PERSISTED=' + (cards.length > 0) + ' STEPS=' + (cards.length ? cards[0].querySelectorAll('.plan-steps li').length : 0)
+"PLAN_PERSISTED=true STEPS=3"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v7\60-plan-persisted.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v7\60-plan-persisted.png
+
+# ui-probe done

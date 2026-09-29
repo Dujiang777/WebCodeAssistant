@@ -68,6 +68,14 @@ public record ChatEvent(long seq, String type, Map<String, Object> body) {
     /** 闸门已被处理（放行 / 拒绝 / 超时），前端据此收起等待中的卡片。 */
     public static final String TYPE_GATE_RESOLVED = "gate_resolved";
 
+    /**
+     * 计划流：模型在动工前用 set_plan 工具给出的执行计划（借鉴 Codex 的计划可见）。
+     *
+     * <p>body 携带 {@code steps: [...]}（有序短语数组），整体替换而非增量 ——
+     * 模型更新计划时重发全量，前端不维护合并逻辑。
+     */
+    public static final String TYPE_PLAN = "plan";
+
     public String toJson(ObjectMapper mapper) throws JsonProcessingException {
         ObjectNode node = mapper.createObjectNode();
         node.put("seq", seq);

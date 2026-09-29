@@ -1,0 +1,37 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "login as fixed probe account (has signup bonus balance)" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'stop-probe'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'StopProbe!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3200 },
+
+  { "note": "create sample workspace" },
+  ["click", ".form-stack .btn-primary"],
+  { "sleep": 2500 },
+  ["eval", "var row=document.querySelector('.workspace-row'); row && row.click(), 'opened:' + (row ? 'yes' : 'no')"],
+  { "sleep": 5000 },
+
+  { "note": "send message with plan trigger (slow mock: 2.5s per step) -> live plan card appears" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; var t=document.querySelector('.composer-input'); s.call(t, '请分步计划：解释这个项目的结构'); t.dispatchEvent(new Event('input', { bubbles: true })); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.composer-send').click(), 'sent'"],
+  { "sleep": 5200 },
+
+  { "note": "live plan card: gold left rule, 3 steps listed" },
+  ["eval", "var card=document.querySelector('.plan-card-live'); 'PLAN_LIVE=' + !!card + ' STEPS=' + (card ? card.querySelectorAll('.plan-steps li').length : 0) + ' HEAD=' + (card ? card.querySelector('.plan-head').innerText.replace(/\\n/g,' ') : '')"],
+  ["screenshot", "docs/self-test/v7/59-plan-live.png"],
+
+  { "note": "gate card appears (propose_patch); approve it" },
+  ["eval", "var gate=document.querySelector('.gate-stack'); 'GATE=' + !!gate"],
+  { "sleep": 8000 },
+  ["eval", "var btns=Array.from(document.querySelectorAll('.gate-stack .btn')); var approve=btns.find(function(b){return /放行|批准|同意/.test(b.innerText)}); approve && approve.click(), 'approved:' + (approve ? approve.innerText : 'not-found')"],
+  { "sleep": 9000 },
+
+  { "note": "after done: plan persists on the stored message (cold rule)" },
+  ["eval", "var cards=Array.from(document.querySelectorAll('.msg .plan-card:not(.plan-card-live)')); 'PLAN_PERSISTED=' + (cards.length > 0) + ' STEPS=' + (cards.length ? cards[0].querySelectorAll('.plan-steps li').length : 0)"],
+  ["screenshot", "docs/self-test/v7/60-plan-persisted.png"]
+]

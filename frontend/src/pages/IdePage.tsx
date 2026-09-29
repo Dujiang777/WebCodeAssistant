@@ -614,6 +614,17 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         return;
       }
 
+      case 'plan': {
+        // 计划流：整体替换，不做合并 —— 与后端语义一致
+        const steps = Array.isArray(event.steps)
+          ? event.steps.map((step) => String(step)).filter((step) => step.length > 0)
+          : [];
+        const base = turnRef.current ?? EMPTY_TURN;
+        turnRef.current = { ...base, plan: steps };
+        setTurn(turnRef.current);
+        return;
+      }
+
       case 'patch': {
         const id = String(event.id ?? '');
         const sid = sessionIdRef.current;

@@ -56,7 +56,7 @@ AI 能读你的项目、能按正则搜代码，但**它没有任何写盘权限
 | **两个通道分开** | `POST /messages` 立刻返回 `messageId`（不等模型）；事件走 `GET /events` 这条 SSE 长连接。断线重连时带 `afterId` 可以回放漏掉的事件。 |
 | **不用 WebFlux** | Spring MVC 的 `SseEmitter` + **虚拟线程**足够：Agent 回合是阻塞式 IO（等模型、读文件），虚拟线程让每轮对话独占一个廉价线程，代码还是同步风格。 |
 | **Redis 可降级** | 它只承载限流与 token 配额。连不上就自动退回进程内实现（启动时打 WARN），不阻塞任何功能。 |
-| **四个只读/产出补丁的工具 + 两个只读自查工具** | `list_dir` / `read_file` / `grep` / `propose_patch`，加上 `run_tests`（跑测试，参数服务端拼死）与 `spring_map`（扫组件地图）。没有 `run_command`，模型无法在宿主机上执行任何命令。 |
+| **四个只读/产出补丁的工具 + 两个只读自查工具** | `list_dir` / `read_file` / `grep` / `propose_patch`，加上 `run_tests`（跑测试，参数服务端拼死）与 `spring_map`（扫组件地图）。没有 `run_command`，模型无法在宿主机上执行任何命令。`set_plan` 只发 SSE 事件，不触碰工作区。 |
 | **结论必须带证据，且证据会被复核** | system prompt 强制每条关于代码的结论挂 `路径:行号`；回合结束时 `CitationVerifier` 再扫一遍回答，把「文件不存在 / 行号越界」的挑出来，前端标红、可点跳转。「编一个引用」会在界面上露馅，而不是被当成正常输出。 |
 | **改之前先摊开影响面** | 补丁卡片在「待确认」状态下显示 blast radius：改了哪些类与成员、谁在调用（可点跳到调用点）、命中哪些高风险特征（Controller / 鉴权 / 支付 / 迁移脚本 / 删除公开方法 / 无测试覆盖）、以及有没有测试。它只提示、不拦人。 |
 | **改完必须自证「还能编过」** | 应用补丁后自动用**项目自己的构建方式**（有 `pom.xml` 用 Maven、有 `build.gradle` 用 Gradle，优先用 wrapper）在工作区里跑一次编译。失败时把编译器输出**原样**喂回 Agent 出第二轮补丁。**「没编译」永远显示成「没编译」**，绝不谎报成通过。 |
@@ -630,18 +630,22 @@ MOCK_LLM_STEP_DELAY_MS=2500 node tools/mock-llm/server.mjs --port 8787
 
 ```
 data: {"seq":12,"type":"text","delta":"这个类"}
-data: {"seq":13,"type":"tool_call","name":"read_file","args":{"path":"src/main/java/com/demo/UserService.java"}}
-data: {"seq":14,"type":"tool_result","name":"read_file","ok":true,"summary":"74 行 / 2.1 KB"}
-data: {"seq":15,"type":"patch","id":"8f14e45f-...","file":"src/main/java/com/demo/UserService.java","diff":"--- a/...\n+++ b/..."}
-data: {"seq":16,"type":"citations","items":[{"file":"src/main/java/com/demo/UserService.java","line":23,"endLine":25,"valid":true,"reason":null}]}
-data: {"seq":17,"type":"error","message":"模型服务限流（429），请稍后再试。"}
-data: {"seq":18,"type":"done","messageId":"1234"}
-data: {"seq":19,"type":"canceled"}
+data: {"seq":13,"type":"plan","steps":["读取 UserService 确认现状","生成补丁：改构造器注入","等确认后应用并编译验证"]}
+data: {"seq":14,"type":"tool_call","name":"read_file","args":{"path":"src/main/java/com/demo/UserService.java"}}
+data: {"seq":15,"type":"tool_result","name":"read_file","ok":true,"summary":"74 行 / 2.1 KB"}
+data: {"seq":16,"type":"patch","id":"8f14e45f-...","file":"src/main/java/com/demo/UserService.java","diff":"--- a/...\n+++ b/..."}
+data: {"seq":17,"type":"citations","items":[{"file":"src/main/java/com/demo/UserService.java","line":23,"endLine":25,"valid":true,"reason":null}]}
+data: {"seq":18,"type":"error","message":"模型服务限流（429），请稍后再试。"}
+data: {"seq":19,"type":"done","messageId":"1234"}
+data: {"seq":20,"type":"canceled"}
 ```
 
 > `citations` 在 `done` **之前**发，内容与落库到 `meta.citations` 的完全一致 ——
 > 前端渲染引用 chip 时不需要再取一次消息，也就不会出现「先渲染成黑色、再跳成红色」的闪烁。
 > `seq` 刻意不叫 `id`：`patch` 事件的 `id` 按约定是补丁 uuid，两者同名会互相覆盖。
+> `plan` 是模型用 `set_plan` 工具给出的执行计划（借鉴 Codex：先给计划再执行），
+> **整体替换**语义 —— 模型更新计划时重发全量，前端不做合并。计划随消息 `meta.plan`
+> 落库，刷新后仍显示在消息上。
 > `canceled` 表示用户停止了本轮（`POST /api/chat/sessions/{sid}/cancel`），之后紧跟一条
 > `done` —— 半截回答已落库（`meta.stopped=true`）、预扣积分全额退还。
 > 停止是协作式取消：正在流式生成的文本不可半途掐断，但工具会在**下一个工具边界**

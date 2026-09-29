@@ -32,6 +32,8 @@ export interface LiveTurn {
   text: string;
   tools: ToolItem[];
   patchIds: string[];
+  /** 模型动工前给出的执行计划（set_plan），整体替换语义。 */
+  plan: string[];
   /** 回合结束时由后端校验过的引用，用于把编造的引用标红。 */
   citations: Citation[];
   error: string | null;
@@ -39,7 +41,14 @@ export interface LiveTurn {
   stopped?: boolean;
 }
 
-export const EMPTY_TURN: LiveTurn = { text: '', tools: [], patchIds: [], citations: [], error: null };
+export const EMPTY_TURN: LiveTurn = {
+  text: '',
+  tools: [],
+  patchIds: [],
+  plan: [],
+  citations: [],
+  error: null,
+};
 
 let toolSeq = 0;
 
@@ -62,6 +71,7 @@ export const MODE_META: Record<AgentMode, { label: string; hint: string }> = {
 
 /** 工具名 → 中文动作，让「模型在干什么」一眼可读。 */
 export const TOOL_LABELS: Record<string, string> = {
+  set_plan: '制定计划',
   list_dir: '列出目录',
   read_file: '读取文件',
   grep: '搜索代码',
@@ -80,6 +90,10 @@ export function summarizeToolArgs(name: string, args: unknown): string {
     return typeof value === 'string' && value.length > 0 ? value : '';
   };
   switch (name) {
+    case 'set_plan': {
+      const steps = record.steps;
+      return Array.isArray(steps) ? `${steps.length} 步计划` : '—';
+    }
     case 'read_file':
       return pick('path') || '—';
     case 'list_dir':
