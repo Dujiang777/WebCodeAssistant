@@ -32,7 +32,7 @@ import { ChatPane } from '../components/ChatPane';
 import { AgentDesk } from '../components/AgentDesk';
 import { ConstitutionModal } from '../components/ConstitutionModal';
 import { EditorPane } from '../components/EditorPane';
-import type { RevealTarget } from '../components/EditorPane';
+import type { RevealTarget, DiagnosticCounts } from '../components/EditorPane';
 import { FileTree } from '../components/FileTree';
 import type { CreateTarget } from '../components/FileTree';
 import { PatchModal } from '../components/PatchModal';
@@ -199,6 +199,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const [fileError, setFileError] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [cursor, setCursor] = useState<{ line: number; column: number } | null>(null);
+  // 编辑器诊断计数（EditorPane 防抖 lint 后上报，状态栏显示）
+  const [diagnostics, setDiagnostics] = useState<DiagnosticCounts | null>(null);
   const [reveal, setReveal] = useState<RevealTarget | null>(null);
 
   const [creating, setCreating] = useState<CreateTarget | null>(null);
@@ -1401,6 +1403,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         )}
 
         <EditorPane
+          workspaceId={workspaceId}
           file={file}
           text={docText}
           loading={fileLoading}
@@ -1417,6 +1420,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           navigate={navResult}
           onCloseNavigate={() => setNavResult(null)}
           onOpenLocation={(path, line) => void openCitation(path, line)}
+          onDiagnosticsChange={setDiagnostics}
         />
 
         {chatVisible && (
@@ -1521,6 +1525,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         fileSize={file?.sizeBytes ?? null}
         truncated={file?.truncated ?? false}
         sessionId={sessionId}
+        diagnostics={diagnostics}
       />
 
       {diffPatch && (

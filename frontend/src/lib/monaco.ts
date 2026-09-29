@@ -6,7 +6,8 @@
  * 这里的配色全部取自 global.css 的变量值（"Darkroom Brass" 设计系统）。
  *
  * 另外刻意关掉了 minimap 与 semanticHighlighting —— 在网页 IDE 里前者太占宽度，
- * 后者需要 LSP（属于 V2），留着只会误导用户以为有语义分析。
+ * 后者需要真 LSP，留给每用户沙箱之后再说（lib/editorIde.ts 承担了当前能做的
+ * 确定性诊断与跨文件补全）。
  */
 
 import * as monaco from 'monaco-editor';
@@ -153,7 +154,6 @@ export const EDITOR_OPTIONS: monaco.editor.IStandaloneEditorConstructionOptions 
   contextmenu: true,
   quickSuggestions: { other: true, comments: false, strings: false },
   suggestOnTriggerCharacters: true,
-  // 没有 LSP，这些提示只会给出错误信息，先关掉
   parameterHints: { enabled: true },
   unicodeHighlight: { ambiguousCharacters: false },
 };

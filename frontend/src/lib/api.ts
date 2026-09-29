@@ -93,6 +93,24 @@ export interface NavigateView {
   references: NavigateLocation[];
 }
 
+/** 一条编辑器诊断（确定性 lint）。行列 1-based，与 Monaco marker 一致。 */
+export interface LintIssue {
+  line: number;
+  column: number;
+  endLine: number;
+  endColumn: number;
+  severity: 'error' | 'warning';
+  message: string;
+}
+
+/** 一个可补全的符号（跨文件符号索引）。 */
+export interface CompletionSymbol {
+  name: string;
+  kind: 'class' | 'function' | 'method' | 'field' | 'variable';
+  file: string;
+  line: number;
+}
+
 /** 当前用户 + 积分概览（`GET /api/auth/me`）。 */
 export interface MeInfo {  userId: number;
   username: string;
@@ -634,6 +652,19 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ file, line, column }),
     }),
+
+  /** 编辑器诊断：lint 编辑器缓冲区内容（不是磁盘文件），返回确定性错误。 */
+  lint: (workspaceId: number, path: string, content: string) =>
+    request<LintIssue[]>(`/api/workspaces/${workspaceId}/lint`, {
+      method: 'POST',
+      body: JSON.stringify({ path, content }),
+    }),
+
+  /** 跨文件补全：按前缀查工作区符号表。 */
+  completions: (workspaceId: number, prefix: string) =>
+    request<CompletionSymbol[]>(
+      `/api/workspaces/${workspaceId}/completions?prefix=${encodeURIComponent(prefix)}`,
+    ),
 
   // ---------------------------------------------------------------- 账号
 

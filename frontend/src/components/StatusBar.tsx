@@ -18,6 +18,8 @@ interface StatusBarProps {
   fileSize: number | null;
   truncated: boolean;
   sessionId: number | null;
+  /** 编辑器诊断计数（确定性 lint）。null = 没有可诊断的文件。 */
+  diagnostics: { errors: number; warnings: number } | null;
 }
 
 export function StatusBar({
@@ -30,6 +32,7 @@ export function StatusBar({
   fileSize,
   truncated,
   sessionId,
+  diagnostics,
 }: StatusBarProps) {
   const sizeRatio = workspaceSize / (200 * 1024 * 1024);
   const quotaTight = sizeRatio > 0.8;
@@ -50,6 +53,23 @@ export function StatusBar({
       )}
 
       {selectionLines > 0 && <span className="statusbar-item">已选 {selectionLines} 行</span>}
+
+      {diagnostics && (diagnostics.errors > 0 || diagnostics.warnings > 0) && (
+        <span className="statusbar-item mono" title="编辑器诊断（保存前的确定性检查）">
+          {diagnostics.errors > 0 && (
+            <span style={{ color: 'var(--rose)' }}>● {diagnostics.errors} 错误</span>
+          )}
+          {diagnostics.errors > 0 && diagnostics.warnings > 0 && <span> · </span>}
+          {diagnostics.warnings > 0 && (
+            <span style={{ color: 'var(--ember)' }}>○ {diagnostics.warnings} 警告</span>
+          )}
+        </span>
+      )}
+      {diagnostics && diagnostics.errors === 0 && diagnostics.warnings === 0 && (
+        <span className="statusbar-item mono" style={{ color: 'var(--lime)' }} title="确定性诊断通过">
+          ● 0 问题
+        </span>
+      )}
 
       {cursor && (
         <span className="statusbar-item mono">

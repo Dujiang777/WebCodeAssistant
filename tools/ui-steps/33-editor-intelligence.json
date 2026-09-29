@@ -1,0 +1,58 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "login as fixed probe account" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'stop-probe'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'StopProbe!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3200 },
+
+  { "note": "create sample workspace" },
+  ["click", ".form-stack .btn-primary"],
+  { "sleep": 2500 },
+  ["eval", "var row=document.querySelector('.workspace-row'); row && row.click(), 'opened:' + (row ? 'yes' : 'no')"],
+  { "sleep": 6000 },
+
+  { "note": "create ui-lsp.json via file tree -> auto opened" },
+  ["click", "[title=\"在根目录新建文件\"]"],
+  { "sleep": 400 },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var i=document.querySelector('.tree-create-input'); s.call(i, 'ui-lsp.json'); i.dispatchEvent(new Event('input', { bubbles: true })); 'named'"],
+  { "sleep": 300 },
+  ["eval", "var i=document.querySelector('.tree-create-input'); var ev=new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }); i.dispatchEvent(ev); 'entered'"],
+  { "sleep": 3000 },
+
+  { "note": "type broken JSON (insertText path also drives lint) -> squiggly-error + statusbar error count" },
+  ["focus", ".monaco-editor textarea.inputarea"],
+  { "sleep": 300 },
+  ["keyboard", "type", "{ \"a\": }"],
+  { "sleep": 2500 },
+  ["eval", "var sq=document.querySelectorAll('.monaco-editor .squiggly-error').length; var bar=document.querySelector('.statusbar').innerText; 'SQUIGGLE=' + sq + ' BAR_HAS_ERR=' + /错误/.test(bar) + ' BAR=' + bar.replace(/\\n/g,' | ').slice(0, 200)"],
+  ["screenshot", "docs/self-test/v7/61-lint-json-error.png"],
+
+  { "note": "fix the JSON -> diagnostics clean, statusbar shows 0 problems" },
+  ["eval", "var ta=document.querySelector('.monaco-editor textarea.inputarea'); ta && ta.focus(); document.execCommand('selectAll'); var ok=document.execCommand('insertText', false, '{ \"a\": 1 }'); 'fixed:' + ok"],
+  { "sleep": 2500 },
+  ["eval", "var sq=document.querySelectorAll('.monaco-editor .squiggly-error').length; var bar=document.querySelector('.statusbar').innerText; 'SQUIGGLE=' + sq + ' BAR_HAS_CLEAN=' + /0 问题/.test(bar)"],
+
+  { "note": "open UserService.java -> real keystrokes trigger completion fallback (word >= 2 chars)" },
+  ["eval", "var rows=Array.from(document.querySelectorAll('.tree-row')); var row=rows.find(function(r){ return r.title === 'src/main/java/com/demo/UserService.java'; }); row && row.click(), 'found:' + (row ? 'yes' : 'no')"],
+  { "sleep": 2500 },
+  ["focus", ".monaco-editor textarea.inputarea"],
+  { "sleep": 300 },
+  ["press", "u"],
+  { "sleep": 400 },
+  ["press", "s"],
+  { "sleep": 2500 },
+  ["eval", "var w=document.querySelector('.monaco-editor .suggest-widget'); var style=w ? getComputedStyle(w) : null; var visible=w && style.display !== 'none' && style.visibility !== 'hidden' && w.classList.contains('visible'); 'SUGGEST=' + !!visible + ' CONTENT=' + (w ? w.innerText.slice(0, 140).replace(/\\n/g, '|') : '')"],
+  ["screenshot", "docs/self-test/v7/62-completion-suggest.png"],
+
+  { "note": "continue typing -> list keeps filtering (UserService narrows)" },
+  ["press", "e"],
+  ["press", "r"],
+  ["press", "S"],
+  { "sleep": 2200 },
+  ["eval", "var w=document.querySelector('.monaco-editor .suggest-widget'); 'FILTERED=' + (w && w.classList.contains('visible')) + ' TOP=' + (w ? (w.querySelector('.monaco-list-row.label') || {}).innerText || '' : '').slice(0, 60) + ' HAS UserService=' + (w ? /UserService/.test(w.innerText) : false)"],
+  ["screenshot", "docs/self-test/v7/63-completion-cross-file.png"]
+]

@@ -7,6 +7,8 @@ import com.webcode.assistant.common.ErrorCode;
 import com.webcode.assistant.constitution.ConstitutionService;
 import com.webcode.assistant.map.SpringMapService;
 import com.webcode.assistant.security.CurrentUser;
+import com.webcode.assistant.workspace.CompletionService;
+import com.webcode.assistant.workspace.LintService;
 import com.webcode.assistant.workspace.NavigateService;
 import com.webcode.assistant.workspace.FileContent;
 import com.webcode.assistant.workspace.FileNode;
@@ -48,6 +50,8 @@ public class WorkspaceController {
     private final BuildService buildService;
     private final CurrentUser currentUser;
     private final NavigateService navigateService;
+    private final LintService lintService;
+    private final CompletionService completionService;
 
     public WorkspaceController(WorkspaceService workspaceService,
                                WorkspaceFileService fileService,
@@ -55,7 +59,9 @@ public class WorkspaceController {
                                SpringMapService springMapService,
                                BuildService buildService,
                                CurrentUser currentUser,
-                               NavigateService navigateService) {
+                               NavigateService navigateService,
+                               LintService lintService,
+                               CompletionService completionService) {
         this.workspaceService = workspaceService;
         this.fileService = fileService;
         this.constitutionService = constitutionService;
@@ -63,6 +69,8 @@ public class WorkspaceController {
         this.buildService = buildService;
         this.currentUser = currentUser;
         this.navigateService = navigateService;
+        this.lintService = lintService;
+        this.completionService = completionService;
     }
 
     // ------------------------------------------------------------- 工作区
@@ -231,6 +239,33 @@ public class WorkspaceController {
                 result.references().stream()
                         .map(loc -> new ApiModels.NavigateLocation(loc.file(), loc.line(), loc.text()))
                         .toList());
+    }
+
+    /**
+     * 编辑器诊断（确定性 lint）：JSON 真解析 + 括号/块注释平衡。
+     *
+     * <p>lint 的是请求体里的编辑器缓冲区（用户敲到一半还没保存，诊断要跟缓冲区走），
+     * 服务端不读磁盘，{@code path} 只用于判定语言。
+     */
+    @PostMapping("/{id}/lint")
+    public List<ApiModels.LintIssueView> lint(@PathVariable long id,
+                                              @Valid @RequestBody ApiModels.LintRequest request) {
+        requireWorkspace(id);
+        return lintService.lint(request.path(), request.content()).stream()
+                .map(issue -> new ApiModels.LintIssueView(issue.line(), issue.column(),
+                        issue.endLine(), issue.endColumn(), issue.severity(), issue.message()))
+                .toList();
+    }
+
+    /** 跨文件补全：前缀过滤工作区符号表（TTL 缓存 15 秒）。 */
+    @GetMapping("/{id}/completions")
+    public List<ApiModels.CompletionSymbolView> completions(@PathVariable long id,
+                                                            @RequestParam("prefix") String prefix) {
+        Workspace workspace = requireWorkspace(id);
+        return completionService.complete(workspace, prefix).stream()
+                .map(symbol -> new ApiModels.CompletionSymbolView(
+                        symbol.name(), symbol.kind(), symbol.file(), symbol.line()))
+                .toList();
     }
 
     private Workspace requireWorkspace(long id) {

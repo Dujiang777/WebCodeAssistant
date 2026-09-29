@@ -107,6 +107,19 @@ public final class ApiModels {
     public record NavigateView(String symbol, NavigateLocation definition, List<NavigateLocation> references) {
     }
 
+    /** 编辑器诊断请求：lint 的是编辑器缓冲区内容，不是磁盘文件。 */
+    public record LintRequest(@NotBlank(message = "不能为空") String path, String content) {
+    }
+
+    /** 一条诊断。行列 1-based；severity: error / warning。 */
+    public record LintIssueView(int line, int column, int endLine, int endColumn,
+                                String severity, String message) {
+    }
+
+    /** 一个可补全的符号。kind: class / function / method / field / variable。 */
+    public record CompletionSymbolView(String name, String kind, String file, int line) {
+    }
+
     /**
      * 找回密码。无论邮箱是否存在都返回 sent=true（防账号枚举），页面上会写明这一点。
      * 发信是副作用，必须有验证码拦着，否则它就是一台免费的轰炸机。
