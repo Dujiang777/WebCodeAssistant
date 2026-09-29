@@ -1279,6 +1279,8 @@ export interface CreditSummary {
   modelName: string | null;
   per1kInput: number;
   per1kOutput: number;
+  /** 下次免费额度重置时间（ISO-8601）；null = 未启用周重置。 */
+  quotaResetAt: string | null;
 }
 
 /** 一条流水。`delta` 正数入账、负数出账；`balanceAfter` 是这一笔之后的余额。 */

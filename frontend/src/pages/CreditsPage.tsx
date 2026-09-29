@@ -21,6 +21,7 @@ import type {
 } from '../lib/api';
 import { messageOf } from '../lib/chat';
 import { PageBar } from '../components/PageBar';
+import { QuotaBar } from '../components/QuotaBar';
 import { CloseIcon, CreditIcon } from '../components/icons';
 
 /**
@@ -245,6 +246,16 @@ export function CreditsPage({ onBack, onLogout }: { onBack: () => void; onLogout
                 <b className="cr-stat-value">{summary?.signupBonus ?? 0}</b>
               </div>
             </div>
+
+            {/* 每周免费额度进度条：大号版（对话区那份的完整信息版） */}
+            {summary && (
+              <QuotaBar
+                balance={summary.balance}
+                total={summary.signupBonus}
+                byok={summary.byok}
+                quotaResetAt={summary.quotaResetAt}
+              />
+            )}
 
             <p className="cr-pricing">
               {summary?.pricingNote ?? '正在读取定价规则…'}

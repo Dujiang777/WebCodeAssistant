@@ -575,8 +575,10 @@ async function main() {
     method: 'POST', token: accessC, body: { content: '余额为 0 时还能问吗？', mode: 'deliver' },
   });
   expectError('余额不足时对话被拒（402 而不是 403）', blocked, 402, 'INSUFFICIENT_CREDITS');
-  check('拒绝文案里给出了当前余额与最低需求',
-    /积分不足/.test(blocked.data?.message ?? ''), `"${blocked.data?.message}"`);
+  // 2026-09-29 起免费额度（每周重置 500 分）上线，402 文案改为引导「配自己的 Key」
+  check('拒绝文案里给出了当前余额与每周重置额度',
+    /免费额度已用完/.test(blocked.data?.message ?? '') && /500 分/.test(blocked.data?.message ?? ''),
+    `"${blocked.data?.message}"`);
 
   const messagesAfterBlock = await call(`/api/chat/sessions/${chatSessionId}/messages`, { token: accessC });
   check('被拒的请求不会留下一条永远等不到回答的用户消息',

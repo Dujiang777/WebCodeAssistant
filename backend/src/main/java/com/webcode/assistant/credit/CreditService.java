@@ -62,7 +62,8 @@ public class CreditService {
     public record Summary(long balance, long totalGranted, long totalConsumed,
                           boolean lowBalance, boolean enforceBalance, long lowBalanceThreshold,
                           long holdCredits, long signupBonus, String pricingNote,
-                          boolean byok, String modelName, long per1kInput, long per1kOutput) {
+                          boolean byok, String modelName, long per1kInput, long per1kOutput,
+                          java.time.Instant quotaResetAt) {
     }
 
     public record RechargeResult(CreditOrderRepository.CreditOrder order, Map<String, Object> payment) {
@@ -105,8 +106,10 @@ public class CreditService {
     }
 
     /** 带模型视图的余额摘要：前端据此显示「这个模型的价」与「本轮预扣多少」。 */
+    @Transactional
     public Summary summary(long userId, ResolvedModel model) {
         boolean byok = model != null && !model.billable();
+        maybeWeeklyReset(userId);
         CreditAccountRepository.CreditAccount account = accounts.find(userId).orElse(null);
         long balance = account == null ? 0 : account.balance();
         return new Summary(
@@ -122,14 +125,62 @@ public class CreditService {
                 byok,
                 model == null ? null : model.displayName(),
                 model == null ? pricing.per1kInput() : model.per1kInput(),
-                model == null ? pricing.per1kOutput() : model.per1kOutput());
+                model == null ? pricing.per1kOutput() : model.per1kOutput(),
+                account == null ? null : account.quotaResetAt());
     }
 
     /**
-     * 对话前的余额闸门。不足时抛 402，前端据此直接引导充值。
+     * 每周免费额度的懒重置。
+     *
+     * <p>为什么是「懒」而不是定时任务：重置只影响「这个用户下次用的时候看到多少余额」，
+     * 在他真正来用之前把余额补上没有任何意义，还平白多一个要盯的定时器。
+     * 于是在余额摘要与对话闸门这两条必经之路上顺带检查：到点了就补差额、顺延周期。
+     *
+     * <p>细节：
+     * <ul>
+     *   <li>补差额而不是清零重灌 —— 用户充过值的余额要保住，只把免费额度补回基准线；</li>
+     *   <li>幂等键带上了「到点的那个时刻」，同一周期并发进来只补一次；</li>
+     *   <li>{@code quotaResetDays <= 0} 表示一次性赠送，直接跳过。</li>
+     * </ul>
+     */
+    @Transactional
+    public void maybeWeeklyReset(long userId) {
+        long bonus = pricing.signupBonus();
+        long days = pricing.quotaResetDays();
+        if (!pricing.enforceBalance() || bonus <= 0 || days <= 0) {
+            return;
+        }
+        CreditAccountRepository.CreditAccount account = accounts.find(userId).orElse(null);
+        if (account == null) {
+            return;
+        }
+        java.time.Instant now = java.time.Instant.now();
+        if (account.quotaResetAt() == null) {
+            // 老账户第一次碰到新逻辑：只初始化周期，不补钱（避免凭空多发一轮额度）
+            accounts.updateQuotaResetAt(userId, now.plus(java.time.Duration.ofDays(days)));
+            return;
+        }
+        if (now.isBefore(account.quotaResetAt())) {
+            return;
+        }
+        String key = "quota_reset:" + userId + ":" + account.quotaResetAt();
+        if (!ledger.existsByIdempotencyKey(key) && account.balance() < bonus) {
+            long shortfall = bonus - account.balance();
+            accounts.grant(userId, shortfall);
+            ledger.insert(userId, CreditLedgerRepository.KIND_QUOTA_RESET, shortfall,
+                    accounts.balance(userId),
+                    "每周免费额度重置（补至 " + bonus + " 分）", "SYSTEM", null, key);
+        }
+        accounts.updateQuotaResetAt(userId, now.plus(java.time.Duration.ofDays(days)));
+    }
+
+    /**
+     * 对话前的余额闸门。不足时抛 402，前端据此弹出「免费额度用完」引导：
+     * 配置自己的 API Key（BYOK 全链路免积分）或等待下周额度重置。
      *
      * <p>自带 Key 的模型直接放行：它的算力钱不走平台账，余额为 0 也不该拦。
      */
+    @Transactional
     public void requireAffordable(long userId, ResolvedModel model) {
         if (!pricing.enforceBalance()) {
             return;
@@ -137,12 +188,14 @@ public class CreditService {
         if (model != null && !model.billable()) {
             return;
         }
+        maybeWeeklyReset(userId);
         long balance = accounts.balance(userId);
         long min = pricing.minChargePerTurn();
         if (balance < min) {
             throw new ApiException(ErrorCode.INSUFFICIENT_CREDITS,
-                    "积分不足（当前 " + balance + " 分，单轮最低需要 " + min + " 分），充值后即可继续；"
-                            + "也可以在「模型设置」里填自己的 API Key，用自带 Key 的模型不消耗积分");
+                    "免费额度已用完（当前 " + balance + " 分）。每周会自动重置 " + pricing.signupBonus()
+                            + " 分；等不及的话，可以在「模型服务」里配置自己的 API Key —— "
+                            + "自带 Key 的模型不消耗积分，额度随便用");
         }
     }
 

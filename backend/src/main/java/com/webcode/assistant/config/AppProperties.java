@@ -247,8 +247,11 @@ public record AppProperties(
      * 也能发起一轮消耗 5 万 token 的对话，跑完才发现扣不动。
      */
     public record Credit(
-            /** 注册赠送。给一个够跑几十轮的额度，让新用户先看到价值。 */
-            @DefaultValue("300") long signupBonus,
+            /**
+             * 注册赠送，同时是「每周免费额度」的基准线（≈¥5 的模型消耗）。
+             * 每周重置时把余额补到这条线（见 {@code quotaResetDays}）。
+             */
+            @DefaultValue("500") long signupBonus,
 
             /** 每 1000 输入 token 消耗的积分。 */
             @DefaultValue("1") long creditsPer1kInput,
@@ -284,7 +287,14 @@ public record AppProperties(
              * <p>没有它的话，一个 12 分/1k 输入的旗舰模型单轮会预扣上百积分，
              * 而用户可能只是想问一句「这个文件干什么的」。
              */
-            @DefaultValue("600") long holdCeiling
+            @DefaultValue("600") long holdCeiling,
+
+            /**
+             * 免费额度的重置周期（天）。到点后把余额懒重置补至 {@code signupBonus}：
+             * 用户不用来就不扣不补，来了第一次访问时顺延下一个周期。
+             * 0 = 关闭重置（注册赠送一次性）。
+             */
+            @DefaultValue("7") long quotaResetDays
     ) {
     }
 

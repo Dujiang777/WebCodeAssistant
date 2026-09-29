@@ -26,7 +26,7 @@ import java.util.Optional;
 public class CreditAccountRepository {
 
     public record CreditAccount(long userId, long balance, long totalGranted, long totalConsumed,
-                                Instant updatedAt) {
+                                Instant updatedAt, Instant quotaResetAt) {
     }
 
     private final JdbcClient jdbc;
@@ -48,7 +48,7 @@ public class CreditAccountRepository {
     }
 
     public Optional<CreditAccount> find(long userId) {
-        return jdbc.sql("select user_id, balance, total_granted, total_consumed, updated_at "
+        return jdbc.sql("select user_id, balance, total_granted, total_consumed, updated_at, quota_reset_at "
                         + "from credit_accounts where user_id = :u")
                 .param("u", userId)
                 .query(CreditAccountRepository::map)
@@ -132,11 +132,20 @@ public class CreditAccountRepository {
     }
 
     public Optional<CreditAccount> findByUsername(String username) {
-        return jdbc.sql("select a.user_id, a.balance, a.total_granted, a.total_consumed, a.updated_at "
+        return jdbc.sql("select a.user_id, a.balance, a.total_granted, a.total_consumed, a.updated_at, "
+                        + "a.quota_reset_at "
                         + "from credit_accounts a join users u on u.id = a.user_id where u.username = :n")
                 .param("n", username)
                 .query(CreditAccountRepository::map)
                 .optional();
+    }
+
+    /** 写入下次免费额度重置时间。懒重置的收尾一步。 */
+    public void updateQuotaResetAt(long userId, Instant resetAt) {
+        jdbc.sql("update credit_accounts set quota_reset_at = :r where user_id = :u")
+                .param("r", resetAt == null ? null : java.sql.Timestamp.from(resetAt))
+                .param("u", userId)
+                .update();
     }
 
     /**
@@ -155,11 +164,13 @@ public class CreditAccountRepository {
     }
 
     private static CreditAccount map(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
+        java.sql.Timestamp reset = rs.getTimestamp("quota_reset_at");
         return new CreditAccount(
                 rs.getLong("user_id"),
                 rs.getLong("balance"),
                 rs.getLong("total_granted"),
                 rs.getLong("total_consumed"),
-                rs.getTimestamp("updated_at").toInstant());
+                rs.getTimestamp("updated_at").toInstant(),
+                reset == null ? null : reset.toInstant());
     }
 }

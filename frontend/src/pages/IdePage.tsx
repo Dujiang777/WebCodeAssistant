@@ -36,6 +36,7 @@ import type { RevealTarget } from '../components/EditorPane';
 import { FileTree } from '../components/FileTree';
 import type { CreateTarget } from '../components/FileTree';
 import { PatchModal } from '../components/PatchModal';
+import { QuotaGuideModal } from '../components/QuotaGuideModal';
 import { Splitter } from '../components/Splitter';
 import { SpringMapModal } from '../components/SpringMapModal';
 import { StatusBar } from '../components/StatusBar';
@@ -262,8 +263,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   // ------------------------------------------------- 商业级账号：积分
   /** 顶栏徽标用的轻量概览。完整账单在积分中心页，这里只要余额与告警位。 */
   const [credits, setCredits] = useState<CreditSummary | null>(null);
-  /** 余额不足被后端拒掉时置位：输入区上方改为显示「去充值」，而不是一句红字了事。 */
+  /** 余额不足被后端拒掉时置位：输入区上方改为「配置教程」，而不是一句红字了事。 */
   const [creditBlocked, setCreditBlocked] = useState(false);
+  /** 「免费额度用完」引导弹窗（含自带 Key 配置教程）。 */
+  const [quotaGuideOpen, setQuotaGuideOpen] = useState(false);
 
   // ------------------------------------------------- V6：模型选择
   /** 模型目录（顶栏下拉）。拉不到就退化为原来的状态 chip，不影响对话。 */
@@ -1104,9 +1107,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       );
     } catch (err) {
       if (err instanceof HttpError && err.code === 'INSUFFICIENT_CREDITS') {
-        // 402 的语义不是「没权限」而是「该付钱了」。切出一块常驻的充值入口，
-        // 比一闪而过的 Toast 有用得多 —— 用户下一步必然要去充值。
+        // 402 的语义不是「没权限」而是「免费额度用完了」。横幅常驻 + 弹出引导：
+        // 用户此刻要做的是「配自己的 Key 或等下周」，教程弹窗替他把路铺好。
         setCreditBlocked(true);
+        setQuotaGuideOpen(true);
         void refreshCredits();
       } else {
         toast.error(messageOf(err));
@@ -1408,6 +1412,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               creditBlocked={creditBlocked}
               creditBalance={credits?.balance ?? null}
               creditLow={credits?.lowBalance ?? false}
+              creditTotal={credits?.signupBonus ?? null}
+              creditByok={credits?.byok ?? false}
+              quotaResetAt={credits?.quotaResetAt ?? null}
+              onOpenGuide={() => setQuotaGuideOpen(true)}
               onRecharge={() => navigate('/credits')}
               onLogout={onLogout}
               username={username}
@@ -1528,6 +1536,15 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           }}
         />
       )}
+
+      <QuotaGuideModal
+        open={quotaGuideOpen}
+        onClose={() => setQuotaGuideOpen(false)}
+        onGoModels={() => {
+          setQuotaGuideOpen(false);
+          navigate('/models');
+        }}
+      />
     </div>
   );
 }

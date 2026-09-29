@@ -1,0 +1,31 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "login as quota probe user (balance drained to 0)" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'quota-probe-mum05dhj'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'QuotaProbe!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3200 },
+
+  { "note": "open the probe workspace (sample project created by gate probe)" },
+  ["eval", "var row=document.querySelector('.workspace-row'); row && row.click(), 'opened:' + (row ? 'yes' : 'no')"],
+  { "sleep": 5000 },
+
+  { "note": "assert striped quota bar shows 100% exhausted" },
+  ["eval", "var row=document.querySelector('.composer-quota .quota-bar-row'); var fill=document.querySelector('.quota-bar-fill'); var num=document.querySelector('.quota-bar-num'); 'BAR=' + (row ? 'yes' : 'no') + ' EXHAUSTED=' + (row && row.className.indexOf('exhausted') >= 0 ? 'yes' : 'no') + ' NUM=' + (num ? num.innerText : 'none') + ' FILL_W=' + (fill ? fill.style.width : 'none')"],
+  ["screenshot", "docs/self-test/v7/51-quota-bar-exhausted.png"],
+
+  { "note": "send a message -> 402 -> guide modal" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; var t=document.querySelector('.composer-input'); s.call(t, '你好'); t.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('.composer-send').click(), 'sent'"],
+  { "sleep": 2600 },
+  ["eval", "var m=document.querySelector('.quota-guide'); var steps=m ? m.querySelectorAll('.quota-guide-steps ol li').length : 0; 'MODAL=' + (m ? 'yes' : 'no') + ' STEPS=' + steps + ' TITLE=' + (document.querySelector('.quota-guide .modal-title') || { innerText: 'none' }).innerText"],
+  ["screenshot", "docs/self-test/v7/52-quota-guide-modal.png"],
+
+  { "note": "credits page big bar" },
+  ["eval", "document.querySelector('.quota-guide .modal-foot .btn-ghost') && document.querySelector('.quota-guide .modal-foot .btn-ghost').click(); location.hash = '#/credits'; 'nav'"],
+  { "sleep": 2500 },
+  ["eval", "var rows=document.querySelectorAll('.cr-hero .quota-bar-row'); 'CREDIT_BAR=' + rows.length + ' LABEL=' + ((document.querySelector('.cr-hero .quota-bar-label') || { innerText: 'none' }).innerText)"],
+  ["screenshot", "docs/self-test/v7/53-quota-credits-page.png"]
+]
