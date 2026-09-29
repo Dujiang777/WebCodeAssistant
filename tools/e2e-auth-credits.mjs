@@ -284,6 +284,9 @@ async function main() {
     noUser.data?.message === '用户名或密码错误', `"${noUser.data?.message}"`);
 
   // ---------------------------------------------------------------- 3. 锁定
+  // 防枚举段已经让 2 个不同用户名失败；清一次 IP 计数，避免撞库防线（阈值 3 个
+  // 不同用户名 → 登录要验证码）在锁定段的第 4 次连错时插进来一个 CAPTCHA_INVALID。
+  await clearIpCounters();
   section('3. 登录失败锁定');
 
   const lockUser = `lock_${RUN}`;

@@ -104,9 +104,11 @@ app:
     require-verified-email: ${AUTH_REQUIRE_VERIFIED_EMAIL:false}
     # 前端地址，用于拼接邮件里的验证 / 重置链接。
     frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
-    # 注册 / 找回密码的图形验证码（登录不需要：有账号级失败锁定）。
+    # 注册 / 找回密码的图形验证码（登录平时不需要：有账号级失败锁定）。
     captcha-enabled: ${AUTH_CAPTCHA_ENABLED:true}
     captcha-ttl: ${AUTH_CAPTCHA_TTL:PT5M}
+    # 横向撞库防线：同 IP 窗口内登录失败过的不同用户名达到该数 → 登录强制验证码。0 = 关闭。
+    login-fail-captcha-threshold: ${AUTH_LOGIN_FAIL_CAPTCHA_THRESHOLD:3}
     # 匿名认证接口的 IP 级限流：统计窗口与各动作的窗口内上限。
     ip-window: ${AUTH_IP_WINDOW:PT10M}
     ip-max-register: ${AUTH_IP_MAX_REGISTER:30}

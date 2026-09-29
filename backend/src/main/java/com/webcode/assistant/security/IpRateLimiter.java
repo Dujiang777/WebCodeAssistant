@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -53,7 +54,9 @@ public class IpRateLimiter {
     private final StringRedisTemplate redis;
     private final Duration window;
     private final Map<Action, Integer> limits;
+    private final int loginFailCaptchaThreshold;
     private final Map<String, AtomicLong> localCounters = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> localDistinct = new ConcurrentHashMap<>();
     private volatile long redisCircuitOpenUntil;
 
     private static final long REDIS_CIRCUIT_COOLDOWN_MS = 60_000;
@@ -66,6 +69,12 @@ public class IpRateLimiter {
                 Action.REGISTER, auth.ipMaxRegister(),
                 Action.LOGIN, auth.ipMaxLogin(),
                 Action.FORGOT, auth.ipMaxForgot());
+        this.loginFailCaptchaThreshold = auth.loginFailCaptchaThreshold();
+    }
+
+    /** 撞库防线阈值：同 IP 窗口内失败过的不同用户名达到该数 → 登录要验证码。0 = 关闭。 */
+    public int loginFailCaptchaThreshold() {
+        return loginFailCaptchaThreshold;
     }
 
     /**
@@ -90,6 +99,55 @@ public class IpRateLimiter {
     private String key(Action action, String ip) {
         long windowStart = System.currentTimeMillis() / window.toMillis();
         return "wca:ip:" + action.label() + ":" + ip + ":" + windowStart;
+    }
+
+    // ------------------------------------------------------ 横向撞库防护（登录失败去重计数）
+
+    /**
+     * 记一次登录失败，按「同 IP 同窗口内失败过的<b>不同用户名</b>数」去重。
+     *
+     * <p>为什么按不同用户名而不是失败次数：单账号连错走的是账号锁定（AuthService），
+     * 这里的目标是<b>横向撞库</b> —— 攻击者拿一份用户名字典，每个号只试 2~3 个密码，
+     * 绕开单账号锁定。不同用户名数正是撞库的签名：正常人不会在十分钟里用三个账号都输错密码。
+     */
+    public void recordLoginFailure(String ip, String username) {
+        if (ip == null || ip.isBlank() || username == null || username.isBlank()) {
+            return;
+        }
+        long windowStart = System.currentTimeMillis() / window.toMillis();
+        String key = "wca:ip:logindistinct:" + ip + ":" + windowStart;
+        String member = username.trim().toLowerCase();
+        if (!isRedisCircuitOpen()) {
+            try {
+                redis.opsForSet().add(key, member);
+                redis.expire(key, window.plus(Duration.ofSeconds(5)));
+                return;
+            } catch (RuntimeException ex) {
+                openRedisCircuit(ex);
+            }
+        }
+        localDistinct.computeIfAbsent(key, ignored -> ConcurrentHashMap.newKeySet()).add(member);
+    }
+
+    /** 当前窗口内该 IP 失败过的不同用户名数（不计数，只读）。 */
+    public int distinctLoginFailures(String ip) {
+        if (ip == null || ip.isBlank()) {
+            return 0;
+        }
+        long windowStart = System.currentTimeMillis() / window.toMillis();
+        String key = "wca:ip:logindistinct:" + ip + ":" + windowStart;
+        if (!isRedisCircuitOpen()) {
+            try {
+                Long size = redis.opsForSet().size(key);
+                if (size != null) {
+                    return size.intValue();
+                }
+            } catch (RuntimeException ex) {
+                openRedisCircuit(ex);
+            }
+        }
+        Set<String> members = localDistinct.get(key);
+        return members == null ? 0 : members.size();
     }
 
     private long increment(String key) {
