@@ -31,31 +31,39 @@ export async function solveCaptcha(base = BASE) {
 
 /**
  * 发一组 RESP 命令并解析全部回复。
- * 增量式解析器：按字节消费 buffer，支持简单字符串/整数/错误/bulk string/数组（递归）。
+ *
+ * 解析器规则：readReply 遇到「数据不完整」时必须返回 null 且**不消费 buffer**，
+ * 外层等到下一块数据再重试 —— 绝不允许把 null 塞进结果数组。
+ * （旧实现踩过的坑：数组中途遇到半个 bulk string，把 null push 进 items，
+ * 导致 KEYS 解析出 [key1, null, null]，DEL 只删掉一个 —— 限流计数清不干净，
+ * e2e 全线 429，而且因为没有报错，看起来就像「清了但没生效」的灵异事件。）
  */
 function redisExec(commands) {
   return new Promise((resolve, reject) => {
     const socket = net.connect(6379, '127.0.0.1');
-    socket.setTimeout(3000);
+    socket.setTimeout(5000);
     let buffer = Buffer.alloc(0);
     const expected = commands.length;
     const replies = [];
 
-    // 读取一条完整回复；buffer 不够时返回 null（等下一块数据）
+    // 「数据没到齐」的哨兵 —— 与 RESP nil（解析成功、值为 null）严格区分。
+    const NEED_MORE = Symbol('need-more');
+
+    // 解析一条完整回复；数据不够时返回 NEED_MORE 且不消费 buffer
     function readReply() {
-      if (buffer.length === 0) return null;
+      if (buffer.length === 0) return NEED_MORE;
       const type = String.fromCharCode(buffer[0]);
       const eol = buffer.indexOf('\r\n');
-      if (eol < 0) return null;
+      if (eol < 0) return NEED_MORE;
 
       if (type === '$') {
         const len = Number(buffer.slice(1, eol).toString('utf8'));
         if (len === -1) {
           buffer = buffer.slice(eol + 2);
-          return null;
+          return null; // RESP nil bulk string
         }
         const total = eol + 2 + len + 2;
-        if (buffer.length < total) return null;
+        if (buffer.length < total) return NEED_MORE;
         const value = buffer.slice(eol + 2, eol + 2 + len).toString('utf8');
         buffer = buffer.slice(total);
         return value;
@@ -71,24 +79,48 @@ function redisExec(commands) {
         return value;
       }
       if (type === '-') {
-        throw new Error('redis error: ' + buffer.slice(1, eol).toString('utf8'));
+        const message = buffer.slice(1, eol).toString('utf8');
+        buffer = buffer.slice(eol + 2);
+        throw new Error('redis error: ' + message);
       }
       if (type === '*') {
         const count = Number(buffer.slice(1, eol).toString('utf8'));
         if (count === -1) {
           buffer = buffer.slice(eol + 2);
-          return null;
+          return null; // RESP nil array
         }
-        const items = [];
+        const saved = buffer; // 任一元素没到齐就整体回滚到数组开头
         buffer = buffer.slice(eol + 2);
+        const items = [];
         for (let i = 0; i < count; i++) {
           const item = readReply();
-          if (item === null && buffer.length === 0 && i < count - 1) return null; // 数据没到齐
-          items.push(item);
+          if (item === NEED_MORE) {
+            buffer = saved;
+            return NEED_MORE;
+          }
+          items.push(item); // item 可能是 RESP nil（null），如实记录
         }
         return items;
       }
       throw new Error('unexpected redis reply type: ' + type);
+    }
+
+    function consume() {
+      try {
+        for (;;) {
+          const reply = readReply();
+          if (reply === NEED_MORE) break;
+          replies.push(reply);
+          if (replies.length >= expected) {
+            socket.end();
+            resolve(replies);
+            return;
+          }
+        }
+      } catch (err) {
+        socket.end();
+        reject(err);
+      }
     }
 
     socket.on('connect', () => {
@@ -102,27 +134,11 @@ function redisExec(commands) {
     });
     socket.on('data', (chunk) => {
       buffer = Buffer.concat([buffer, chunk]);
-      try {
-        for (;;) {
-          const before = buffer.length;
-          const reply = readReply();
-          if (reply === null && buffer.length === before) break;
-          if (reply !== null || buffer.length === 0) replies.push(reply);
-          if (replies.length >= expected) {
-            socket.end();
-            resolve(replies);
-            return;
-          }
-          if (buffer.length === before && reply === null) break;
-        }
-      } catch (err) {
-        socket.end();
-        reject(err);
-      }
+      consume();
     });
     socket.on('timeout', () => {
       socket.end();
-      reject(new Error('redis timeout'));
+      reject(new Error('redis timeout（已收到 ' + replies.length + '/' + expected + ' 条回复）'));
     });
     socket.on('error', (err) => reject(err));
   });
@@ -137,8 +153,14 @@ function redisExec(commands) {
  */
 export async function clearIpCounters() {
   try {
-    const keys = await redisExec([['KEYS', 'wca:ip:*']]);
-    const flat = Array.isArray(keys) ? keys : [];
+    // redisExec resolve 的是「每条命令一条回复」的列表：KEYS 的回复本身是 key 数组，
+    // 所以这里必须取 keys[0]（再里面一层才是 key 名）。
+    // 旧实现的 flat = replies 外层 —— 长度恒为 1（命令条数），DEL 收到嵌套数组被
+    // String() 转成逗号连接的一个假 key 名，什么都没删。以前单 key 时单元素数组的
+    // String() 恰好等于 key 本身，才碰巧工作 —— 典型的「测试数据掩盖 bug」。
+    const replies = await redisExec([['KEYS', 'wca:ip:*']]);
+    const first = replies[0];
+    const flat = (Array.isArray(first) ? first : first ? [first] : []).filter(Boolean);
     if (flat.length > 0) {
       await redisExec([['DEL', ...flat]]);
     }

@@ -115,6 +115,11 @@ public class PricingService {
         return properties.credit().signupBonus();
     }
 
+    /** 免费额度重置周期（天）。0 = 一次性赠送。 */
+    public long quotaResetDays() {
+        return properties.credit().quotaResetDays();
+    }
+
     public boolean enforceBalance() {
         return properties.credit().enforceBalance();
     }

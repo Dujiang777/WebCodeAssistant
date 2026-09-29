@@ -19,6 +19,7 @@ import { CitationText } from './CitationText';
 import { GateCard } from './GateCard';
 import { PatchCard } from './PatchCard';
 import { AvatarMenu } from './AvatarMenu';
+import { QuotaBar } from './QuotaBar';
 import { BoltIcon, BookIcon, CloseIcon, PlusIcon, SearchIcon, SendIcon, ShieldIcon, TerminalMark } from './icons';
 
 /**
@@ -86,6 +87,14 @@ interface ChatPaneProps extends PatchDeps {
   /** 当前余额；null 表示还没拉到（不显示，而不是显示 0）。 */
   creditBalance: number | null;
   creditLow: boolean;
+  /** 免费额度基准线（注册赠送分）；进度条分母。null = 还没拉到。 */
+  creditTotal: number | null;
+  /** 当前模型是否自带 Key（自带 Key 不消耗免费额度，进度条换成常驻提示）。 */
+  creditByok: boolean;
+  /** 下次免费额度重置时间。 */
+  quotaResetAt: string | null;
+  /** 打开「额度用完」引导弹窗（横幅按钮与弹窗共用）。 */
+  onOpenGuide: () => void;
   /** 打开积分中心（顶栏徽标与横幅共用同一个入口）。 */
   onRecharge: () => void;
   /** 退出登录 —— 输入区旁的头像菜单要用（账号/主题/模型服务的枢纽）。 */
@@ -151,6 +160,10 @@ export function ChatPane({
   creditBlocked,
   creditBalance,
   creditLow,
+  creditTotal,
+  creditByok,
+  quotaResetAt,
+  onOpenGuide,
   onRecharge,
   onLogout,
   username,
@@ -281,14 +294,17 @@ export function ChatPane({
         </div>
       )}
 
-      {/* 余额不足是「进来就必须处理」的状态，所以做成常驻横幅而不是 Toast：
-          Toast 三秒就没了，而用户下一步一定要去充值。 */}
+      {/* 免费额度用完是「进来就必须处理」的状态，所以做成常驻横幅而不是 Toast：
+          Toast 三秒就没了，而用户下一步一定要做选择（配 Key 或等重置）。 */}
       {creditBlocked && (
         <div className="banner banner-credit">
           <span className="dot dot-err" />
-          <span className="banner-text">积分不足，本轮对话已被拒绝。充值后即可继续。</span>
-          <button className="btn btn-primary btn-sm" onClick={onRecharge}>
-            去充值
+          <span className="banner-text">本周免费额度已用完，本轮对话被拒绝。每周自动重置 500 分。</span>
+          <button className="btn btn-primary btn-sm" onClick={onOpenGuide}>
+            配置教程
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={onRecharge}>
+            积分中心
           </button>
         </div>
       )}
@@ -402,6 +418,20 @@ export function ChatPane({
               onReject={onRejectGate}
             />
           ))}
+        </div>
+      )}
+
+      {/* 免费额度进度条：实心 = 已用，斜纹 = 剩余。挂在输入区正上方，
+          「还能说几句话」这件事应该在说话的地方看得见。BYOK 时换成常驻提示。 */}
+      {creditTotal !== null && creditBalance !== null && (
+        <div className="composer-quota">
+          <QuotaBar
+            balance={creditBalance}
+            total={creditTotal}
+            byok={creditByok}
+            quotaResetAt={quotaResetAt}
+            compact
+          />
         </div>
       )}
 

@@ -347,7 +347,9 @@ public final class ApiModels {
                                         long holdCredits, long signupBonus, String pricingNote,
                                         /** true = 当前选中的模型用自带 Key，不消耗积分。 */
                                         boolean byok, String modelName,
-                                        long per1kInput, long per1kOutput) {
+                                        long per1kInput, long per1kOutput,
+                                        /** 下次免费额度重置时间（ISO-8601）；null = 未启用周重置。 */
+                                        String quotaResetAt) {
     }
 
     /** 流水条目。{@code delta} 正数入账、负数出账；{@code balanceAfter} 是这一笔之后的余额。 */

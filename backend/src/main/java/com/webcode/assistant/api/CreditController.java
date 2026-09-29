@@ -139,7 +139,8 @@ public class CreditController {
                 summary.totalConsumed(), summary.lowBalance(), summary.enforceBalance(),
                 summary.lowBalanceThreshold(), summary.holdCredits(), summary.signupBonus(),
                 summary.pricingNote(), summary.byok(), summary.modelName(),
-                summary.per1kInput(), summary.per1kOutput());
+                summary.per1kInput(), summary.per1kOutput(),
+                summary.quotaResetAt() == null ? null : summary.quotaResetAt().toString());
     }
 
     private static ApiModels.LedgerEntryView toEntry(CreditLedgerRepository.LedgerEntry entry) {

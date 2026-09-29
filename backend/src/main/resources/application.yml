@@ -128,7 +128,8 @@ app:
 
   # AI 用量积分。单价按「每 1000 token 多少积分」，输入便宜、输出贵。
   credit:
-    signup-bonus: ${CREDIT_SIGNUP_BONUS:300}
+    # 注册赠送 = 每周免费额度的基准线（500 分 ≈ ¥5 的模型消耗）。
+    signup-bonus: ${CREDIT_SIGNUP_BONUS:500}
     credits-per-1k-input: ${CREDIT_PER_1K_INPUT:1}
     credits-per-1k-output: ${CREDIT_PER_1K_OUTPUT:3}
     min-charge-per-turn: ${CREDIT_MIN_PER_TURN:1}
@@ -140,6 +141,8 @@ app:
     byok-free: ${CREDIT_BYOK_FREE:true}
     # 单轮预扣的上限，防止旗舰模型一次预扣掉几百积分。
     hold-ceiling: ${CREDIT_HOLD_CEILING:600}
+    # 免费额度重置周期（天）：到点把余额懒重置补至 signup-bonus。0 = 一次性赠送不重置。
+    quota-reset-days: ${CREDIT_QUOTA_RESET_DAYS:7}
 
   # 用户自带 API Key 的加密主密钥。留空则回退 JWT_SECRET（本地开发不用多配一个变量）。
   # 生产建议单独设：换 JWT 密钥时不该把用户填的模型 Key 一起变成解不开的密文。

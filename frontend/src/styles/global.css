@@ -2238,6 +2238,145 @@ button.risk-chip:hover {
   padding: 12px 14px 10px;
 }
 
+/* 免费额度进度条：贴在输入区上沿。实心段 = 已用，斜纹段 = 剩余。 */
+.composer-quota {
+  flex: none;
+  border-top: 1px solid var(--line-strong);
+  background: var(--bg-0);
+  padding: 8px 14px 0;
+}
+
+.quota-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.quota-bar-row.compact {
+  gap: 7px;
+}
+
+.quota-bar-track {
+  flex: 1 1 auto;
+  min-width: 60px;
+  height: 8px;
+  border-radius: 4px;
+  background: repeating-linear-gradient(
+    -55deg,
+    transparent 0 5px,
+    var(--line-strong) 5px 7px
+  );
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+}
+
+.quota-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--signal), var(--signal-soft));
+  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 用到 90% 以上换警告橙：视觉先于文字提醒「快没了」 */
+.quota-bar-row.warn .quota-bar-fill {
+  background: linear-gradient(90deg, var(--amber), #ffb066);
+}
+
+.quota-bar-row.exhausted .quota-bar-fill {
+  background: linear-gradient(90deg, var(--rose), var(--amber));
+}
+
+.quota-bar-row.warn .quota-bar-num {
+  color: var(--amber);
+}
+
+.quota-bar-num {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-1);
+  min-width: 34px;
+  text-align: right;
+}
+
+.quota-bar-row.exhausted .quota-bar-num {
+  color: var(--rose);
+}
+
+.quota-bar-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --------------------------------------------------------------- 额度引导弹窗 */
+
+.quota-guide {
+  max-width: 520px;
+}
+
+.quota-guide-body {
+  padding: 16px 18px 8px;
+  overflow: auto;
+}
+
+.quota-guide-lead {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  line-height: 1.8;
+  color: var(--fg-1);
+}
+
+.quota-guide-steps {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  padding: 12px 14px 10px;
+  background: var(--bg-1);
+}
+
+.quota-guide-step-title {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--signal);
+  margin-bottom: 8px;
+}
+
+.quota-guide-steps ol {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--fg-1);
+}
+
+.quota-guide-steps code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.quota-guide-steps a {
+  color: var(--signal);
+}
+
+.quota-guide-note {
+  margin: 12px 0 0;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--fg-3);
+}
+
+
 /* 输入区上方那条「上下文条」。
    原先是 inline-flex + nowrap + overflow:hidden —— 面板一窄就把右边的开关和状态
    **直接裁掉**（不是换行，是切掉，用户在界面上看不到自己还有哪些开关）。
