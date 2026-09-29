@@ -125,4 +125,13 @@ public class ChatEventPublisher {
         body.put("note", note == null ? "" : note);
         channel.publish(ChatEvent.TYPE_GATE_RESOLVED, body);
     }
+
+    /**
+     * 计划流：模型给出的执行计划（整体替换语义）。
+     *
+     * @param steps 有序步骤短语，已去空去重，最多 8 条
+     */
+    public void plan(java.util.List<String> steps) {
+        channel.publish(ChatEvent.TYPE_PLAN, Map.of("steps", steps == null ? java.util.List.of() : steps));
+    }
 }

@@ -436,6 +436,10 @@ public class AgentOrchestrator {
         meta.put("patches", toolbox.proposedPatches().stream().map(UUID::toString).toList());
         meta.put("citations", citations);
         meta.put("citationIssues", invalidCitations);
+        // 计划流：模型给过计划就随 meta 落库，刷新后消息上仍能看到
+        if (!toolbox.planSteps().isEmpty()) {
+            meta.put("plan", toolbox.planSteps());
+        }
 
         long messageId = messageRepository.insert(request.sessionId(),
                 ChatMessageRecord.ROLE_ASSISTANT, text, toJson(meta));
@@ -531,6 +535,9 @@ public class AgentOrchestrator {
         meta.put("billable", charge.model().billable());
         meta.put("mode", request.normalizedMode());
         meta.put("credits", 0);
+        if (!toolbox.planSteps().isEmpty()) {
+            meta.put("plan", toolbox.planSteps());
+        }
         long messageId = messageRepository.insert(request.sessionId(),
                 ChatMessageRecord.ROLE_ASSISTANT, text, toJson(meta));
         sessionRepository.touch(request.sessionId());
