@@ -328,6 +328,7 @@ function toolNameOf(message) {
   if (message.name) return message.name;
   const content = String(message.content ?? '');
   if (content.includes('补丁已生成')) return 'propose_patch';
+  if (content.includes('计划已展示给用户')) return 'set_plan';
   if (content.includes('```')) return 'read_file';
   return message.tool_call_id ?? '';
 }
@@ -350,7 +351,7 @@ function handleCompletion(body, res) {
   const currentFile = extractCurrentFile(messages);
 
   return (STEP_DELAY_MS > 0 ? sleep(STEP_DELAY_MS) : Promise.resolve()).then(() =>
-    respond(toolMessages, intent, currentFile, res),
+    respond(toolMessages, intent, currentFile, lastUserText.includes('分步计划'), res),
   );
 }
 
@@ -378,12 +379,23 @@ function respondWhatIf(userText, res) {
   return finish(res, { inputTokens: 1200, outputTokens: 220 });
 }
 
-function respond(toolMessages, intent, currentFile, res) {
+function respond(toolMessages, intent, currentFile, planRequested, res) {
   if (toolMessages.length === 0) {
     // 第一轮：先读代码
     if (!currentFile) {
       streamText(res, ['当前还没有打开文件，请先在左侧文件树里点开一个文件，我再帮你分析。']);
       return finish(res, { inputTokens: 400, outputTokens: 40 });
+    }
+    // 计划流（触发词「分步计划」）：动工前先 set_plan，模拟 Codex 式「先给计划再执行」
+    if (planRequested) {
+      streamToolCall(res, 'set_plan', {
+        steps: [
+          `读取 ${currentFile}，确认字段注入的现状`,
+          '生成补丁：@Autowired 字段注入改为构造器注入',
+          '等你确认后应用补丁并重跑编译验证',
+        ],
+      });
+      return finish(res, { inputTokens: 500, outputTokens: 60 });
     }
     streamToolCall(res, 'read_file', { path: currentFile });
     return finish(res, { inputTokens: 400, outputTokens: 30 });
@@ -393,6 +405,31 @@ function respond(toolMessages, intent, currentFile, res) {
     const last = toolMessages[toolMessages.length - 1];
     return toolNameOf(last);
   })();
+
+  // 计划已展示 → 按计划第 1 步读文件
+  if (lastToolName === 'set_plan') {
+    streamToolCall(res, 'read_file', { path: currentFile });
+    return finish(res, { inputTokens: 700, outputTokens: 20 });
+  }
+
+  const planMode = toolMessages.some((m) => toolNameOf(m) === 'set_plan');
+
+  // 计划流第 2 步：读完了 → 出补丁
+  if (planMode && toolMessages.length === 2 && lastToolName === 'read_file') {
+    const content = extractFileContent(toolMessages[1].content ?? '');
+    const updated = content ? refactorUserService(content) : null;
+    if (!updated) {
+      streamText(res, ['没有在文件里找到 `UserRepository` 字段注入的写法，请确认当前打开的文件。']);
+      return finish(res, { inputTokens: 900, outputTokens: 40 });
+    }
+    const diff = buildUnifiedDiff(currentFile, content, updated);
+    streamToolCall(res, 'propose_patch', {
+      file: currentFile,
+      summary: '按计划执行：把 UserService 的字段注入改成构造器注入，并移除 Autowired 导入',
+      diff,
+    });
+    return finish(res, { inputTokens: 1300, outputTokens: 160 });
+  }
 
   if (toolMessages.length === 1) {
     const content = extractFileContent(toolMessages[0].content ?? '');

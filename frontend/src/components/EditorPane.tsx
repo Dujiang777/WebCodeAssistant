@@ -2,9 +2,17 @@ import { useEffect, useRef } from 'react';
 import { Editor } from '@monaco-editor/react';
 
 import type { FileContent, NavigateView } from '../lib/api';
+import { api } from '../lib/api';
 import { EDITOR_OPTIONS, WCA_THEME } from '../lib/monaco';
+import { clearIdeMarkers, setIdeMarkers, setupEditorIde } from '../lib/editorIde';
 import type { Selection } from '../lib/chat';
 import { TerminalMark, SaveIcon, CloseIcon, SearchIcon } from './icons';
+
+/** 诊断计数（状态栏显示用）。null = 当前没有可诊断的文件。 */
+export interface DiagnosticCounts {
+  errors: number;
+  warnings: number;
+}
 
 /**
  * 中间的编辑器面板。
@@ -36,6 +44,7 @@ export interface RevealTarget {
 const HIGHLIGHT_MS = 4000;
 
 interface EditorPaneProps {
+  workspaceId: number | null;
   file: FileContent | null;
   text: string;
   loading: boolean;
@@ -55,9 +64,12 @@ interface EditorPaneProps {
   onCloseNavigate: () => void;
   /** 点导航面板里的位置时打开对应文件并滚到那一行。 */
   onOpenLocation: (file: string, line: number) => void;
+  /** 诊断计数变化（状态栏显示）。null = 没有可诊断的文件。 */
+  onDiagnosticsChange: (counts: DiagnosticCounts | null) => void;
 }
 
 export function EditorPane({
+  workspaceId,
   file,
   text,
   loading,
@@ -74,6 +86,7 @@ export function EditorPane({
   navigate,
   onCloseNavigate,
   onOpenLocation,
+  onDiagnosticsChange,
 }: EditorPaneProps) {
   const readOnly = !file || file.binary || file.truncated;
 
@@ -87,6 +100,43 @@ export function EditorPane({
   fileRef.current = file;
   const navigateRef = useRef(onNavigateSymbol);
   navigateRef.current = onNavigateSymbol;
+  const workspaceIdRef = useRef(workspaceId);
+  workspaceIdRef.current = workspaceId;
+
+  // 诊断：文件内容变化后防抖 lint（编辑器缓冲区，不用等保存）。
+  // 请求带序号，慢响应不许覆盖新响应 —— 打字快的时候旧 lint 还在路上是常态。
+  const lintSeqRef = useRef(0);
+  useEffect(() => {
+    if (!file || file.binary || file.truncated || !workspaceId) {
+      lintSeqRef.current += 1;
+      onDiagnosticsChange(null);
+      return;
+    }
+    const seq = ++lintSeqRef.current;
+    const timer = window.setTimeout(async () => {
+      try {
+        const issues = await api.lint(workspaceId, file.path, text);
+        if (seq !== lintSeqRef.current) return; // 已经有更新的请求在路上
+        const editor = editorRef.current;
+        if (!editor) return;
+        const counts = setIdeMarkers(editor, issues);
+        onDiagnosticsChange(issues.length > 0 ? counts : { errors: 0, warnings: 0 });
+      } catch {
+        // lint 挂了不弹错 —— 诊断是增值能力，不能因为它打断编辑
+      }
+    }, 600);
+    return () => window.clearTimeout(timer);
+    // onDiagnosticsChange 来自父级渲染，不进依赖（进依赖会打断防抖）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file, text, workspaceId]);
+
+  // 文件关闭/切到二进制时清掉残留的下划线标记
+  useEffect(() => {
+    if (!file || file.binary) {
+      const editor = editorRef.current;
+      if (editor) clearIdeMarkers(editor);
+    }
+  }, [file]);
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -218,6 +268,34 @@ export function EditorPane({
             onMount={(editor, monacoApi) => {
               editorRef.current = editor;
               monacoRef.current = monacoApi;
+
+              // UI 自检钩子：探针需要拿到编辑器实例断言运行时状态（选项/marker 数）
+              (window as unknown as Record<string, unknown>).__wcaProbe = { editor, monaco: monacoApi };
+
+              // 编辑器智能化：关内置 TS/JS 语义误报 + 注册跨文件补全。
+              // 全局单例注册，路由往返重挂不会重复；workspaceId 走 ref 取最新值。
+              setupEditorIde(monacoApi, () => workspaceIdRef.current);
+
+              // 快速建议兜底：Monaco 内建的 quickSuggestions 自动触发在嵌入式场景
+              // （@monaco-editor/react 多 model + fixedOverflowWidgets）下不稳定，
+              // 实测真实键入也不弹；而 triggerSuggest 命令 100% 可靠。所以模仿
+              // VSCode 的自动行为：单字符 word 输入后当前词 ≥2 字符时主动唤起。
+              // 挂在内容变化而不是 keydown 上 —— 键盘、输入法、自动化注入全覆盖。
+              let lastAutoTriggerAt = 0;
+              editor.onDidChangeModelContent((event) => {
+                if (event.changes.length !== 1) return;
+                const change = event.changes[0];
+                if (change.text.length !== 1 || !/^[a-zA-Z0-9_$]$/.test(change.text)) return;
+                const now = Date.now();
+                if (now - lastAutoTriggerAt < 800) return; // 面板已在打开链路中，让 Monaco 继续过滤
+                const model = editor.getModel();
+                const position = editor.getPosition();
+                if (!model || !position) return;
+                const word = model.getWordUntilPosition(position);
+                if (!word.word || word.word.length < 2) return;
+                lastAutoTriggerAt = now;
+                editor.trigger('wca-auto', 'editor.action.triggerSuggest', null);
+              });
 
               // 符号导航：Ctrl/Cmd+Click 或 Ctrl/Cmd+F12。
               // 刻意不接管鼠标事件链（preventDefault 也只在这一分支里做），
