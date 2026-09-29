@@ -1,0 +1,34 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "login page keeps the hairline grid (shell keeps the darkroom feel)" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["screenshot", "docs/self-test/v7/56-login-grid-kept.png"],
+
+  { "note": "login as probe user" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'quota-probe-mum05dhj'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'QuotaProbe!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3200 },
+
+  { "note": "open workspace -> IDE" },
+  ["eval", "var row=document.querySelector('.workspace-row'); row && row.click(), 'opened:' + (row ? 'yes' : 'no')"],
+  { "sleep": 5000 },
+
+  { "note": "assert: mist-blue cool accent, 42px topbar, plain-color work surfaces, tighter chat gap" },
+  ["eval", "var cs=getComputedStyle(document.documentElement); var topbar=document.querySelector('.topbar'); var chat=document.querySelector('.chat'); var scroll=document.querySelector('.chat-scroll'); var empty=document.querySelector('.editor-empty'); 'CYAN=' + cs.getPropertyValue('--cyan').trim() + ' TOPBAR=' + (topbar ? topbar.offsetHeight : 'none') + ' CHAT_BGIMG=' + (chat ? getComputedStyle(chat).backgroundImage : 'none') + ' CHAT_GAP=' + (scroll ? getComputedStyle(scroll).rowGap : 'none') + ' EMPTY_BGIMG=' + (empty ? getComputedStyle(empty).backgroundImage : 'none')"],
+
+  { "note": "assert: diff add = pale lime, tool-card line = cool mist, gate-card has no big drop shadow" },
+  ["eval", "var add=document.createElement('div'); add.className='patch-line add'; document.body.appendChild(add); var addBg=getComputedStyle(add).backgroundColor; add.remove(); var gate=document.createElement('div'); gate.className='gate-card'; document.body.appendChild(gate); var gs=getComputedStyle(gate).boxShadow; gate.remove(); var tc=document.createElement('div'); tc.className='tool-card'; document.body.appendChild(tc); var tcl=getComputedStyle(tc).borderLeftColor; tc.remove(); 'ADD_BG=' + addBg + ' TOOL_LINE=' + tcl + ' GATE_SHADOW=' + gs"],
+  ["screenshot", "docs/self-test/v7/54-ide-clean-surface.png"],
+
+  { "note": "narrow screen (<1280): tree + desk auto-collapse, editor + chat only" },
+  ["set", "viewport", "1200", "800"],
+  ["open", "http://127.0.0.1:5173/#/workspaces"],
+  { "sleep": 3000 },
+  ["eval", "var row=document.querySelector('.workspace-row'); row && row.click(), 'reopened:' + (row ? 'yes' : 'no')"],
+  { "sleep": 4500 },
+  ["eval", "'PANES_NARROW=' + document.querySelectorAll('.workbench > .pane').length + ' TREE=' + !!document.querySelector('.workbench .tree') + ' DESK=' + !!document.querySelector('.workbench .desk')"],
+  ["screenshot", "docs/self-test/v7/55-narrow-auto-collapse.png"]
+]

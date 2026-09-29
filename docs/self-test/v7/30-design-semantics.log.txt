@@ -1,0 +1,59 @@
+# ui-probe start  steps=26
+
+$ agent-browser set viewport 1512 950
+✓ Done
+
+$ agent-browser open http://127.0.0.1:5173/#/login
+✓ Web Code Assistant · 网页版编码助手
+  http://127.0.0.1:5173/#/login
+
+$ sleep 2400
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v7\56-login-grid-kept.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v7\56-login-grid-kept.png
+
+$ agent-browser eval var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'quota-probe-mum05dhj'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'QuotaProbe!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'
+"filled"
+
+$ sleep 300
+
+$ agent-browser eval document.querySelector('.form-stack .btn-primary').click(), 'submitted'
+"submitted"
+
+$ sleep 3200
+
+$ agent-browser eval var row=document.querySelector('.workspace-row'); row && row.click(), 'opened:' + (row ? 'yes' : 'no')
+"opened:yes"
+
+$ sleep 5000
+
+$ agent-browser eval var cs=getComputedStyle(document.documentElement); var topbar=document.querySelector('.topbar'); var chat=document.querySelector('.chat'); var scroll=document.querySelector('.chat-scroll'); var empty=document.querySelector('.editor-empty'); 'CYAN=' + cs.getPropertyValue('--cyan').trim() + ' TOPBAR=' + (topbar ? topbar.offsetHeight : 'none') + ' CHAT_BGIMG=' + (chat ? getComputedStyle(chat).backgroundImage : 'none') + ' CHAT_GAP=' + (scroll ? getComputedStyle(scroll).rowGap : 'none') + ' EMPTY_BGIMG=' + (empty ? getComputedStyle(empty).backgroundImage : 'none')
+"CYAN=#9db4c8 TOPBAR=42 CHAT_BGIMG=none CHAT_GAP=16px EMPTY_BGIMG=none"
+
+$ agent-browser eval var add=document.createElement('div'); add.className='patch-line add'; document.body.appendChild(add); var addBg=getComputedStyle(add).backgroundColor; add.remove(); var gate=document.createElement('div'); gate.className='gate-card'; document.body.appendChild(gate); var gs=getComputedStyle(gate).boxShadow; gate.remove(); var tc=document.createElement('div'); tc.className='tool-card'; document.body.appendChild(tc); var tcl=getComputedStyle(tc).borderLeftColor; tc.remove(); 'ADD_BG=' + addBg + ' TOOL_LINE=' + tcl + ' GATE_SHADOW=' + gs
+"ADD_BG=rgba(87, 227, 137, 0.08) TOOL_LINE=rgb(157, 180, 200) GATE_SHADOW=rgba(242, 236, 222, 0.05) 0px 1px 0px 0px inset"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v7\54-ide-clean-surface.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v7\54-ide-clean-surface.png
+
+$ agent-browser set viewport 1200 800
+✓ Done
+
+$ agent-browser open http://127.0.0.1:5173/#/workspaces
+✓ Web Code Assistant · 网页版编码助手
+  http://127.0.0.1:5173/#/workspaces
+
+$ sleep 3000
+
+$ agent-browser eval var row=document.querySelector('.workspace-row'); row && row.click(), 'reopened:' + (row ? 'yes' : 'no')
+"reopened:yes"
+
+$ sleep 4500
+
+$ agent-browser eval 'PANES_NARROW=' + document.querySelectorAll('.workbench > .pane').length + ' TREE=' + !!document.querySelector('.workbench .tree') + ' DESK=' + !!document.querySelector('.workbench .desk')
+"PANES_NARROW=2 TREE=false DESK=false"
+
+$ agent-browser screenshot C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v7\55-narrow-auto-collapse.png
+✓ Screenshot saved to C:\Users\AMBITIOUS_YUAN\Projects\web-code-assistant\docs\self-test\v7\55-narrow-auto-collapse.png
+
+# ui-probe done

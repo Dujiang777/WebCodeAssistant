@@ -1,9 +1,9 @@
 /**
  * Monaco 初始化：注册一个与整套 UI 同源的深色主题。
  *
- * 为什么不直接用内置的 vs-dark：它偏纯灰，和 Web Code Assistant 的瑞士黑底、
- * 电光蓝强调色对不上，编辑器和外壳会像两个产品拼起来的。
- * 这里的配色全部取自 global.css 的变量值（"Swiss Draft" 设计系统）。
+ * 为什么不直接用内置的 vs-dark：它偏纯灰，和 Web Code Assistant 的暖调近黑底、
+ * 黄铜金强调色对不上，编辑器和外壳会像两个产品拼起来的。
+ * 这里的配色全部取自 global.css 的变量值（"Darkroom Brass" 设计系统）。
  *
  * 另外刻意关掉了 minimap 与 semanticHighlighting —— 在网页 IDE 里前者太占宽度，
  * 后者需要 LSP（属于 V2），留着只会误导用户以为有语义分析。
@@ -65,9 +65,11 @@ export function configureMonaco(): void {
       'scrollbarSlider.background': '#2e2a2280',
       'scrollbarSlider.hoverBackground': '#3e382bb0',
       'scrollbarSlider.activeBackground': '#4a4230c0',
-      'diffEditor.insertedTextBackground': '#e8b45a18',
+      // 插入用很淡的石灰绿：插入远比删除常见，满屏金会和光标、行号抢；
+      // 删除保持玫红。金只留给光标、活动行号这些「活着」的信号。
+      'diffEditor.insertedTextBackground': '#57e3891c',
       'diffEditor.removedTextBackground': '#ff516318',
-      'diffEditor.insertedLineBackground': '#e8b45a14',
+      'diffEditor.insertedLineBackground': '#57e38916',
       'diffEditor.removedLineBackground': '#ff516314',
     },
   });

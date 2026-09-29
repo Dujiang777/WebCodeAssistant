@@ -261,7 +261,7 @@ export function ChatPane({
     <div className="chat">
       <div className="pane-head">
         <SearchIcon size={13} />
-        <span className="pane-label" style={{ letterSpacing: '0.1em' }}>
+        <span className="pane-label">
           对话
         </span>
 
