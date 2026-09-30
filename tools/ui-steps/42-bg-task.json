@@ -1,0 +1,47 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "实验：AI 任务在「页面切换导致 SSE 断开」期间是否继续执行、结果是否落库。后端是「事件生产 / 订阅」解耦架构（ChatEventHub），断开只摘订阅不取消任务 —— 本实验用来证实这一点，并观察前端切回后能否恢复。" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "localStorage.clear(); location.replace('/#/login'); location.reload(); 'reset'"],
+  { "sleep": 2800 },
+
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set; var u=document.querySelector('#username'); s.call(u,'admin'); u.dispatchEvent(new Event('input',{bubbles:true})); var p=document.querySelector('#password'); s.call(p,'WcaAdmin!2026'); p.dispatchEvent(new Event('input',{bubbles:true})); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3400 },
+
+  ["eval", "var row=document.querySelector('.workspace-row'); row && row.click(), 'opened'"],
+  { "sleep": 5500 },
+  ["eval", "window.__ideHash = location.hash; 'IDE_HASH=' + window.__ideHash"],
+
+  { "note": "发一条消息：mock 每步延迟 1.5s，这一轮会跑若干秒，足够跨越接下来的切页动作" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set; var t=document.querySelector('.composer-input'); s.call(t,'请给我一个分步计划，顺便解释一下这个项目的目录结构'); t.dispatchEvent(new Event('input',{bubbles:true})); 'typed'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.composer-send').click(); window.__sentAt = Date.now(); 'SENT'"],
+  { "sleep": 2500 },
+  ["eval", "'T+2.5s HASH=' + location.hash + ' SETTINGS_OR_IDE=' + (document.querySelector('.composer') ? 'ide' : 'other')"],
+
+  { "note": "★ 任务进行中切走：跳到账号页 → React 卸载 IdePage → 组件 effect 清理函数调用 handle.close() → SSE 连接断开" },
+  ["eval", "location.hash = '#/account'; 'switched-away'"],
+  { "sleep": 800 },
+  ["eval", "'AT_ACCOUNT=' + location.hash + ' COMPOSER_PRESENT=' + (document.querySelector('.composer') ? 'yes' : 'no') + ' (composer 不在 = IdePage 已卸载)'"],
+
+  { "note": "在账号页停留 24 秒：如果任务仍被后端执行，这段时间里它应该跑完并把答案落库" },
+  { "sleep": 24000 },
+  ["eval", "'STILL_AT_ACCOUNT=' + location.hash + ' ELAPSED_MS=' + (Date.now() - window.__sentAt)"],
+
+  { "note": "★ 切回编辑器：观察答案是否恢复（这一轮 SSE 用 afterId=null 重连，断开期间的事件不回放）" },
+  ["eval", "location.hash = window.__ideHash; 'switched-back'"],
+  { "sleep": 8000 },
+  ["eval", "var all=document.querySelectorAll('.msg'); var asst=document.querySelectorAll('.msg-role-assistant'); var last=asst.length ? asst[asst.length-1].innerText : ''; 'BACK_HASH=' + location.hash + ' MSG_TOTAL=' + all.length + ' ASSIST_COUNT=' + asst.length + ' LAST_ASSIST_CHARS=' + last.length + ' PREVIEW=' + last.replace(/\\s+/g,' ').substring(0,120)"],
+  ["screenshot", "docs/self-test/v8/bg-01-back-from-account.png"],
+
+  { "note": "再整页刷新一次，确认落库的答案是持久的（不依赖内存）" },
+  ["eval", "location.reload(); 'reloaded'"],
+  { "sleep": 6000 },
+  ["eval", "var asst=document.querySelectorAll('.msg-role-assistant'); var last=asst.length ? asst[asst.length-1].innerText : ''; 'AFTER_RELOAD_ASSIST_COUNT=' + asst.length + ' CHARS=' + last.length + ' PREVIEW=' + last.replace(/\\s+/g,' ').substring(0,120)"],
+
+  ["eval", "location.reload(); 'cleaned'"]
+]

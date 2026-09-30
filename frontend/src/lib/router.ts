@@ -94,6 +94,31 @@ export function previousPath(): string | null {
   return lastPath;
 }
 
+// 「最近干活的编辑器」：二级页顶栏那个品牌区点一下要回工作台，但这个目标
+// 不能只靠 previousPath —— 那是内存变量，用户在账号页刷新一下它就没了，
+// 于是「回工作台」会静默退化成回工作区列表。存 localStorage 里，刷新也在。
+// 没有值（从没进过编辑器）时返回 null，由调用方兜底回工作区列表。
+const LAST_IDE_KEY = 'wca.last.ide';
+
+/** 记下最近打开的编辑器。进入 IDE 页时调用。 */
+export function rememberIde(workspaceId: number): void {
+  try {
+    localStorage.setItem(LAST_IDE_KEY, String(workspaceId));
+  } catch {
+    // 隐私模式 / 存储被禁：记不住就算了，品牌区会退化成回工作区列表
+  }
+}
+
+/** 最近打开的编辑器路径；从没进过编辑器时为 null。 */
+export function lastIdePath(): string | null {
+  try {
+    const id = Number(localStorage.getItem(LAST_IDE_KEY));
+    return Number.isInteger(id) && id > 0 ? `/ide/${id}` : null;
+  } catch {
+    return null;
+  }
+}
+
 export function useRoute(): Route {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
 

@@ -1,0 +1,65 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "复现 + 验收：从编辑器进入二级设置页后，点击顶栏品牌区（WEB CODE ASSISTANT）应回到编辑器。修复前此点击无任何反应（.brand 是纯展示 div，既无 onClick 也无 cursor:pointer）。" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "localStorage.clear(); location.replace('/#/login'); location.reload(); 'reset'"],
+  { "sleep": 2800 },
+
+  { "note": "登录 admin" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set; var u=document.querySelector('#username'); s.call(u,'admin'); u.dispatchEvent(new Event('input',{bubbles:true})); var p=document.querySelector('#password'); s.call(p,'WcaAdmin!2026'); p.dispatchEvent(new Event('input',{bubbles:true})); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3400 },
+
+  { "note": "打开第一个工作区 —— 现在站在编辑器里，来路被 router 记为 /ide/N" },
+  ["eval", "var row=document.querySelector('.workspace-row'); row && row.click(), 'opened:'+(row?'yes':'no')"],
+  { "sleep": 5500 },
+  ["eval", "'HASH_IN_IDE=' + location.hash + ' IS_IDE=' + (document.querySelector('.composer') ? 'yes':'no')"],
+
+  { "note": "从编辑器头像菜单进「账号与安全」（二级设置页）" },
+  ["eval", "document.querySelector('.composer .avatar-btn').click(), 'clicked'"],
+  { "sleep": 700 },
+  ["eval", "var item=Array.from(document.querySelectorAll('.avatar-item')).find(function(x){return x.innerText.indexOf('账号')>=0;}); item && item.click(); 'nav='+(item?'yes':'no')"],
+  { "sleep": 2400 },
+
+  { "note": "此刻：二级页顶栏的品牌区应当已经是可点元素（role=button / tabindex=0 / 手型光标）" },
+  ["eval", "var b=document.querySelector('.brand'); 'HASH_AT_SETTINGS=' + location.hash + ' BRAND_FOUND=' + (b?'yes':'no') + ' BRAND_TAG=' + (b?b.tagName:'-') + ' BRAND_ROLE=' + (b?b.getAttribute('role'):'-') + ' BRAND_TABINDEX=' + (b?String(b.getAttribute('tabindex')):'-') + ' CURSOR=' + (b?getComputedStyle(b).cursor:'-') + ' HOVER_COLOR_TARGET=' + (b?getComputedStyle(b.querySelector('.brand-name')).transitionProperty:'-')"],
+  ["screenshot", "docs/self-test/v8/brand-fix-01-settings.png"],
+
+  { "note": "★ 路径 A：点击品牌区 → 应回到刚才那个编辑器" },
+  ["eval", "var b=document.querySelector('.brand'); b.dispatchEvent(new MouseEvent('click',{bubbles:true})); 'clicked'"],
+  { "sleep": 1800 },
+  ["eval", "'PATH_A_HASH=' + location.hash + ' IS_IDE=' + (document.querySelector('.composer') ? 'yes':'no')"],
+  ["screenshot", "docs/self-test/v8/brand-fix-02-back-to-editor.png"],
+
+  { "note": "★ 路径 B（持久化记忆的价值）：重新进设置页 → 原地刷新（router 内存里的来路链被清空，previousPath 归 null）→ 再点品牌，仍应回到那个编辑器" },
+  ["eval", "document.querySelector('.composer .avatar-btn').click(), 'clicked'"],
+  { "sleep": 700 },
+  ["eval", "var item=Array.from(document.querySelectorAll('.avatar-item')).find(function(x){return x.innerText.indexOf('账号')>=0;}); item && item.click(); 'nav'"],
+  { "sleep": 2400 },
+  ["eval", "'HASH_BACK_AT_SETTINGS=' + location.hash"],
+  ["eval", "location.reload(); 'reloaded'"],
+  { "sleep": 3200 },
+  ["eval", "'HASH_AFTER_RELOAD=' + location.hash"],
+  ["eval", "var b=document.querySelector('.brand'); b && b.dispatchEvent(new MouseEvent('click',{bubbles:true})); 'clicked'"],
+  { "sleep": 2000 },
+  ["eval", "'PATH_B_HASH=' + location.hash + ' IS_IDE=' + (document.querySelector('.composer') ? 'yes':'no')"],
+
+  { "note": "★ 路径 C：编辑器页顶栏的品牌区 —— 语义是「回工作区列表」，不原地打转" },
+  ["eval", "var b=document.querySelector('.brand'); 'IDE_BRAND_ROLE=' + (b?b.getAttribute('role'):'-') + ' HASH_BEFORE=' + location.hash"],
+  ["eval", "var b=document.querySelector('.brand'); b.dispatchEvent(new MouseEvent('click',{bubbles:true})); 'clicked'"],
+  { "sleep": 2000 },
+  ["eval", "'PATH_C_HASH=' + location.hash + ' IS_LIST=' + (document.querySelector('.workspace-row') ? 'yes':'no')"],
+
+  { "note": "★ 路径 D：键盘可达 —— 自绘按钮必须自己能 Tab 聚焦、Enter 激活（这一步用来证明它不是「只能鼠标点」的假按钮）" },
+  ["eval", "var row=document.querySelector('.workspace-row'); row && row.click(), 'opened'"],
+  { "sleep": 5500 },
+  ["eval", "var b=document.querySelector('.brand'); b.focus({focusVisible:true}); var ok=(document.activeElement===b); var ring=getComputedStyle(b).outlineStyle; b.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})); 'KEY_FOCUSED='+ok+' RING='+ring"],
+  { "sleep": 2000 },
+  ["eval", "'PATH_D_HASH=' + location.hash + ' IS_LIST=' + (document.querySelector('.workspace-row') ? 'yes':'no')"],
+  ["screenshot", "docs/self-test/v8/brand-fix-03-keyboard.png"],
+
+  ["eval", "location.reload(); 'cleaned'"]
+]
