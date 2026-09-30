@@ -1,7 +1,7 @@
 /* ============================================================================
    Web Code Assistant 设计系统 · "Darkroom Brass"（暗房黄铜 · 温润版）
    —— 暗房里一枚黄铜放大机：
-      · 底色是暖调近黑；44px 发丝网格只铺外壳（登录 / 工作区列表），工作面纯色
+      · 底色是暖调近黑；外壳只留左上角一团暖光 + 顶部纵深渐暗，工作面纯色（发丝网格已撤）
       · 色彩分工：黄铜金 #e8b45a = 品牌/可点/活着；--lime 绿 = 构建/测试通过；
         玫红 = 失败/拦截；紫 = 补丁；雾蓝灰 --cyan = 工具流水等冷配角
       · 中文标签不加字距、不加 uppercase；等宽大写只留给英文铭牌（WCA、路径、token）
@@ -76,13 +76,23 @@
   --panel-edge: inset 0 1px 0 rgba(242, 236, 222, 0.05);
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.42), 0 10px 26px rgba(0, 0, 0, 0.3);
   --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.44), 0 18px 44px rgba(0, 0, 0, 0.42);
-  --shadow-modal: 0 40px 90px rgba(0, 0, 0, 0.62);
+  /* 抬得最高的两级：弹窗与右侧详情抽屉。值刻意等于这两处原先散在规则里的字面量 ——
+     收进变量只是为了浅色主题能覆盖，默认主题的渲染结果必须逐像素不变。 */
+  --shadow-modal: 0 30px 80px rgba(0, 0, 0, 0.6);
+  --shadow-drawer: -18px 0 44px rgba(0, 0, 0, 0.4);
+  /* 遮罩层：弹窗 0.74、抽屉 0.55，原先也是各自硬编码的近黑。
+     深底上「压黑」成立，纸底上就是往纸上泼一层黑 —— 必须能按主题覆盖。 */
+  --scrim: rgba(6, 6, 9, 0.74);
+  --scrim-soft: rgba(5, 4, 3, 0.55);
 
   /* 页面底纹：只留左上角一团暖光。44px 发丝网格已撤 —— 精修方向是「工作面要干净」，
      网格留在这里只会把正文和代码格成一张坐标纸。--grid-line 声明保留（历史主题会覆盖它），
      但本文件已无使用点。 */
   --grid-line: rgba(240, 232, 214, 0.03);
   --glow: rgba(232, 180, 90, 0.055);
+  /* 外壳顶部的纵深渐暗（登录 / 注册页 ::after 用）。做成变量是因为它必须跟着主题走：
+     深色主题用「压黑」，浅色主题用黑色就是一块脏灰印子 —— ivory 里覆盖成暖褐。 */
+  --shell-fade: rgba(0, 0, 0, 0.3);
   --scrollbar-thumb: #3a352a;
 
   color-scheme: dark;
@@ -91,13 +101,15 @@
 /* ============================================================
    主题：墨玉翡翠 —— 深绿黑底 + 翡翠绿强调。
    只覆盖变量，组件零感知；新增主题照这个格式加一段。
+   精修（2026-09-30）：底色阶梯按 brass 的同一比例重排 —— 底压深 1 档、
+   面抬起 1~2 档，三级分离量与默认主题一致，换肤只是换色相，不换材质。
    ============================================================ */
 [data-theme='emerald'] {
-  --bg-0: #060a08;
-  --bg-1: #0a120e;
-  --bg-2: #0e1712;
-  --bg-3: #122019;
-  --bg-4: #182a20;
+  --bg-0: #050907;
+  --bg-1: #0b1410;
+  --bg-2: #0f1914;
+  --bg-3: #13221b;
+  --bg-4: #192c22;
 
   --line: #1f3529;
   --line-soft: #14241b;
@@ -120,22 +132,29 @@
   --amber-line: rgba(255, 177, 94, 0.38);
 
   --grid-line: rgba(220, 245, 230, 0.028);
-  --glow: rgba(61, 220, 151, 0.045);
+  --glow: rgba(61, 220, 151, 0.05);
   --scrollbar-thumb: #24402f;
   --panel-edge: inset 0 1px 0 rgba(220, 245, 230, 0.04);
+  /* 深底主题照旧「压黑」，只把色相从蓝黑换成绿黑，跟底色同一个家族 */
+  --scrim: rgba(5, 9, 7, 0.74);
+  --scrim-soft: rgba(4, 8, 6, 0.55);
   color-scheme: dark;
 }
 
 /* ============================================================
    主题：暖纸墨字 —— 纸白底 + 深墨字 + 熟铜强调（浅色）。
    浅底上金色要压深才有对比，语义配角也全部换成深调。
+   精修（2026-09-30）：纸也要分层 —— 桌面上压深半档、纸面（bg-1）提亮，
+   卡片才像「一张单独放上去的纸」而不是底色上的一块白斑。
+   投影必须在本段覆盖：:root 的两段影是给深底的纯黑，浅底上会变成脏灰印子，
+   这里换算成暖褐（熟铜系），并有意识地保留「贴边 + 大范围」两段结构。
    ============================================================ */
 [data-theme='ivory'] {
-  --bg-0: #f4f0e6;
-  --bg-1: #faf7f0;
-  --bg-2: #fffdf8;
-  --bg-3: #f0ebdd;
-  --bg-4: #e7e1d1;
+  --bg-0: #f2eee2;
+  --bg-1: #fdfbf5;
+  --bg-2: #fffefa;
+  --bg-3: #eee8d8;
+  --bg-4: #e4ddc9;
 
   --line: #ddd5c2;
   --line-soft: #e9e3d4;
@@ -164,10 +183,17 @@
   --lime-dim: rgba(46, 139, 87, 0.1);
 
   --grid-line: rgba(70, 58, 34, 0.05);
-  --glow: rgba(156, 109, 20, 0.06);
+  --glow: rgba(156, 109, 20, 0.07);
+  --shell-fade: rgba(90, 70, 30, 0.1);
   --scrollbar-thumb: #cfc4a6;
   --panel-edge: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  --shadow-soft: 0 8px 28px rgba(90, 70, 30, 0.14);
+  --shadow-soft: 0 1px 2px rgba(90, 70, 30, 0.12), 0 10px 26px rgba(90, 70, 30, 0.13);
+  --shadow-lift: 0 2px 6px rgba(90, 70, 30, 0.14), 0 18px 44px rgba(90, 70, 30, 0.16);
+  --shadow-modal: 0 2px 6px rgba(90, 70, 30, 0.14), 0 34px 84px rgba(70, 52, 20, 0.3);
+  --shadow-drawer: -18px 0 44px rgba(70, 52, 20, 0.22);
+  /* 遮罩压成暖褐并降透明度：纸底上 74% 的近黑等于关灯，40~50% 的暖褐才是「拉上帘」 */
+  --scrim: rgba(58, 46, 24, 0.5);
+  --scrim-soft: rgba(58, 46, 24, 0.38);
   color-scheme: light;
 }
 
@@ -2626,7 +2652,7 @@ button.risk-chip:hover {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(6, 6, 9, 0.74);
+  background: var(--scrim);
   backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
@@ -2643,7 +2669,7 @@ button.risk-chip:hover {
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
   background: var(--bg-1);
-  box-shadow: var(--panel-edge), 0 30px 80px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--panel-edge), var(--shadow-modal);
   overflow: hidden;
 }
 
@@ -5603,7 +5629,7 @@ button.risk-chip:hover {
   position: fixed;
   inset: 0;
   z-index: 90;
-  background: rgba(5, 4, 3, 0.55);
+  background: var(--scrim-soft);
   backdrop-filter: blur(2px);
   animation: ad-fade-up 0.18s ease both;
 }
@@ -5616,7 +5642,7 @@ button.risk-chip:hover {
   width: min(460px, 92vw);
   background: var(--bg-1);
   border-left: 1px solid var(--line);
-  box-shadow: -18px 0 44px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-drawer);
   overflow-y: auto;
   animation: ad-slide-in 0.26s cubic-bezier(0.22, 0.8, 0.36, 1) both;
 }
@@ -6637,8 +6663,9 @@ button.risk-chip:hover {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  /* 精修：网格撤掉后，这层改成顶部渐暗的纵深 —— 大面积纯平会比网格更显空 */
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.3), transparent 46%);
+  /* 精修：网格撤掉后，这层改成顶部渐暗的纵深 —— 大面积纯平会比网格更显空。
+     渐暗色必须走 --shell-fade：深底压黑成立，纸底压黑就是一块脏灰印子。 */
+  background: linear-gradient(180deg, var(--shell-fade), transparent 46%);
   z-index: 0;
 }
 

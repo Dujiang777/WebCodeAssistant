@@ -34,13 +34,13 @@ export const THEMES: ThemeMeta[] = [
     key: 'emerald',
     label: '墨玉翡翠',
     hint: '深绿黑底 + 翡翠绿强调。长时间盯屏更冷一点、更静一点。',
-    swatch: ['#060a08', '#182a20', '#3ddc97'],
+    swatch: ['#050907', '#192c22', '#3ddc97'],
   },
   {
     key: 'ivory',
     label: '暖纸墨字',
     hint: '纸白底 + 深墨字 + 熟铜强调。白天 / 强光环境用，护眼不刺眼。',
-    swatch: ['#f4f0e6', '#ffffff', '#9c6d14'],
+    swatch: ['#f2eee2', '#fffefa', '#9c6d14'],
   },
 ];
 
