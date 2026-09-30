@@ -17,6 +17,7 @@
  */
 
 import http from 'node:http';
+import fs from 'node:fs';
 
 const PORT = (() => {
   const index = process.argv.indexOf('--port');
@@ -577,6 +578,29 @@ const server = http.createServer((req, res) => {
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
     });
+
+    // 提示词抓取（MOCK_LLM_CAPTURE=输出路径）：把最近一次请求的 system prompt
+    // 与工具描述落盘，让探针能断言「提示词真的送到了模型」—— 2026-09-30 加，
+    // 用于守住「执行纪律」这类纯 prompt 行为（模型行为没法用单元测试断言，
+    // 但提示词有没有拼进去、工具描述长什么样，可以）。
+    // 默认关闭，不影响普通回归。
+    if (process.env.MOCK_LLM_CAPTURE) {
+      try {
+        const system = (Array.isArray(body.messages) ? body.messages : [])
+          .filter((m) => m && m.role === 'system')
+          .map((m) => String(m.content ?? ''))
+          .join('\n');
+        const tools = (Array.isArray(body.tools) ? body.tools : []).map((t) => ({
+          name: t?.function?.name ?? t?.name ?? '',
+          description: String(t?.function?.description ?? t?.description ?? ''),
+        }));
+        fs.writeFileSync(
+          process.env.MOCK_LLM_CAPTURE,
+          JSON.stringify({ capturedAt: new Date().toISOString(), system, tools }, null, 2),
+          'utf8',
+        );
+      } catch { /* 抓取失败不能影响对话本身 */ }
+    }
 
     // handleCompletion 现在是异步的（STEP_DELAY_MS > 0 时会先等一会儿再吐流）
     handleCompletion(body, res).catch((error) => {

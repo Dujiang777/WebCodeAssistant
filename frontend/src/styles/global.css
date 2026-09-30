@@ -1511,6 +1511,57 @@ a.link:hover,
   color: var(--rose);
 }
 
+/* ------------------------------------------------------------------
+   消息操作条（2026-09-30）
+   反馈原话是「消息区缺操作」—— 复制一句话要手动划选、想让它重答只能重打一遍。
+   做成常显的窄条而不是 hover 才浮出：在触屏和远程桌面里 hover 是薛定谔的，
+   而这一行只占 22px，不打断阅读节奏。默认克制的 fg-3，悬停才升到金 ——
+   「安静地待在那儿，需要时才显眼」。
+   ------------------------------------------------------------------ */
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 6px;
+  opacity: 0.72;
+  transition: opacity 0.16s ease;
+}
+
+.msg-role-assistant:hover .msg-actions,
+.msg-role-user:hover .msg-actions,
+.msg-actions:focus-within {
+  opacity: 1;
+}
+
+.msg-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 0.14s ease,
+    background 0.14s ease,
+    border-color 0.14s ease;
+}
+
+.msg-action:hover {
+  color: var(--signal-soft);
+  background: var(--signal-dim);
+  border-color: var(--signal-line);
+}
+
+.msg-action:active {
+  transform: translateY(0.5px);
+}
+
 /* 「正在思考」：三个呼吸的绿灯 */
 .thinking-row {
   display: flex;

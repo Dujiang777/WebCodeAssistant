@@ -20,7 +20,22 @@ import { GateCard } from './GateCard';
 import { PatchCard } from './PatchCard';
 import { AvatarMenu } from './AvatarMenu';
 import { QuotaBar } from './QuotaBar';
-import { BoltIcon, BookIcon, CloseIcon, PlusIcon, SearchIcon, SendIcon, ShieldIcon, StopIcon, TerminalMark } from './icons';
+import {
+  BoltIcon,
+  BookIcon,
+  CheckIcon,
+  CloseIcon,
+  CopyIcon,
+  EditIcon,
+  PlusIcon,
+  QuoteIcon,
+  RefreshIcon,
+  SearchIcon,
+  SendIcon,
+  ShieldIcon,
+  StopIcon,
+  TerminalMark,
+} from './icons';
 
 /**
  * 右侧对话面板。
@@ -72,6 +87,11 @@ interface ChatPaneProps extends PatchDeps {
   onSend: (content: string) => void;
   /** 停止当前回合（sending 时输入区旁出现停止按钮）。 */
   onStop: () => void;
+  /**
+   * 重新生成：把最后一条用户消息原样再发一次。
+   * 由 IdePage 实现（它才知道消息列表）；本组件只负责渲染那个按钮。
+   */
+  onRegenerate: () => void;
   onSelectSession: (id: number) => void;
   onNewSession: () => void;
   onClearSelection: () => void;
@@ -149,6 +169,7 @@ export function ChatPane({
   onModeChange,
   onSend,
   onStop,
+  onRegenerate,
   onSelectSession,
   onNewSession,
   onClearSelection,
@@ -190,6 +211,7 @@ export function ChatPane({
 }: ChatPaneProps) {
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const stickToBottom = useRef(true);
   // 回合进行中每秒走一次的时钟：running 工具卡显示「已执行 Ns」
   const [now, setNow] = useState(() => Date.now());
@@ -219,6 +241,28 @@ export function ChatPane({
     if (!content || sending) return;
     onSend(content);
     setDraft('');
+  };
+
+  /**
+   * 把一段内容放进输入框 —— 「引用」与「改后重发」共用。
+   *
+   * <p>{@code replace=true} 时整段替换（改后重发：用户要改的就是原话）；
+   * 否则追加成 Markdown 引用块（引用某段回答接着追问）。
+   * 两种都自动聚焦并把光标推到末尾，省掉一次点击。
+   */
+  const putIntoComposer = (content: string, replace: boolean) => {
+    const text = content.trim();
+    if (!text) return;
+    setDraft((current) => {
+      if (replace || !current.trim()) return text;
+      return `${current.replace(/\s+$/, '')}\n\n> ${text.replace(/\n/g, '\n> ')}\n`;
+    });
+    window.setTimeout(() => {
+      const node = textareaRef.current;
+      if (!node) return;
+      node.focus();
+      node.setSelectionRange(node.value.length, node.value.length);
+    }, 0);
   };
 
   const deps: PatchDeps = {
@@ -354,7 +398,7 @@ export function ChatPane({
           </div>
         ) : (
           <>
-            {messages.map((message) => (
+            {messages.map((message, index) => (
               <MessageBlock
                 key={message.id}
                 message={message}
@@ -362,6 +406,10 @@ export function ChatPane({
                 deps={deps}
                 username={username}
                 onOpenCitation={onOpenCitation}
+                onRegenerate={onRegenerate}
+                onQuote={(text) => putIntoComposer(text, false)}
+                onEditResend={(text) => putIntoComposer(text, true)}
+                canRegenerate={!sending && message.role === 'assistant' && index === messages.length - 1}
               />
             ))}
 
@@ -563,19 +611,23 @@ export function ChatPane({
         </div>
 
         <textarea
+          ref={textareaRef}
           className="composer-input"
           placeholder={
             mode === 'teach'
-              ? '描述你想理解什么。Ctrl/⌘ + Enter 发送。（教学模式：我会解释每一步的动机与取舍）'
-              : '描述你想做什么。Ctrl/⌘ + Enter 发送。'
+              ? '描述你想理解什么。Enter 发送，Shift + Enter 换行。（教学模式：我会解释每一步的动机与取舍）'
+              : '描述你想做什么。Enter 发送，Shift + Enter 换行。'
           }
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
-            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-              event.preventDefault();
-              submit();
-            }
+            if (event.key !== 'Enter') return;
+            // 输入法合成中（拼音选词）按 Enter 是「确认候选词」，此时绝不能当成发送
+            if ((event.nativeEvent as KeyboardEvent).isComposing) return;
+            // Shift+Enter 换行；Enter 与 Ctrl/⌘+Enter 都发送 —— 聊天框的通用直觉优先
+            if (event.shiftKey && !event.ctrlKey && !event.metaKey) return;
+            event.preventDefault();
+            submit();
           }}
         />
 
@@ -603,7 +655,7 @@ export function ChatPane({
             className="composer-send"
             disabled={sending || draft.trim().length === 0}
             onClick={submit}
-            title={sending ? '生成中…' : '发送（Ctrl/⌘ + Enter）'}
+            title={sending ? '生成中…' : '发送（Enter；Shift+Enter 换行）'}
           >
             {sending ? <span className="spinner" /> : <SendIcon size={14} />}
           </button>
@@ -619,13 +671,38 @@ function MessageBlock({
   deps,
   username,
   onOpenCitation,
+  onRegenerate,
+  onQuote,
+  onEditResend,
+  canRegenerate,
 }: {
   message: ChatMessage;
   patches: PatchRecord[];
   deps: PatchDeps;
   username: string;
   onOpenCitation: (file: string, line: number | null) => void;
+  /** 让模型重答上一条提问（只有最后一条回答可用）。 */
+  onRegenerate: () => void;
+  /** 把这段回答作为引用放进输入框，接着追问。 */
+  onQuote: (text: string) => void;
+  /** 把这条用户消息放回输入框改完再发。 */
+  onEditResend: (text: string) => void;
+  canRegenerate: boolean;
 }) {
+  const [copied, setCopied] = useState(false);
+
+  /** 复制原文（Markdown 源文，不是渲染后的文本）——用户拿去贴到 issue / 群里都不会丢格式。 */
+  const copy = () => {
+    const text = message.content ?? '';
+    if (!text.trim()) return;
+    void navigator.clipboard?.writeText(text).then(
+      () => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1600);
+      },
+      () => setCopied(false),
+    );
+  };
   const isUser = message.role === 'user';
   const model = modelOfMessage(message);
   const mode = modeOfMessage(message);
@@ -709,6 +786,46 @@ function MessageBlock({
             ))}
           </div>
         )}
+
+        {/* 消息操作条：一直显示（不做 hover 才出现）—— 找不到的功能等于没有，
+            而这条窄带只占 20px，不挤占阅读节奏。 */}
+        <div className="msg-actions">
+          <button className="msg-action" onClick={copy} title="复制这条消息的原文（Markdown 源码）">
+            {copied ? <CheckIcon size={11} /> : <CopyIcon size={11} />}
+            {copied ? '已复制' : '复制'}
+          </button>
+          {isUser ? (
+            <button
+              className="msg-action"
+              onClick={() => onEditResend(message.content ?? '')}
+              title="把这句话放回输入框，改完再发"
+            >
+              <EditIcon size={11} />
+              改后重发
+            </button>
+          ) : (
+            <>
+              <button
+                className="msg-action"
+                onClick={() => onQuote(message.content ?? '')}
+                title="把这段回答作为引用放进输入框，接着追问"
+              >
+                <QuoteIcon size={11} />
+                引用
+              </button>
+              {canRegenerate && (
+                <button
+                  className="msg-action"
+                  onClick={onRegenerate}
+                  title="让模型重新回答上一条提问（会重新计费一次）"
+                >
+                  <RefreshIcon size={11} />
+                  重新生成
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

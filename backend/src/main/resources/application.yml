@@ -167,8 +167,13 @@ llm:
   log-requests: ${LLM_LOG_REQUESTS:true}
   requests-per-second: ${LLM_REQUESTS_PER_SECOND:2}
   daily-token-limit: ${LLM_DAILY_TOKEN_LIMIT:500000}
-  history-messages: ${LLM_HISTORY_MESSAGES:12}
-  max-tool-steps: ${LLM_MAX_TOOL_STEPS:12}
+  # 带进模型的历史消息条数（user+assistant 合计）。12 条 ≈ 6 轮，久聊之后
+  # 用户早先说过的约束会掉出窗口，模型就会「再问一遍」——这也是「一直重复问
+  # 同一个东西」的隐性成因之一。20 条在 DeepSeek 的上下文预算里仍然很轻。
+  history-messages: ${LLM_HISTORY_MESSAGES:20}
+  # 一轮对话的工具调用上限。12 步对「跨文件改动 + 补测试」这类真实任务偏紧，
+  # 模型会半路收手，表现为「要求做一半就不做了」；提到 20 并配要求回执（见 AgentToolbox）。
+  max-tool-steps: ${LLM_MAX_TOOL_STEPS:20}
 
 logging:
   level:

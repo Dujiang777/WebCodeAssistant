@@ -1,0 +1,45 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "login as fixed probe account" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'stop-probe'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'StopProbe!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3200 },
+
+  { "note": "create + open sample workspace" },
+  ["click", ".form-stack .btn-primary"],
+  { "sleep": 2500 },
+  ["eval", "var row=document.querySelector('.workspace-row'); row && row.click(), 'opened:' + (row ? 'yes' : 'no')"],
+  { "sleep": 7000 },
+
+  { "note": "empty state has quick-start chips" },
+  ["eval", "'EMPTY_CHIPS=' + document.querySelectorAll('.empty-chip').length"],
+
+  { "note": "send with a REAL Enter key (the new default; Ctrl+Enter also still works)" },
+  ["fill", ".composer-input", "解释一下这个类"],
+  { "sleep": 400 },
+  ["focus", ".composer-input"],
+  { "sleep": 200 },
+  ["press", "Enter"],
+  { "sleep": 5000 },
+
+  { "note": "message action bar: copy / quote / regenerate / edit-resend" },
+  ["eval", "var btns=Array.from(document.querySelectorAll('.msg-action')).map(function(b){return b.innerText.trim()}); 'ACTIONS_BARS=' + document.querySelectorAll('.msg-actions').length + ' BTNS=' + btns.join('|')"],
+
+  { "note": "quote: assistant answer goes back into the composer as a markdown quote" },
+  ["eval", "var bars=Array.from(document.querySelectorAll('.msg-role-assistant .msg-action')); var q=bars.find(function(b){return /引用/.test(b.innerText)}); q && q.click(), 'quoted:' + (q ? 'yes' : 'no')"],
+  { "sleep": 500 },
+  ["eval", "'COMPOSER=' + JSON.stringify(document.querySelector('.composer-input').value).slice(0, 90)"],
+  ["screenshot", "docs/self-test/v7/64-msg-actions.png"],
+
+  { "note": "clear the composer, then regenerate -> the last question is asked again (a new user message appears)" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; var t=document.querySelector('.composer-input'); s.call(t, ''); t.dispatchEvent(new Event('input', { bubbles: true })); 'cleared'"],
+  { "sleep": 300 },
+  ["eval", "var before=document.querySelectorAll('.msg-role-user').length; window.__beforeUsers=before; var bars=Array.from(document.querySelectorAll('.msg-role-assistant .msg-action')); var r=bars.find(function(b){return /重新生成/.test(b.innerText)}); r && r.click(); 'regen:' + (r ? 'yes' : 'no')"],
+  { "sleep": 6000 },
+  ["eval", "'USERS_BEFORE=' + window.__beforeUsers + ' USERS_AFTER=' + document.querySelectorAll('.msg-role-user').length"],
+  ["screenshot", "docs/self-test/v7/65-regenerate.png"]
+]

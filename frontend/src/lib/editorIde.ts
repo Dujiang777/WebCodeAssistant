@@ -84,11 +84,15 @@ function registerCompletionProvider(monacoApi: typeof monaco, getWorkspaceId: Wo
       // 一个字符的前缀会命中大量无关符号，等用户再敲一个字符再出手
       if (!prefix || prefix.length < 2) return { suggestions: [] };
 
-      const cacheKey = `${workspaceId}:${prefix}`;
+      // 正在编辑的文件：monaco 的 model URI 形如 `inmemory://model/src/...`，
+      // path 带前导斜杠，去掉后与工作区相对路径一致（服务端要用它做同文件优先排序）
+      const editingFile = (model.uri?.path ?? '').replace(/^\//, '') || null;
+
+      const cacheKey = `${workspaceId}:${editingFile ?? ''}:${prefix}`;
       let symbols = completionCache.get(cacheKey);
       if (!symbols) {
         try {
-          symbols = await api.completions(workspaceId, prefix);
+          symbols = await api.completions(workspaceId, prefix, editingFile);
         } catch {
           // 补全失败就静默退回单词补全，不该弹错误打断打字
           return { suggestions: [] };
@@ -111,7 +115,13 @@ function registerCompletionProvider(monacoApi: typeof monaco, getWorkspaceId: Wo
           label: symbol.name,
           kind: symbolKind(monacoApi, symbol.kind),
           detail: `${kindLabel(symbol.kind)} · ${symbol.file}:${symbol.line}`,
-          documentation: `${symbol.kind === 'class' ? '类型' : '符号'}定义于 ${symbol.file} 第 ${symbol.line} 行`,
+          // 说明区直接摆定义那一行的原文 —— 不跳转就能确认「是不是我要的那个」。
+          // 代码块会被 monaco 等宽渲染，和右侧的路径形成「代码 + 出处」两段。
+          documentation: {
+            value: symbol.snippet
+              ? `\`\`\`${symbol.file.split('.').pop() ?? ''}\n${symbol.snippet}\n\`\`\`\n定义于 \`${symbol.file}\` 第 ${symbol.line} 行`
+              : `定义于 \`${symbol.file}\` 第 ${symbol.line} 行`,
+          },
           insertText: symbol.name,
           range,
           // 排在最前：工作区符号优先于 Monaco 内置的单词建议
