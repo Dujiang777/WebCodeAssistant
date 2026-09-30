@@ -1,10 +1,11 @@
 [
   ["set", "viewport", "1512", "950"],
 
-  { "note": "login page keeps the hairline grid (shell keeps the darkroom feel)" },
+  { "note": "login page：锻炉精修后外壳不再铺 44px 网格（只留左上角暖光 + 顶部纵深）" },
   ["open", "http://127.0.0.1:5173/#/login"],
   { "sleep": 2400 },
-  ["screenshot", "docs/self-test/v7/56-login-grid-kept.png"],
+  ["eval", "'LOGIN_BGIMG=' + getComputedStyle(document.querySelector('.auth-wrap-v2')).backgroundImage.slice(0, 60) + ' AFTER_BG=' + getComputedStyle(document.querySelector('.auth-wrap-v2'), '::after').backgroundImage.slice(0, 60) + ' BODY=' + getComputedStyle(document.body).backgroundImage.slice(0, 60)"],
+  ["screenshot", "docs/self-test/v7/56-login-shell-clean.png"],
 
   { "note": "login as probe user" },
   ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'quota-probe-mum05dhj'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'QuotaProbe!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'"],
