@@ -1,0 +1,55 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "前戏：清掉上一个剧本留下的登录态（详见 00-reset-auth.json 的说明）" },
+  ["open", "http://127.0.0.1:5173/#/workspaces"],
+  { "sleep": 1600 },
+  ["eval", "localStorage.clear(); sessionStorage.clear(); 'cleared'"],
+  { "sleep": 300 },
+  ["eval", "location.replace('/#/login'); location.reload(); 'reloading'"],
+  { "sleep": 2600 },
+  ["eval", "'RESET_OK=' + (location.hash === '#/login' && !!document.querySelector('#username'))"],
+
+  { "note": "login as admin" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; var u=document.querySelector('#username'); s.call(u, 'admin'); u.dispatchEvent(new Event('input', { bubbles: true })); var p=document.querySelector('#password'); s.call(p, 'WcaAdmin!2026'); p.dispatchEvent(new Event('input', { bubbles: true })); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3200 },
+
+  { "note": "A. brass（默认）：三级底色 + 两段影；弹窗/抽屉的投影与遮罩必须还是原来的字面值（收进变量只是为了浅色能覆盖，默认主题不许动）" },
+  ["eval", "var d=document.createElement('div'); d.className='modal'; document.body.appendChild(d); var ms=getComputedStyle(d).boxShadow; d.remove(); var w=document.createElement('div'); w.className='ad-drawer-panel'; document.body.appendChild(w); var ws=getComputedStyle(w).boxShadow; w.remove(); var cs=getComputedStyle(document.documentElement); 'T=brass BG0=' + cs.getPropertyValue('--bg-0').trim() + ' BG1=' + cs.getPropertyValue('--bg-1').trim() + ' SOFT=' + cs.getPropertyValue('--shadow-soft').trim() + ' LIFT=' + cs.getPropertyValue('--shadow-lift').trim() + ' FADE=' + cs.getPropertyValue('--shell-fade').trim() + ' SCRIM=' + cs.getPropertyValue('--scrim').trim() + ' MODAL_SHADOW=' + ms + ' DRAWER_SHADOW=' + ws"],
+  ["screenshot", "docs/self-test/v7/66-theme-brass-ladder.png"],
+
+  { "note": "B. emerald：与 brass 同一阶梯比例，只换色相；遮罩换成绿黑家族" },
+  ["eval", "var b=document.querySelector('.card-head .avatar-btn'); b && b.click(), 'open'"],
+  { "sleep": 500 },
+  ["eval", "var cards=Array.from(document.querySelectorAll('.avatar-theme')); var t=cards.find(function (x) { return x.innerText.indexOf('emerald') >= 0 || x.innerText.indexOf('\\u58a8\\u7389') >= 0; }); t && t.click(); 'emerald=' + (t ? 'yes' : 'no')"],
+  { "sleep": 500 },
+  ["eval", "var cs=getComputedStyle(document.documentElement); 'T=emerald BG0=' + cs.getPropertyValue('--bg-0').trim() + ' BG1=' + cs.getPropertyValue('--bg-1').trim() + ' SOFT=' + cs.getPropertyValue('--shadow-soft').trim() + ' FADE=' + cs.getPropertyValue('--shell-fade').trim() + ' SCRIM=' + cs.getPropertyValue('--scrim').trim()"],
+  ["eval", "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), 'esc'"],
+  { "sleep": 300 },
+  ["screenshot", "docs/self-test/v7/67-theme-emerald-ladder.png"],
+
+  { "note": "C. ivory：浅底必须换暖褐多段影 + 暖褐遮罩，且 shell 渐暗不再是黑（这是上一轮精修漏掉的主题）" },
+  ["eval", "var b=document.querySelector('.card-head .avatar-btn'); b && b.click(), 'open'"],
+  { "sleep": 500 },
+  ["eval", "var cards=Array.from(document.querySelectorAll('.avatar-theme')); var t=cards.find(function (x) { return x.innerText.indexOf('ivory') >= 0 || x.innerText.indexOf('\\u6696\\u7eb8') >= 0; }); t && t.click(); 'ivory=' + (t ? 'yes' : 'no')"],
+  { "sleep": 500 },
+  ["eval", "var cs=getComputedStyle(document.documentElement); var soft=cs.getPropertyValue('--shadow-soft').trim(); var lift=cs.getPropertyValue('--shadow-lift').trim(); var modal=cs.getPropertyValue('--shadow-modal').trim(); 'T=ivory BG0=' + cs.getPropertyValue('--bg-0').trim() + ' BG1=' + cs.getPropertyValue('--bg-1').trim() + ' SOFT_TIERS=' + soft.split('),').length + ' LIFT_TIERS=' + lift.split('),').length + ' MODAL_TIERS=' + modal.split('),').length + ' LIFT_BLACK=' + (lift.indexOf('rgba(0, 0, 0') >= 0 ? 'YES-BAD' : 'no') + ' MODAL_BLACK=' + (modal.indexOf('rgba(0, 0, 0') >= 0 ? 'YES-BAD' : 'no') + ' SCRIM=' + cs.getPropertyValue('--scrim').trim() + ' SCRIM_SOFT=' + cs.getPropertyValue('--scrim-soft').trim() + ' FADE=' + cs.getPropertyValue('--shell-fade').trim()"],
+  ["eval", "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })), 'esc'"],
+  { "sleep": 300 },
+  ["screenshot", "docs/self-test/v7/68-theme-ivory-ladder.png"],
+
+  { "note": "D. ivory 登录外壳：顶灰蒙版实测不再是黑色（撤网格后这层最容易被漏掉）" },
+  ["eval", "localStorage.clear(); sessionStorage.clear(); 'cleared'"],
+  { "sleep": 300 },
+  ["eval", "localStorage.setItem('wca.theme', 'ivory'); location.replace('/#/login'); location.reload(); 'reloading'"],
+  { "sleep": 2800 },
+  ["eval", "'THEME=' + document.documentElement.dataset.theme + ' AFTER_BG=' + (document.querySelector('.auth-wrap-v2') ? getComputedStyle(document.querySelector('.auth-wrap-v2'), '::after').backgroundImage.slice(0, 90) : 'none')"],
+  ["screenshot", "docs/self-test/v7/69-theme-ivory-login.png"],
+
+  { "note": "恢复 brass —— 别把主题留给下一个剧本，状态污染是这套剧本最老的坑" },
+  ["eval", "localStorage.setItem('wca.theme', 'brass'); location.replace('/#/login'); location.reload(); 'restore'"],
+  { "sleep": 2600 },
+  ["eval", "'FINAL_THEME=' + document.documentElement.dataset.theme"]
+]
