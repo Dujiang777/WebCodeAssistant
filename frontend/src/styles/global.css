@@ -122,6 +122,24 @@
   --shell-fade: rgba(0, 0, 0, 0.3);
   --scrollbar-thumb: #3a352a;
 
+  /* ---- 动效令牌：交互手感的三档节奏 ----
+     此前 transition 时长有 7 种零散值（0.1~0.2s）、入场动画有 10 种（0.18~0.5s），
+     同一语义各写各的，观感上就是「每次都不一样」。这里收成三档 + 两条曲线：
+       --dur-1 瞬时 —— 按压回弹、纯色切换（用户不能等）
+       --dur-2 状态 —— hover 抬升、边框与投影（要有物理感，但要立刻响应）
+       --dur-3 入场 —— 元素首次出现（消息、卡片、面板）
+     --ease-out 用于「进入」：起步快、落定慢，像东西被轻轻放下；
+     --ease-soft 用于「往复」：hover 进出对称，不会一冲一顿。
+     动效与色相无关，所以三套主题共用这一份，不做覆盖。 */
+  --dur-1: 0.12s;
+  --dur-2: 0.18s;
+  --dur-3: 0.28s;
+  --ease-out: cubic-bezier(0.22, 0.8, 0.36, 1);
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  /* 按压缩量分两档：常规按钮只是「轻按」，小控件（圆钮 / 小方块）缩得更明显才看得出来 */
+  --press: 0.97;
+  --press-hard: 0.94;
+
   color-scheme: dark;
 }
 
@@ -436,14 +454,21 @@ a.link:hover,
   color: var(--fg-0);
   font-size: 13px;
   line-height: 1.2;
-  transition: border-color 0.14s ease, background 0.14s ease, color 0.14s ease,
-    box-shadow 0.14s ease;
+  transition: transform var(--dur-1) var(--ease-soft),
+    border-color var(--dur-2) var(--ease-soft), background var(--dur-2) var(--ease-soft),
+    color var(--dur-2) var(--ease-soft), box-shadow var(--dur-2) var(--ease-soft);
 }
 
 .btn:hover:not(:disabled) {
   border-color: var(--signal-line);
   background: var(--bg-3);
   color: var(--fg-0);
+}
+
+/* 按压：瞬时缩放回弹 —— 在此之前全站只有 1 处 :active，点击是没有落点的 */
+.btn:active:not(:disabled) {
+  transform: scale(var(--press));
+  transition-duration: var(--dur-1);
 }
 
 .btn:disabled {
@@ -510,7 +535,7 @@ a.link:hover,
   border-radius: var(--radius);
   background: transparent;
   color: var(--fg-2);
-  transition: color 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+  transition: color var(--dur-2) var(--ease-soft), border-color var(--dur-2) var(--ease-soft), background var(--dur-2) var(--ease-soft);
 }
 
 .icon-btn:hover {
@@ -569,7 +594,7 @@ a.link:hover,
   background: var(--bg-1);
   color: var(--fg-0);
   font-size: 13.5px;
-  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+  transition: border-color var(--dur-2) var(--ease-soft), box-shadow var(--dur-2) var(--ease-soft);
 }
 
 .input::placeholder {
@@ -747,13 +772,18 @@ a.link:hover,
   font-family: var(--font-ui);
   font-size: 12px;
   cursor: pointer;
-  transition: color 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+  transition: transform var(--dur-1) var(--ease-soft), color var(--dur-2) var(--ease-soft),
+    border-color var(--dur-2) var(--ease-soft), background var(--dur-2) var(--ease-soft);
 }
 
 .empty-chip:hover {
   color: var(--fg-0);
   border-color: var(--signal-line);
   background: var(--signal-dim);
+}
+
+.empty-chip:active {
+  transform: scale(var(--press));
 }
 
 .empty-steps {
@@ -946,13 +976,18 @@ a.link:hover,
   border-radius: var(--radius);
   background: var(--bg-2);
   color: inherit;
-  transition: border-color 0.14s ease, background 0.14s ease;
+  transition: border-color var(--dur-2) var(--ease-soft), background var(--dur-1) var(--ease-soft);
   cursor: pointer;
 }
 
 .workspace-row:hover {
   border-color: var(--signal-line);
   background: var(--bg-3);
+}
+
+/* 按压：整体压深一档 —— 宽度大的行用底色变化比缩放更看得出来 */
+.workspace-row:active {
+  background: var(--bg-4);
 }
 
 .workspace-row-body {
@@ -1064,13 +1099,19 @@ a.link:hover,
   background: transparent;
   color: var(--fg-2);
   cursor: pointer;
-  transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease;
+  transition: transform var(--dur-1) var(--ease-soft), color var(--dur-2) var(--ease-soft),
+    background var(--dur-2) var(--ease-soft), border-color var(--dur-2) var(--ease-soft);
 }
 
 .rail-btn:hover {
   color: var(--fg-0);
   background: var(--bg-3);
   border-color: var(--line);
+}
+
+/* 按压：小方按钮，缩一档就有「按到实心键」的手感 */
+.rail-btn:active {
+  transform: scale(var(--press-hard));
 }
 
 /* 面板正开着：金色底 + 左侧一道刻线，跟面板标题同一套语言 */
@@ -1121,7 +1162,7 @@ a.link:hover,
   white-space: normal;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.12s ease, transform 0.12s ease;
+  transition: opacity var(--dur-1) var(--ease-soft), transform var(--dur-1) var(--ease-soft);
   z-index: 40;
 }
 
@@ -1284,7 +1325,7 @@ a.link:hover,
   border-left: 1px solid var(--line-soft);
   border-right: 1px solid var(--line-soft);
   position: relative;
-  transition: background 0.14s ease;
+  transition: background var(--dur-2) var(--ease-soft);
 }
 
 .splitter::after {
@@ -1293,7 +1334,7 @@ a.link:hover,
   inset: 0 1px;
   background: var(--signal);
   opacity: 0;
-  transition: opacity 0.14s ease;
+  transition: opacity var(--dur-2) var(--ease-soft);
 }
 
 .splitter:hover::after,
@@ -1363,12 +1404,18 @@ a.link:hover,
   font: inherit;
   cursor: pointer;
   border-left: 2px solid transparent;
-  transition: background 0.1s ease, color 0.1s ease;
+  transition: background var(--dur-1) var(--ease-soft), color var(--dur-1) var(--ease-soft),
+    border-color var(--dur-1) var(--ease-soft);
 }
 
 .tree-row:hover {
   background: var(--bg-2);
   color: var(--fg-0);
+}
+
+/* 按压：文件树是全站最高频的点击区，最该有手感 —— 点下去沉一档 */
+.tree-row:active {
+  background: var(--bg-3);
 }
 
 .tree-row.selected {
@@ -1385,7 +1432,7 @@ a.link:hover,
   justify-content: center;
   color: var(--fg-2);
   flex: none;
-  transition: transform 0.12s ease, color 0.12s ease;
+  transition: transform var(--dur-1) var(--ease-soft), color var(--dur-1) var(--ease-soft);
 }
 
 .tree-twisty.open {
@@ -1501,20 +1548,49 @@ a.link:hover,
 }
 
 /* 消息本体：去掉盒子，只留排版 */
+/* 消息入场：一左一右两个方向 —— 用户从右侧递过来，助手从左侧铺开。
+   对话因此有了「来往」的方向感，而不是一条条往下贴。
+   只在元素首次挂载时跑一次：React 的 key 是 message.id，流式更新复用同一节点，
+   动画不会重放（这点是先查了 MessageBlock 的 key 才敢动的）。 */
+/* 用 translate 独立属性而不是 transform：animation-fill-mode: both 会让 to 帧
+   的 transform 一直压住元素自身的 transform —— 以后任何给消息加 transform
+   定位或动效的代码都会被入场动画悄悄吃掉。translate 是独立属性，互不干扰。 */
+@keyframes msg-in-left {
+  from {
+    opacity: 0;
+    translate: -8px 0;
+  }
+  to {
+    opacity: 1;
+    translate: 0;
+  }
+}
+
+@keyframes msg-in-right {
+  from {
+    opacity: 0;
+    translate: 8px 0;
+  }
+  to {
+    opacity: 1;
+    translate: 0;
+  }
+}
+
 .msg {
   padding: 0;
   border: none;
   border-radius: var(--radius);
   background: transparent;
+  animation: msg-in-left var(--dur-3) var(--ease-out) both;
 }
 
-/* 用户消息 = 白纸切片：实心纸块、黑字、柔投影 + 金晕，拼贴感。
-   右侧留 8% 空白，让它像一张贴上去的便签而不是横幅 */
+/* 用户消息容器：这里只剩「从右侧入场」一件事。
+   气泡本体（白纸底 + 金影 + 圆角 + 右侧留白）在 2026-09-28 重构段的
+   `.msg.msg-role-user .msg-main` 上。原先这里也写了一份 padding / background /
+   box-shadow，被后段整段覆盖成了死代码 —— 清掉，免得改样式时改错地方。 */
 .msg.msg-role-user {
-  padding: 12px 15px 13px;
-  margin-right: 8%;
-  background: var(--fg-0);
-  box-shadow: var(--shadow-note);
+  animation-name: msg-in-right;
 }
 
 .msg.msg-role-assistant {
@@ -1615,7 +1691,7 @@ a.link:hover,
   gap: 2px;
   margin-top: 6px;
   opacity: 0.72;
-  transition: opacity 0.16s ease;
+  transition: opacity var(--dur-2) var(--ease-soft);
 }
 
 .msg-role-assistant:hover .msg-actions,
@@ -1638,9 +1714,10 @@ a.link:hover,
   line-height: 1;
   cursor: pointer;
   transition:
-    color 0.14s ease,
-    background 0.14s ease,
-    border-color 0.14s ease;
+    transform var(--dur-1) var(--ease-soft),
+    color var(--dur-2) var(--ease-soft),
+    background var(--dur-2) var(--ease-soft),
+    border-color var(--dur-2) var(--ease-soft);
 }
 
 .msg-action:hover {
@@ -1649,8 +1726,10 @@ a.link:hover,
   border-color: var(--signal-line);
 }
 
+/* 按下：原有的微沉 + 全站统一的轻缩，合并成一条。
+   此前这里是两条同名规则，后者覆盖前者 —— 全站那「唯一 1 处 :active」说的就是它。 */
 .msg-action:active {
-  transform: translateY(0.5px);
+  transform: translateY(0.5px) scale(var(--press));
 }
 
 /* 「正在思考」：三个呼吸的绿灯 */
@@ -1851,7 +1930,7 @@ a.link:hover,
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  animation: ad-fade-up 0.28s ease both;
+  animation: ad-fade-up var(--dur-3) var(--ease-out) both;
 }
 
 .patch-file {
@@ -1978,7 +2057,7 @@ a.link:hover,
   font-size: 11px;
   line-height: 1.7;
   cursor: pointer;
-  transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+  transition: background var(--dur-1) var(--ease-soft), color var(--dur-1) var(--ease-soft), border-color var(--dur-1) var(--ease-soft);
 }
 
 .cite-chip:hover {
@@ -2238,7 +2317,7 @@ button.risk-chip:hover {
   font-size: 11px;
   line-height: 1.5;
   cursor: pointer;
-  transition: border-color 0.12s ease;
+  transition: border-color var(--dur-1) var(--ease-soft);
 }
 
 .risk-ref:hover {
@@ -2375,7 +2454,7 @@ button.risk-chip:hover {
   font-size: 11px;
   line-height: 1.5;
   cursor: pointer;
-  transition: border-color 0.12s ease;
+  transition: border-color var(--dur-1) var(--ease-soft);
 }
 
 .compile-issue:hover {
@@ -2459,7 +2538,9 @@ button.risk-chip:hover {
   height: 100%;
   border-radius: 3px;
   background: linear-gradient(90deg, var(--signal), var(--signal-soft));
-  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  /* 全站唯一的慢档（入场档的 1.8 倍）：配额条要让人「看得到它长过去」，
+     快起来就只是跳一下，反而看不清自己还剩多少 */
+  transition: width calc(var(--dur-3) * 1.8) var(--ease-out);
 }
 
 /* 用到 90% 以上换警告橙：视觉先于文字提醒「快没了」 */
@@ -2595,7 +2676,7 @@ button.risk-chip:hover {
   font-family: var(--font-ui);
   font-size: 13.5px;
   line-height: 1.55;
-  transition: border-color 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
+  transition: border-color var(--dur-2) var(--ease-soft), box-shadow var(--dur-2) var(--ease-soft), background var(--dur-2) var(--ease-soft);
 }
 
 /* 聚焦 = 输入框抬起来 + 金雾投影，跟白纸切片同一套拼贴语言 */
@@ -2644,7 +2725,7 @@ button.risk-chip:hover {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease;
+  transition: color var(--dur-2) var(--ease-soft), background var(--dur-2) var(--ease-soft), border-color var(--dur-2) var(--ease-soft);
 }
 
 .mode-btn:hover {
@@ -2690,7 +2771,7 @@ button.risk-chip:hover {
   color: var(--fg-2);
   padding: 4px 13px;
   font-size: 12.5px;
-  transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease;
+  transition: color var(--dur-2) var(--ease-soft), background var(--dur-2) var(--ease-soft), border-color var(--dur-2) var(--ease-soft);
 }
 
 .tab:hover {
@@ -2798,7 +2879,7 @@ button.risk-chip:hover {
   color: var(--fg-0);
   font-size: 12.5px;
   line-height: 1.5;
-  animation: toast-in 0.16s ease-out;
+  animation: toast-in var(--dur-2) var(--ease-out);
 }
 
 .toast.error {
@@ -3704,7 +3785,7 @@ button.risk-chip:hover {
   font-size: 11px;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.14s ease, background 0.14s ease;
+  transition: border-color var(--dur-2) var(--ease-soft), background var(--dur-2) var(--ease-soft);
 }
 
 .desk-cursor:hover {
@@ -3749,7 +3830,7 @@ button.risk-chip:hover {
   font-size: 11.5px;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.14s ease;
+  transition: border-color var(--dur-2) var(--ease-soft);
 }
 
 .desk-file:hover {
@@ -4687,7 +4768,7 @@ button.risk-chip:hover {
   line-height: 1.55;
   color: var(--fg-1);
   cursor: pointer;
-  transition: border-color 0.14s ease, background 0.14s ease;
+  transition: border-color var(--dur-2) var(--ease-soft), background var(--dur-2) var(--ease-soft);
 }
 
 .flag-ack.on {
@@ -4881,7 +4962,7 @@ button.risk-chip:hover {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--bg-1);
-  transition: border-color 0.16s ease, transform 0.16s ease;
+  transition: border-color var(--dur-2) var(--ease-soft), transform var(--dur-2) var(--ease-soft);
 }
 
 .cr-plan:hover {
@@ -5408,7 +5489,7 @@ button.risk-chip:hover {
   color: var(--fg-1);
   font-size: 13px;
   letter-spacing: 0.02em;
-  transition: color 0.18s ease;
+  transition: color var(--dur-2) var(--ease-soft);
 }
 
 .ad-tab:hover { color: var(--fg-0); }
@@ -5424,7 +5505,7 @@ button.risk-chip:hover {
   background: var(--signal);
   opacity: 0;
   transform: scaleX(0.4);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity var(--dur-2) var(--ease-soft), transform var(--dur-2) var(--ease-soft);
 }
 
 .ad-tab.active {
@@ -5452,10 +5533,10 @@ button.risk-chip:hover {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--panel-edge);
-  animation: ad-fade-up 0.32s ease both;
+  animation: ad-fade-up var(--dur-3) var(--ease-out) both;
 }
 
-.ad-dash { animation: ad-fade-up 0.32s ease both; }
+.ad-dash { animation: ad-fade-up var(--dur-3) var(--ease-out) both; }
 
 .ad-stat-grid {
   display: grid;
@@ -5473,8 +5554,8 @@ button.risk-chip:hover {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--panel-edge);
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-  animation: ad-fade-up 0.4s ease both;
+  transition: transform var(--dur-2) var(--ease-soft), border-color var(--dur-2) var(--ease-soft), box-shadow var(--dur-2) var(--ease-soft);
+  animation: ad-fade-up var(--dur-3) var(--ease-out) both;
 }
 
 .ad-stat-card:hover {
@@ -5520,7 +5601,7 @@ button.risk-chip:hover {
 }
 
 .ad-trend-bar {
-  transition: opacity 0.15s ease;
+  transition: opacity var(--dur-2) var(--ease-soft);
 }
 
 .ad-trend-bar:hover { opacity: 0.75; }
@@ -5556,7 +5637,7 @@ button.risk-chip:hover {
 
 /* ------------------------------------------------------------ 工具栏 / 表格 */
 
-.ad-tab-body { animation: ad-fade-up 0.3s ease both; }
+.ad-tab-body { animation: ad-fade-up var(--dur-3) var(--ease-out) both; }
 
 .ad-toolbar {
   display: flex;
@@ -5577,7 +5658,7 @@ button.risk-chip:hover {
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   color: var(--fg-2);
-  transition: border-color 0.18s ease;
+  transition: border-color var(--dur-2) var(--ease-soft);
 }
 
 .ad-search:focus-within { border-color: var(--signal-line); }
@@ -5601,7 +5682,7 @@ button.risk-chip:hover {
   appearance: none;
   font-size: 12.5px;
   cursor: pointer;
-  transition: border-color 0.18s ease;
+  transition: border-color var(--dur-2) var(--ease-soft);
 }
 
 .ad-select:hover, .ad-select:focus { border-color: var(--signal-line); outline: none; }
@@ -5613,8 +5694,8 @@ button.risk-chip:hover {
 }
 
 .ad-table tr {
-  animation: ad-fade-up 0.3s ease both;
-  transition: background 0.15s ease;
+  animation: ad-fade-up var(--dur-3) var(--ease-out) both;
+  transition: background var(--dur-2) var(--ease-soft);
 }
 
 .ad-user-cell {
@@ -5626,7 +5707,7 @@ button.risk-chip:hover {
   background: none;
   color: inherit;
   text-align: left;
-  transition: color 0.15s ease;
+  transition: color var(--dur-2) var(--ease-soft);
 }
 
 .ad-user-cell:hover b { color: var(--signal-soft); }
@@ -5687,7 +5768,7 @@ button.risk-chip:hover {
   z-index: 90;
   background: var(--scrim-soft);
   backdrop-filter: blur(2px);
-  animation: ad-fade-up 0.18s ease both;
+  animation: ad-fade-up var(--dur-3) var(--ease-out) both;
 }
 
 .ad-drawer-panel {
@@ -5700,7 +5781,7 @@ button.risk-chip:hover {
   border-left: 1px solid var(--line);
   box-shadow: var(--shadow-drawer);
   overflow-y: auto;
-  animation: ad-slide-in 0.26s cubic-bezier(0.22, 0.8, 0.36, 1) both;
+  animation: ad-slide-in var(--dur-3) var(--ease-out) both;
 }
 
 .ad-drawer-close {
@@ -5817,7 +5898,7 @@ button.risk-chip:hover {
 
 /* ------------------------------------------------------------ 处置模态 / 字段 */
 
-.ad-modal { animation: ad-pop 0.22s cubic-bezier(0.22, 0.8, 0.36, 1) both; }
+.ad-modal { animation: ad-pop var(--dur-2) var(--ease-out) both; }
 
 .ad-modal-danger .btn-primary { background: var(--rose); border-color: var(--rose); color: #fff; }
 .ad-modal-danger .btn-primary:hover { background: #ff6b7b; }
@@ -5863,7 +5944,7 @@ button.risk-chip:hover {
   border-radius: var(--radius-s);
   color: var(--fg-0);
   outline: none;
-  transition: border-color 0.18s ease;
+  transition: border-color var(--dur-2) var(--ease-soft);
 }
 
 .ad-field input:focus { border-color: var(--signal-line); }
@@ -5905,8 +5986,8 @@ button.risk-chip:hover {
   background: var(--bg-1);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  transition: border-color 0.18s ease, transform 0.18s ease;
-  animation: ad-fade-up 0.3s ease both;
+  transition: border-color var(--dur-2) var(--ease-soft), transform var(--dur-2) var(--ease-soft);
+  animation: ad-fade-up var(--dur-3) var(--ease-out) both;
 }
 
 .ad-audit-item:hover {
@@ -5956,8 +6037,8 @@ button.risk-chip:hover {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--panel-edge);
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-  animation: ad-fade-up 0.35s ease both;
+  transition: transform var(--dur-2) var(--ease-soft), border-color var(--dur-2) var(--ease-soft), box-shadow var(--dur-2) var(--ease-soft);
+  animation: ad-fade-up var(--dur-3) var(--ease-out) both;
 }
 
 .md-card:hover {
@@ -6016,7 +6097,7 @@ button.risk-chip:hover {
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  transition: border-color 0.18s ease;
+  transition: border-color var(--dur-2) var(--ease-soft);
 }
 
 .md-provider.off { opacity: 0.66; }
@@ -6049,7 +6130,7 @@ button.risk-chip:hover {
   border: 1px solid var(--line);
   border-radius: var(--radius-s);
   background: var(--bg-2);
-  animation: ad-fade-up 0.25s ease both;
+  animation: ad-fade-up var(--dur-3) var(--ease-out) both;
 }
 
 .ad-probe-result.fail { border-color: var(--rose-line); }
@@ -6095,7 +6176,7 @@ button.risk-chip:hover {
   border-radius: var(--radius);
   box-shadow: var(--shadow-soft);
   z-index: 120;
-  animation: ad-pop 0.18s cubic-bezier(0.22, 0.8, 0.36, 1) both;
+  animation: ad-pop var(--dur-2) var(--ease-out) both;
 }
 
 .md-picker-head {
@@ -6118,7 +6199,7 @@ button.risk-chip:hover {
   border-radius: var(--radius-s);
   text-align: left;
   color: var(--fg-0);
-  transition: background 0.15s ease;
+  transition: background var(--dur-2) var(--ease-soft);
 }
 
 .md-picker-item:hover { background: var(--bg-4); }
@@ -6182,7 +6263,7 @@ button.risk-chip:hover {
   color: var(--signal);
   font-size: 11.5px;
   text-align: left;
-  transition: color 0.15s ease;
+  transition: color var(--dur-2) var(--ease-soft);
 }
 
 .md-picker-manage:hover { color: var(--signal-soft); }
@@ -6262,7 +6343,7 @@ button.risk-chip:hover {
   pointer-events: none;
   background: radial-gradient(420px 140px at 50% 100%, var(--signal-dim), transparent 72%);
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity var(--dur-3) var(--ease-soft);
 }
 
 .composer:focus-within::before {
@@ -6281,12 +6362,19 @@ button.risk-chip:hover {
   background: linear-gradient(135deg, var(--signal-soft), var(--signal));
   color: var(--on-signal);
   box-shadow: 0 4px 14px var(--signal-dim), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+  transition: transform var(--dur-2) var(--ease-soft), box-shadow var(--dur-2) var(--ease-soft),
+    opacity var(--dur-1) var(--ease-soft);
 }
 
 .composer-send:hover:not(:disabled) {
   transform: translateY(-1px) scale(1.05);
   box-shadow: 0 6px 18px var(--signal-line);
+}
+
+/* 按压：从 hover 的放大态收回来、落点比静止还小 —— 全站最该有手感的一颗按钮 */
+.composer-send:active:not(:disabled) {
+  transform: scale(var(--press-hard));
+  transition-duration: var(--dur-1);
 }
 
 /* 停止按钮：玫瑰红描边圆钮，一眼和金色的发送键区分开 —— 拦下/失败是玫红的语义 */
@@ -6303,13 +6391,18 @@ button.risk-chip:hover {
   border-radius: 50%;
   background: var(--rose-dim);
   color: var(--rose);
-  transition: background 0.14s ease, border-color 0.14s ease, transform 0.14s ease;
+  transition: transform var(--dur-1) var(--ease-soft), background var(--dur-2) var(--ease-soft),
+    border-color var(--dur-2) var(--ease-soft);
 }
 
 .composer-stop:hover {
   background: rgba(255, 81, 99, 0.22);
   border-color: var(--rose);
   transform: scale(1.06);
+}
+
+.composer-stop:active {
+  transform: scale(var(--press-hard));
 }
 
 /* 「正在处理」行内的小号停止键：不用把鼠标挪到输入区，顺手就能点 */
@@ -6390,7 +6483,7 @@ button.risk-chip:hover {
   border: 1px solid var(--signal-line);
   border-radius: 50%;
   background: none;
-  transition: box-shadow 0.18s ease, transform 0.18s ease;
+  transition: box-shadow var(--dur-2) var(--ease-soft), transform var(--dur-2) var(--ease-soft);
 }
 
 .avatar-btn:hover {
@@ -6437,12 +6530,12 @@ button.risk-chip:hover {
 
 .avatar-menu-up {
   bottom: calc(100% + 10px);
-  animation: wca-menu-up 0.18s ease both;
+  animation: wca-menu-up var(--dur-2) var(--ease-out) both;
 }
 
 .avatar-menu-down {
   top: calc(100% + 10px);
-  animation: wca-menu-down 0.18s ease both;
+  animation: wca-menu-down var(--dur-2) var(--ease-out) both;
 }
 
 @keyframes wca-menu-up {
@@ -6534,7 +6627,7 @@ button.risk-chip:hover {
   color: var(--signal-soft);
   font-size: 11.5px;
   font-weight: 600;
-  transition: transform 0.15s ease;
+  transition: transform var(--dur-2) var(--ease-soft);
 }
 
 .avatar-credits:hover {
@@ -6566,7 +6659,7 @@ button.risk-chip:hover {
   background: none;
   color: var(--fg-1);
   text-align: left;
-  transition: background 0.14s ease, color 0.14s ease;
+  transition: background var(--dur-2) var(--ease-soft), color var(--dur-2) var(--ease-soft);
 }
 
 .avatar-item:hover {
@@ -6615,7 +6708,7 @@ button.risk-chip:hover {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color var(--dur-2) var(--ease-soft), transform var(--dur-2) var(--ease-soft);
 }
 
 .avatar-theme:hover {
@@ -6749,7 +6842,7 @@ button.risk-chip:hover {
   background: color-mix(in srgb, var(--bg-1) 88%, transparent);
   box-shadow: var(--shadow-soft), var(--panel-edge);
   overflow: hidden;
-  animation: ad-fade-up 0.5s ease both;
+  animation: ad-fade-up var(--dur-3) var(--ease-out) both;
 }
 
 .term-bar {
@@ -6852,7 +6945,7 @@ button.risk-chip:hover {
   backdrop-filter: blur(14px);
   border-color: var(--line-strong);
   box-shadow: var(--shadow-soft), var(--panel-edge);
-  animation: ad-fade-up 0.45s ease both;
+  animation: ad-fade-up var(--dur-3) var(--ease-out) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -6874,7 +6967,7 @@ button.risk-chip:hover {
 
 .ws-hero {
   padding: 20px 4px 6px;
-  animation: ad-fade-up 0.4s ease both;
+  animation: ad-fade-up var(--dur-3) var(--ease-out) both;
 }
 
 .ws-hero-title {
@@ -6914,7 +7007,7 @@ button.risk-chip:hover {
   background: var(--bg-1);
   color: var(--fg-1);
   text-align: left;
-  transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+  transition: border-color var(--dur-2) var(--ease-soft), transform var(--dur-2) var(--ease-soft), box-shadow var(--dur-2) var(--ease-soft), background var(--dur-2) var(--ease-soft);
 }
 
 .ws-mode-card:hover {
@@ -6981,8 +7074,9 @@ button.risk-chip:hover {
   cursor: pointer;
   /* 静止态只给贴边高光：卡片「立」在底上，但不抢注意力 */
   box-shadow: var(--panel-edge);
-  animation: ad-fade-up 0.38s ease both;
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  animation: ad-fade-up var(--dur-3) var(--ease-out) both;
+  transition: transform var(--dur-2) var(--ease-soft), border-color var(--dur-2) var(--ease-soft),
+    box-shadow var(--dur-2) var(--ease-soft), background var(--dur-2) var(--ease-soft);
 }
 
 .ws-card:hover {
@@ -6991,6 +7085,12 @@ button.risk-chip:hover {
   background: var(--bg-2);
   /* 悬停才升起：投影换成两段式（贴边 + 大范围），浮起来的量感才够 */
   box-shadow: var(--panel-edge), var(--shadow-lift), 0 2px 14px var(--signal-dim);
+}
+
+/* 按下去：从抬升态回落，像手指把卡片压回去 —— 点与不点终于有区别 */
+.ws-card:active {
+  transform: translateY(-1px) scale(0.996);
+  transition-duration: var(--dur-1);
 }
 
 .ws-card-icon {
@@ -7041,7 +7141,7 @@ button.risk-chip:hover {
   font-size: 11.5px;
   font-weight: 600;
   color: var(--fg-3);
-  transition: color 0.16s ease, transform 0.16s ease;
+  transition: color var(--dur-2) var(--ease-soft), transform var(--dur-2) var(--ease-soft);
 }
 
 .ws-card:hover .ws-card-go {
@@ -7078,7 +7178,7 @@ button.risk-chip:hover {
   border: 1px solid var(--line);
   cursor: pointer;
   user-select: none;
-  transition: border-color 0.15s ease;
+  transition: border-color var(--dur-2) var(--ease-soft);
 }
 
 .captcha-img:hover {
@@ -7119,7 +7219,7 @@ button.risk-chip:hover {
   backdrop-filter: blur(10px);
   box-shadow: var(--shadow-soft), var(--panel-edge);
   z-index: 30;
-  animation: ad-slide-in 0.22s ease both;
+  animation: ad-slide-in var(--dur-3) var(--ease-out) both;
   overflow: hidden;
 }
 
@@ -7176,7 +7276,7 @@ button.risk-chip:hover {
   border-radius: var(--radius-s);
   background: var(--bg-1);
   text-align: left;
-  transition: border-color 0.14s ease, background 0.14s ease, transform 0.14s ease;
+  transition: border-color var(--dur-2) var(--ease-soft), background var(--dur-2) var(--ease-soft), transform var(--dur-2) var(--ease-soft);
 }
 
 .nav-item:hover {
@@ -7220,5 +7320,24 @@ button.risk-chip:hover {
 @media (prefers-reduced-motion: reduce) {
   .nav-panel {
     animation: none !important;
+  }
+}
+
+/* ============================================================
+   「减少动态」的全站兜底
+   此前是 6 处分散的 media query、逐个列选择器 —— 列了二十多个还是漏掉了
+   新加的消息入场。这里收成一条通配规则，新元素自动被兜住。
+   注意用 animation-duration 归零而不是 animation: none：
+   后者连 fill-mode 一起清掉，带 `both` 的入场元素（如 .msg）会闪一下；
+   归零则是让动画瞬间跑到终态，视觉上就是「直接出现」。
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
