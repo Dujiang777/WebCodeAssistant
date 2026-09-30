@@ -1,0 +1,37 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "交互手感契约：动效令牌值 + 关键元素的 animation/transition + :active 覆盖面 + 减少动态兜底。全部读 computed / CSSOM，不靠肉眼。" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2200 },
+  ["eval", "localStorage.clear(); location.replace('/#/login'); location.reload(); 'reset'"],
+  { "sleep": 2800 },
+
+  { "note": "① 三档时长 + 曲线 + 两档按压缩量" },
+  ["eval", "var cs=getComputedStyle(document.documentElement); ['DUR1='+cs.getPropertyValue('--dur-1').trim(),'DUR2='+cs.getPropertyValue('--dur-2').trim(),'DUR3='+cs.getPropertyValue('--dur-3').trim(),'EASE_OUT='+cs.getPropertyValue('--ease-out').trim(),'EASE_SOFT='+cs.getPropertyValue('--ease-soft').trim(),'PRESS='+cs.getPropertyValue('--press').trim(),'PRESS_HARD='+cs.getPropertyValue('--press-hard').trim()].join(' | ')"],
+
+  { "note": "② 消息入场：助手从左侧、用户从右侧，各自的方向不能反（这是本批唯一的「新动效」）" },
+  ["eval", "function read(cls){var d=document.createElement('div');d.className=cls;document.body.appendChild(d);var s=getComputedStyle(d);var o={n:s.animationName,d:s.animationDuration,e:s.animationTimingFunction};d.remove();return o;} var a=read('msg msg-role-assistant');var u=read('msg msg-role-user'); 'ASSIST_ANIM='+a.n+'/'+a.d+' USER_ANIM='+u.n+'/'+u.d+' EASE='+a.e"],
+
+  { "note": "③ 交互元素的 transition 必须覆盖它按下时要变的那一项，否则反馈会瞬移（无过渡）。按钮/卡片/轨道用 transform 缩放；文件树是行元素，按下用底色下沉，所以查 background 而不是 transform" },
+  ["eval", "function t(cls){var d=document.createElement(cls==='btn'?'button':'div');d.className=cls;document.body.appendChild(d);var s=getComputedStyle(d);var o={p:s.transitionProperty,d:s.transitionDuration};d.remove();return o;} var b=t('btn');var r=t('tree-row');var w=t('ws-card');var l=t('rail-btn'); 'BTN_HAS_TF='+(b.p.indexOf('transform')>=0)+' WS_TF='+(w.p.indexOf('transform')>=0)+' RAIL_TF='+(l.p.indexOf('transform')>=0)+' TREE_HAS_BG='+(r.p.indexOf('background')>=0)+' BTN_DUR='+b.d"],
+
+  { "note": "④ :active 覆盖面：改前全站只有 1 处（且是 .msg-action 的微沉），现在应 ≥ 9 处，覆盖按钮/卡片/列表行/轨道" },
+  ["eval", "var sel=[];for(var i=0;i<document.styleSheets.length;i++){try{var rs=document.styleSheets[i].cssRules;for(var j=0;j<rs.length;j++){var r=rs[j];if(r.selectorText&&r.selectorText.indexOf(':active')>=0)sel.push(r.selectorText);}}catch(e){}} 'ACTIVE_COUNT='+sel.length+' SEL='+sel.join(',')"],
+
+  { "note": "⑤ 减少动态兜底：必须是通配规则 + 用 animation-duration 归零（而不是 animation:none，否则带 both 的入场元素会闪）" },
+  ["eval", "var n=0,guard=false;for(var i=0;i<document.styleSheets.length;i++){try{var rs=document.styleSheets[i].cssRules;for(var j=0;j<rs.length;j++){var r=rs[j];if(r.type===4&&r.conditionText&&r.conditionText.indexOf('prefers-reduced-motion')>=0){n++;if(r.cssText.indexOf('animation-duration')>=0&&r.cssText.indexOf('0.01ms')>=0)guard=true;}}}catch(e){}} 'RM_BLOCKS='+n+' RM_GUARD='+guard"],
+
+  { "note": "⑥ 入场节奏统一：ad-fade-up 原先是 10 种时长，现在应只剩一种 computed 值" },
+  ["eval", "function anim(cls){var d=document.createElement('div');d.className=cls;document.body.appendChild(d);var s=getComputedStyle(d);var o=s.animationName+'/'+s.animationDuration;d.remove();return o;} 'WS_CARD_ANIM='+anim('ws-card')"],
+
+  { "note": "造一条对话样子截图存证。三件事要记牢：①必须带 z-index，登录页的遮罩伪元素会盖住 fixed 元素；②不用 transform 居中，免得撞上动画 fill 与自身 transform 的冲突；③用户气泡的纸张本体在 .msg-main 上（2026-09-28 重构后 .msg-role-user 只是容器），只造外层会得到一块透明" },
+  ["eval", "var mk=function(rootCls,text,top){var d=document.createElement('div');d.className=rootCls;d.style.cssText='position:fixed;top:'+top+'px;left:calc(50% - 260px);width:520px;z-index:999';var m=document.createElement('div');m.className='msg-main';var b=document.createElement('div');b.className='msg-body';b.textContent=text;m.appendChild(b);d.appendChild(m);document.body.appendChild(d);return d;}; mk('msg msg-role-user','用户消息：入场时从右侧落定',60); mk('msg msg-role-assistant','助手消息：入场时从左侧铺开',130); var b=document.createElement('button');b.className='btn btn-primary';b.textContent='按压缩放 0.97';b.style.cssText='position:fixed;top:215px;left:calc(50% - 60px);z-index:999';document.body.appendChild(b); 'MADE'"],
+  { "sleep": 900 },
+  { "note": "入场动画的终态必须落到「完全可见」：both 填充最容易翻车的地方（动画没跑起来就永远停在 opacity 0）。纸张本体读 .msg-main 的底色，容器本身是透明的（这是设计）" },
+  ["eval", "var u=document.querySelector('.msg-role-user');var m=document.querySelector('.msg-role-user .msg-main');var s=getComputedStyle(u);var ms=getComputedStyle(m); 'USER_END_OPACITY='+s.opacity+' USER_BG='+ms.backgroundColor+' USER_SHADOW='+(ms.boxShadow!=='none')+' USER_TRANSLATE='+s.translate"],
+  ["screenshot", "docs/self-test/v8/motion-01-handfeel.png"],
+
+  { "note": "收尾必须硬刷：造在 body 上的探测元素不 reload 会跟着 daemon 活到下一个剧本（批20 就栽在这）" },
+  ["eval", "location.reload(); 'cleaned'"]
+]
