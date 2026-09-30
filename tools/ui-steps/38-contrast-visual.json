@@ -1,0 +1,21 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "视觉对照：同一段失败提示在 ivory 下的渲染（旧浅粉 #ffb3bd vs 新深红 --danger-fg）。用样式相同的元素造出来，避免触发登录失败计数。" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2200 },
+  ["eval", "localStorage.clear(); localStorage.setItem('wca.theme','ivory'); location.replace('/#/login'); location.reload(); 'ivory'"],
+  { "sleep": 2800 },
+  ["eval", "var old=document.createElement('div'); old.className='form-error'; old.id='probe-old'; old.textContent='旧值（#ffb3bd）：邮箱或密码不正确，请重试'; old.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:999;min-width:460px;color:#ffb3bd'; document.body.appendChild(old); var nu=document.createElement('div'); nu.className='form-error'; nu.id='probe-new'; nu.textContent='新值（--danger-fg）：邮箱或密码不正确，请重试'; nu.style.cssText='position:fixed;top:118px;left:50%;transform:translateX(-50%);z-index:999;min-width:460px'; document.body.appendChild(nu); 'OLD=' + getComputedStyle(old).color + ' NEW=' + getComputedStyle(nu).color"],
+  { "sleep": 300 },
+  ["screenshot", "docs/self-test/v8/contrast-01-ivory-form-error.png"],
+
+  { "note": "切回 brass 做同样的对照（深底上浅粉才是对的）" },
+  ["eval", "localStorage.setItem('wca.theme','brass'); location.replace('/#/login'); location.reload(); 'brass'"],
+  { "sleep": 2600 },
+  ["eval", "var old=document.createElement('div'); old.className='form-error'; old.textContent='深底主题：浅粉字本来就该是这样'; old.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:999;min-width:460px'; document.body.appendChild(old); 'BRASS_COLOR=' + getComputedStyle(old).color"],
+  { "sleep": 300 },
+  ["screenshot", "docs/self-test/v8/contrast-02-brass-form-error.png"],
+  { "note": "收尾必须硬刷：造在 body 上的探测元素不 reload 就会跟着 daemon 活到下一个剧本" },
+  ["eval", "localStorage.setItem('wca.theme','brass'); location.reload(); 'restored'"]
+]
