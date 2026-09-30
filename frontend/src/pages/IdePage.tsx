@@ -1124,6 +1124,23 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
 
   // ------------------------------------------------------------ 会话操作
 
+  /**
+   * 重新生成：把最后一条用户消息原样再发一次。
+   *
+   * <p>刻意<b>不做</b>「就地覆盖上一条回答」：那需要服务端删消息的能力，
+   * 而且会让积分流水对不上（上一轮已经结算过）。重发是最诚实的做法 ——
+   * 新一轮、新计费，旧回答留在历史里可以对照（想比较两次答案时反而更好用）。
+   */
+  const regenerate = async () => {
+    if (sending) return;
+    const lastUser = [...messages].reverse().find((message) => message.role === 'user');
+    if (!lastUser || !lastUser.content.trim()) {
+      toast.error('没有可以重新生成的问题');
+      return;
+    }
+    await send(lastUser.content);
+  };
+
   const send = async (content: string) => {
     const sid = sessionId;
     if (sid === null) {
@@ -1450,6 +1467,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               onModeChange={setMode}
               onSend={(content) => void send(content)}
               onStop={() => void stopTurn()}
+              onRegenerate={() => void regenerate()}
               onSelectSession={setSessionId}
               onNewSession={() => void createSession()}
               onClearSelection={() => setSelection(null)}

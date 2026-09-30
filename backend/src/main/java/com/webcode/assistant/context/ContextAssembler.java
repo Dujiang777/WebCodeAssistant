@@ -18,6 +18,7 @@ import java.util.StringJoiner;
  * <p>顺序（也是模型读到的优先级）：
  * <ol>
  *   <li>角色与硬约束（{@link SystemPrompts#BASE}）；</li>
+ *   <li>执行纪律（{@link SystemPrompts#EXECUTION_DISCIPLINE}）—— 别问许可、别重复问、做完再收尾；</li>
  *   <li>证据引用规则（{@link SystemPrompts#CITATION_RULES}）—— 每句结论必须挂「文件:行号」；</li>
  *   <li>当前模式段落（交付 / 教学，{@link SystemPrompts#modeBlock(String)}）；</li>
  *   <li>项目画像：顶层目录、构建系统、构建文件与 README 片段；</li>
@@ -57,6 +58,7 @@ public class ContextAssembler {
 
         StringBuilder prompt = new StringBuilder();
         prompt.append(SystemPrompts.BASE.formatted(workspace.name()));
+        prompt.append(SystemPrompts.EXECUTION_DISCIPLINE);
         prompt.append(SystemPrompts.CITATION_RULES);
         prompt.append(SystemPrompts.modeBlock(request.normalizedMode()));
 

@@ -344,6 +344,36 @@ export function DeviceIcon({ size = 16, className }: IconProps) {
   );
 }
 
+/** 消息操作：复制（两张叠起来的纸）。 */
+export function CopyIcon({ size = 14, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} strokeWidth={1.5}>
+      <rect x="5.4" y="5.4" width="8.2" height="8.6" rx="1.6" />
+      <path d="M10.6 5.4V4.2a1.6 1.6 0 0 0-1.6-1.6H4.1a1.6 1.6 0 0 0-1.6 1.6v5.6a1.6 1.6 0 0 0 1.6 1.6h1.3" />
+    </svg>
+  );
+}
+
+/** 消息操作：改后重发（铅笔）。 */
+export function EditIcon({ size = 14, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} strokeWidth={1.5}>
+      <path d="M11.1 2.4l2.5 2.5-7.4 7.4-3.2.7.7-3.2 7.4-7.4z" />
+      <path d="M9.6 3.9l2.5 2.5" />
+    </svg>
+  );
+}
+
+/** 消息操作：引用（引号）。 */
+export function QuoteIcon({ size = 14, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} strokeWidth={1.5}>
+      <path d="M3.2 9.6c0-2.6 1.3-4.4 3.6-5.4l.5 1.2C6 6 5.2 6.8 5 7.7c.9.1 1.5.8 1.5 1.7 0 1-.7 1.7-1.7 1.7s-1.6-.6-1.6-1.5z" />
+      <path d="M9.1 9.6c0-2.6 1.3-4.4 3.6-5.4l.5 1.2c-1.3.6-2.1 1.4-2.3 2.3.9.1 1.5.8 1.5 1.7 0 1-.7 1.7-1.7 1.7s-1.6-.6-1.6-1.5z" />
+    </svg>
+  );
+}
+
 /**
  * 由文件扩展名取一个短标签 + 颜色，用于文件树上的语言标识。
  * 颜色只在少数几种语言上区分，避免变成圣诞树。

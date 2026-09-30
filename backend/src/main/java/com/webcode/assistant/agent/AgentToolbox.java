@@ -118,6 +118,7 @@ public class AgentToolbox {
     @Tool(name = "set_plan", value = """
             在开始多步工作之前，先用它给出本次任务的执行计划（3~6 步，每步一句短语，按执行顺序）。
             计划会实时展示给用户 —— 用户先看到「你打算怎么做」，再看每一步的执行，理解成本最低。
+            **这不是等待批准的环节**：调用之后立刻开始执行第一步，不要停下来问「按这个计划做吗」。
             执行中有重大变化时可以再次调用，新计划会整体替换旧计划。
             只读问答、单文件小改动不需要计划，直接回答或直接给补丁即可。
             """)
@@ -134,8 +135,8 @@ public class AgentToolbox {
             if (cleaned.isEmpty()) {
                 return outcome("计划为空，用户什么都没看到。请给出 3~6 条非空步骤。", "计划为空");
             }
-            return outcome("计划已展示给用户（共 " + cleaned.size() + " 步）。请按计划开始执行，"
-                    + "不要在回答里再复述一遍计划。", "计划 " + cleaned.size() + " 步");
+            return outcome("计划已展示给用户（共 " + cleaned.size() + " 步）。**现在立刻开始执行第一步**，"
+                    + "不要等待用户确认计划，也不要在回答里再复述一遍计划。", "计划 " + cleaned.size() + " 步");
         });
     }
 
@@ -565,7 +566,8 @@ public class AgentToolbox {
         // 模型拿到这个结果后基本都会收敛到最终回答。真正的硬约束见 README「已知限制」。
         if (toolCalls.incrementAndGet() > maxToolSteps) {
             String limitMessage = "已达到本轮工具调用上限（" + maxToolSteps + " 次）。"
-                    + "请立即基于已有信息给出最终回答，不要再调用工具。";
+                    + "请立即收尾，不要再调用工具：用要求回执格式说明「已经做完什么、还剩什么没做、"
+                    + "没做的原因」，让用户知道下一步该说什么。";
             publisher.toolResult(toolName, false, limitMessage);
             deskService.toolFinished(sessionId, toolName, false, limitMessage);
             return "工具执行失败 -> " + limitMessage;

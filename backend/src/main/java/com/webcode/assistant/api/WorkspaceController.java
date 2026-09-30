@@ -257,14 +257,20 @@ public class WorkspaceController {
                 .toList();
     }
 
-    /** 跨文件补全：前缀过滤工作区符号表（TTL 缓存 15 秒）。 */
+    /**
+     * 跨文件补全：前缀过滤工作区符号表（TTL 缓存 15 秒）。
+     *
+     * <p>{@code file} 是用户正在编辑的文件（可空）—— 排序要靠它把「同文件 / 同目录」
+     * 的符号顶到前面，缺了它补全就只能按索引顺序给，用户会觉得「不准」。
+     */
     @GetMapping("/{id}/completions")
     public List<ApiModels.CompletionSymbolView> completions(@PathVariable long id,
-                                                            @RequestParam("prefix") String prefix) {
+                                                            @RequestParam("prefix") String prefix,
+                                                            @RequestParam(value = "file", required = false) String file) {
         Workspace workspace = requireWorkspace(id);
-        return completionService.complete(workspace, prefix).stream()
+        return completionService.complete(workspace, prefix, file).stream()
                 .map(symbol -> new ApiModels.CompletionSymbolView(
-                        symbol.name(), symbol.kind(), symbol.file(), symbol.line()))
+                        symbol.name(), symbol.kind(), symbol.file(), symbol.line(), symbol.snippet()))
                 .toList();
     }
 

@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -43,8 +44,14 @@ public class CompletionService {
     /** 单次返回的候选上限：建议面板一屏能消化的量。 */
     private static final int MAX_CANDIDATES = 60;
 
-    /** 一个可补全的符号。kind: class / function / method / field / variable。 */
-    public record Symbol(String name, String kind, String file, int line) {
+    /**
+     * 一个可补全的符号。
+     *
+     * <p>{@code kind}: class / function / method / field / variable。
+     * {@code snippet} 是定义那一行的原文（已 trim、截断）—— 建议面板右侧会显示它，
+     * 让用户在不跳转的情况下就能确认「是不是我要的那个」。
+     */
+    public record Symbol(String name, String kind, String file, int line, String snippet) {
     }
 
     private record CacheEntry(long builtAt, List<Symbol> symbols) {
@@ -87,31 +94,33 @@ public class CompletionService {
     }
 
     /**
-     * 按前缀补全。大小写不敏感的 startsWith 优先，其余按出现顺序截断到上限。
+     * 按前缀补全，结果按相关性排序。
+     *
+     * <p>排序权重（2026-09-30 加）：先看这个符号离用户多远 —— 同文件 &gt; 同目录 &gt; 其他；
+     * 再看它的性质 —— 类型 &gt; 可调用 &gt; 字段/变量；最后才比名字长短。
+     * 之前只按「索引扫描顺序」排，用户敲 `us` 时同文件的 UserService 可能排在
+     * 某个遥远目录的 userAudit 后面 —— 那等于没有排序。前缀命中一律优先于子串命中。
      */
-    public List<Symbol> complete(Workspace workspace, String prefix) {
+    public List<Symbol> complete(Workspace workspace, String prefix, String currentFile) {
         List<Symbol> symbols = symbolTable(workspace);
         if (symbols.isEmpty()) {
             return List.of();
         }
-        String key = prefix == null ? "" : prefix.trim().toLowerCase(Locale.ROOT);
-        if (key.isEmpty()) {
-            return symbols.subList(0, Math.min(MAX_CANDIDATES, symbols.size()));
-        }
+        String lower = prefix == null ? "" : prefix.trim().toLowerCase(Locale.ROOT);
         List<Symbol> starts = new ArrayList<>();
         List<Symbol> contains = new ArrayList<>();
         for (Symbol symbol : symbols) {
             String name = symbol.name().toLowerCase(Locale.ROOT);
-            if (name.startsWith(key)) {
+            if (lower.isEmpty() || name.startsWith(lower)) {
                 starts.add(symbol);
-                if (starts.size() >= MAX_CANDIDATES) {
-                    break;
-                }
-            } else if (name.contains(key) && contains.size() < MAX_CANDIDATES) {
+            } else if (name.contains(lower)) {
                 contains.add(symbol);
             }
         }
-        List<Symbol> result = new ArrayList<>(starts);
+        Comparator<Symbol> order = relevance(currentFile);
+        starts.sort(order);
+        contains.sort(order);
+        List<Symbol> result = new ArrayList<>(starts.subList(0, Math.min(MAX_CANDIDATES, starts.size())));
         for (Symbol symbol : contains) {
             if (result.size() >= MAX_CANDIDATES) {
                 break;
@@ -119,6 +128,47 @@ public class CompletionService {
             result.add(symbol);
         }
         return result;
+    }
+
+    /** 相关性排序：同文件 &gt; 同目录 &gt; 其他；同层内类型 &gt; 可调用 &gt; 字段；再比名字。 */
+    private static Comparator<Symbol> relevance(String currentFile) {
+        String file = currentFile == null ? "" : currentFile.replace('\\', '/');
+        String dir = file.contains("/") ? file.substring(0, file.lastIndexOf('/')) : "";
+        return Comparator
+                .comparingInt((Symbol symbol) -> locality(symbol, file, dir))
+                .thenComparingInt(symbol -> kindWeight(symbol.kind()))
+                .thenComparingInt(symbol -> symbol.name().length())
+                .thenComparing(Symbol::name);
+    }
+
+    /** 离当前编辑位置的距离：0 = 同一个文件，1 = 同一个目录，2 = 别处。 */
+    private static int locality(Symbol symbol, String file, String dir) {
+        String target = symbol.file() == null ? "" : symbol.file().replace('\\', '/');
+        if (!file.isEmpty() && target.equals(file)) {
+            return 0;
+        }
+        if (!dir.isEmpty() && target.startsWith(dir + "/")) {
+            return 1;
+        }
+        return 2;
+    }
+
+    /** 类型先于可调用，可调用先于字段 —— 补全面板的第一屏应该是最常用的东西。 */
+    private static int kindWeight(String kind) {
+        return switch (kind == null ? "" : kind) {
+            case "class" -> 0;
+            case "method", "function" -> 1;
+            default -> 2;
+        };
+    }
+
+    /** 定义行原文：压掉缩进并截断（建议面板一行能显示的极限）。 */
+    private static String snippetOf(String line) {
+        if (line == null) {
+            return "";
+        }
+        String text = line.strip();
+        return text.length() > 120 ? text.substring(0, 120) + "…" : text;
     }
 
     /** 符号表（带 TTL 缓存）。 */
@@ -156,7 +206,8 @@ public class CompletionService {
                 if (unique.containsKey(key)) {
                     continue;
                 }
-                unique.put(key, new Symbol(name, rule.kind(), match.file(), match.line()));
+                unique.put(key, new Symbol(name, rule.kind(), match.file(), match.line(),
+                        snippetOf(match.text())));
                 seenFiles.add(match.file());
                 if (unique.size() >= MAX_SYMBOLS) {
                     return new ArrayList<>(unique.values());

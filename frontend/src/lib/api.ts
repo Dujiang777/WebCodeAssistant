@@ -109,6 +109,8 @@ export interface CompletionSymbol {
   kind: 'class' | 'function' | 'method' | 'field' | 'variable';
   file: string;
   line: number;
+  /** 定义那一行的原文，直接当作建议面板的说明文字。 */
+  snippet: string;
 }
 
 /** 当前用户 + 积分概览（`GET /api/auth/me`）。 */
@@ -660,10 +662,14 @@ export const api = {
       body: JSON.stringify({ path, content }),
     }),
 
-  /** 跨文件补全：按前缀查工作区符号表。 */
-  completions: (workspaceId: number, prefix: string) =>
+  /**
+   * 跨文件补全：按前缀查工作区符号表。
+   * `file` 是正在编辑的文件 —— 服务端用它把同文件 / 同目录的符号排到前面。
+   */
+  completions: (workspaceId: number, prefix: string, file?: string | null) =>
     request<CompletionSymbol[]>(
-      `/api/workspaces/${workspaceId}/completions?prefix=${encodeURIComponent(prefix)}`,
+      `/api/workspaces/${workspaceId}/completions?prefix=${encodeURIComponent(prefix)}`
+      + (file ? `&file=${encodeURIComponent(file)}` : ''),
     ),
 
   // ---------------------------------------------------------------- 账号

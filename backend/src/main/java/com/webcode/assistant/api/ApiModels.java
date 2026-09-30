@@ -116,8 +116,11 @@ public final class ApiModels {
                                 String severity, String message) {
     }
 
-    /** 一个可补全的符号。kind: class / function / method / field / variable。 */
-    public record CompletionSymbolView(String name, String kind, String file, int line) {
+    /**
+     * 一个可补全的符号。kind: class / function / method / field / variable。
+     * {@code snippet} 是定义那一行的原文，直接显示在建议面板右侧当说明。
+     */
+    public record CompletionSymbolView(String name, String kind, String file, int line, String snippet) {
     }
 
     /**
