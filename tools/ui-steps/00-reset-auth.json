@@ -1,0 +1,10 @@
+[
+  { "note": "跑任何登录态剧本之前的固定前戏：清掉上一个剧本留下的登录态，并硬刷新到登录页。只在 /#/workspaces 里 clear 不够 —— SPA 的内存态与刷新中的 token 会把它写回去，于是下一个剧本 open /#/login 时 #username 还不存在（报 Illegal invocation），看起来像样式或功能回归，其实是状态污染。" },
+  ["open", "http://127.0.0.1:5173/#/workspaces"],
+  { "sleep": 1600 },
+  ["eval", "localStorage.clear(); sessionStorage.clear(); 'cleared'"],
+  { "sleep": 300 },
+  ["eval", "location.replace('/#/login'); location.reload(); 'reloading'"],
+  { "sleep": 2600 },
+  ["eval", "'RESET_OK=' + (location.hash === '#/login' && !!document.querySelector('#username'))"]
+]

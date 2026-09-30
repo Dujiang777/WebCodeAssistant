@@ -11,12 +11,14 @@
    ========================================================================== */
 
 :root {
-  /* 底色：暖调近黑，像暗房里的相纸暗盒 */
-  --bg-0: #0b0a08;
-  --bg-1: #12100c;
-  --bg-2: #171410;
-  --bg-3: #1d1914;
-  --bg-4: #25201a;
+  /* 底色：暖调近黑，像暗房里的相纸暗盒。
+     精修（2026-09-30）：底再压深半档、面板再抬半档 —— 拉开「底 / 面 / 抬起」三级，
+     面板才像一块独立的面，而不是底色上的一片色差。 */
+  --bg-0: #0a0907;
+  --bg-1: #14110d;
+  --bg-2: #191510;
+  --bg-3: #1f1a14;
+  --bg-4: #272119;
 
   --line: #2e2a22;
   --line-soft: #1e1b15;
@@ -65,15 +67,22 @@
   --rail-w: 52px;
   --radius: 12px;
   --radius-s: 8px;
+  --radius-l: 16px;
   --radius-pill: 999px;
 
-  /* 面板的统一质感：细边框 + 柔和投影，温润卡片 */
+  /* 面板质感（2026-09-30「锻炉精修」）：从「一层平投影」改成「贴边高光 + 两段投影」。
+     第一段 1px 贴边负责「这张卡是浮在底上的」，第二段大范围负责纵深 ——
+     只有一段大投影时卡片显得飘，只有贴边时又显得平。 */
   --panel-edge: inset 0 1px 0 rgba(242, 236, 222, 0.05);
-  --shadow-soft: 0 8px 28px rgba(0, 0, 0, 0.35);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.42), 0 10px 26px rgba(0, 0, 0, 0.3);
+  --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.44), 0 18px 44px rgba(0, 0, 0, 0.42);
+  --shadow-modal: 0 40px 90px rgba(0, 0, 0, 0.62);
 
-  /* 页面底纹（44px 发丝网格 + 左上角金色光晕），颜色随主题走 */
+  /* 页面底纹：只留左上角一团暖光。44px 发丝网格已撤 —— 精修方向是「工作面要干净」，
+     网格留在这里只会把正文和代码格成一张坐标纸。--grid-line 声明保留（历史主题会覆盖它），
+     但本文件已无使用点。 */
   --grid-line: rgba(240, 232, 214, 0.03);
-  --glow: rgba(232, 180, 90, 0.05);
+  --glow: rgba(232, 180, 90, 0.055);
   --scrollbar-thumb: #3a352a;
 
   color-scheme: dark;
@@ -174,10 +183,10 @@ body,
 }
 
 body {
+  /* 精修（2026-09-30）：撤掉 44px 发丝网格，只留左上角一团暖光当氛围。
+     网格原先承担「暗房」的隐喻，但代价是把每一块内容都切进格子 —— 不值。 */
   background:
-    radial-gradient(1100px 560px at 10% -10%, var(--glow), transparent 62%),
-    linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / 100% 44px,
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / 44px 100%,
+    radial-gradient(1200px 620px at 12% -12%, var(--glow), transparent 66%),
     var(--bg-0);
   color: var(--fg-0);
   font-family: var(--font-ui);
@@ -1731,6 +1740,9 @@ a.link:hover,
     linear-gradient(180deg, rgba(180, 140, 255, 0.04), transparent 30px),
     var(--bg-2);
   padding: 10px 12px;
+  /* 精修：补丁是这一屏里最该被「拿起来看」的东西 —— 给它贴边高光 + 浅投影，
+     从聊天流里浮出来，但不做成弹窗那么重 */
+  box-shadow: var(--panel-edge), var(--shadow-soft);
 }
 
 .patch-head {
@@ -6625,10 +6637,8 @@ button.risk-chip:hover {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background:
-    linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / 100% 44px,
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / 44px 100%;
-  mask-image: radial-gradient(1100px 700px at 30% 40%, #000 30%, transparent 78%);
+  /* 精修：网格撤掉后，这层改成顶部渐暗的纵深 —— 大面积纯平会比网格更显空 */
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.3), transparent 46%);
   z-index: 0;
 }
 
@@ -6888,6 +6898,8 @@ button.risk-chip:hover {
   border-radius: var(--radius);
   background: var(--bg-1);
   cursor: pointer;
+  /* 静止态只给贴边高光：卡片「立」在底上，但不抢注意力 */
+  box-shadow: var(--panel-edge);
   animation: ad-fade-up 0.38s ease both;
   transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
@@ -6896,7 +6908,8 @@ button.risk-chip:hover {
   transform: translateY(-3px);
   border-color: var(--signal-line);
   background: var(--bg-2);
-  box-shadow: var(--shadow-soft), 0 2px 14px var(--signal-dim);
+  /* 悬停才升起：投影换成两段式（贴边 + 大范围），浮起来的量感才够 */
+  box-shadow: var(--panel-edge), var(--shadow-lift), 0 2px 14px var(--signal-dim);
 }
 
 .ws-card-icon {
