@@ -1,4 +1,4 @@
-import { navigate, previousPath } from '../lib/router';
+import { lastIdePath, navigate, previousPath } from '../lib/router';
 import { AvatarMenu } from './AvatarMenu';
 import { TerminalMark, ChevronIcon } from './icons';
 
@@ -24,9 +24,27 @@ interface PageBarProps {
 }
 
 export function PageBar({ title, subtitle, balance, lowBalance, active, isAdmin, onBack, onLogout }: PageBarProps) {
+  // 品牌区 = 「回工作台」：回到你最近干活的那个编辑器；从没进过编辑器就回工作区列表。
+  // 与左边「返回」按钮的分工 —— 返回是回上一跳（刷新一下就没有了），品牌区走的是
+  // 一条持久化的记忆，所以刷新落在设置页也能一键回到刚才那个编辑器。
+  const goHome = () => navigate(lastIdePath() ?? '/workspaces');
+
   return (
     <header className="topbar">
-      <div className="brand">
+      <div
+        className="brand brand-link"
+        role="button"
+        tabIndex={0}
+        title="回到工作台"
+        onClick={goHome}
+        onKeyDown={(event) => {
+          // 自绘按钮要自己补键盘激活，否则 Tab 到它按回车毫无反应
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            goHome();
+          }
+        }}
+      >
         <TerminalMark size={22} className="brand-mark" />
         <div className="brand-text">
           <span className="brand-name">WEB CODE ASSISTANT</span>

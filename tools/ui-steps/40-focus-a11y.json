@@ -1,0 +1,56 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "键盘可见性契约（批22）：焦点环令牌三主题取值 + 全站兜底规则 + 输入类例外 + 真实聚焦后的 computed outline。全部读 CSSOM / computed，不靠肉眼。" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2200 },
+  { "note": "硬刷前戏：清登录态再重载，否则下一个剧本会吃到残留会话" },
+  ["eval", "localStorage.clear(); location.replace('/#/login'); location.reload(); 'reset'"],
+  { "sleep": 2800 },
+
+  { "note": "① 三主题的焦点环取值：一律「实心」强调色。半透明环叠在暗底上就是一圈灰、等于没画（旧 .btn 环是 14% 的金）。brass 亮金 / emerald 亮绿 / ivory 深铜" },
+  ["eval", "var r=document.documentElement;var out=[];['','emerald','ivory'].forEach(function(t){if(t){r.setAttribute('data-theme',t);}else{r.removeAttribute('data-theme');}out.push((t||'brass').toUpperCase()+'='+getComputedStyle(r).getPropertyValue('--ring').trim());});r.removeAttribute('data-theme');'RING: '+out.join(' | ')"],
+
+  { "note": "② 全站兜底：:focus-visible 必须画 2px 实心环 + 2px 缝。用 outline 而不是 box-shadow —— 不占布局、不被 overflow 裁、且跟随 border-radius（胶囊按钮上就是一圈胶囊环）" },
+  ["eval", "var hit=[];for(var i=0;i<document.styleSheets.length;i++){try{var rs=document.styleSheets[i].cssRules;for(var j=0;j<rs.length;j++){var r=rs[j];if(r.selectorText&&r.selectorText.replace(/\\s/g,'')===':focus-visible'){hit.push(r.cssText.replace(/\\s+/g,' '));}}}catch(e){}}'FV_COUNT='+hit.length+' >> '+hit.join(' ;; ')"],
+
+  { "note": "③ 输入类例外：input / textarea 的 :focus-visible 必须归零 outline。按规范它们即使鼠标点击也匹配这个伪类，不归零则每次点输入框都闪一圈 —— 它们改用「边框变金 + 内晕」表达聚焦" },
+  ["eval", "var t='';for(var i=0;i<document.styleSheets.length;i++){try{var rs=document.styleSheets[i].cssRules;for(var j=0;j<rs.length;j++){var r=rs[j];if(r.selectorText&&r.selectorText.replace(/\\s/g,'').indexOf('input:focus-visible')>=0){t=r.selectorText+' >> '+r.cssText.replace(/\\s+/g,' ');}}}catch(e){}}t?'INPUT_EXCEPT='+t:'INPUT_EXCEPT=MISSING'"],
+
+  { "note": "④ .btn 的焦点指示从「14% 半透明影」升级为实心环：规则里应出现 outline、且不再有 box-shadow" },
+  ["eval", "var t='';for(var i=0;i<document.styleSheets.length;i++){try{var rs=document.styleSheets[i].cssRules;for(var j=0;j<rs.length;j++){var r=rs[j];if(r.selectorText==='.btn:focus-visible'){t=r.cssText.replace(/\\s+/g,' ');}}}catch(e){}}'BTN_RULE='+t+' | HAS_OUTLINE='+(t.indexOf('outline')>=0)+' NO_BOXSHADOW='+(t.indexOf('box-shadow')<0)"],
+
+  { "note": "⑤ select 类原先两处 `outline: none` 把键盘焦点整个抹掉（Tab 到它就完全没提示），现在必须解除" },
+  ["eval", "var t=[];for(var i=0;i<document.styleSheets.length;i++){try{var rs=document.styleSheets[i].cssRules;for(var j=0;j<rs.length;j++){var r=rs[j];if(r.selectorText&&/\\.(ad-select|session-select):focus/.test(r.selectorText)){t.push(r.selectorText.replace(/\\s+/g,' ')+' >> '+r.cssText.replace(/\\s+/g,' '));}}}catch(e){}}'SEL_RULES='+t.join(' ;; ')+' | KILLS_FOCUS='+(t.join('').indexOf('outline:none')>=0)"],
+
+  { "note": "⑥ 真实聚焦（不造元素）：登录页提交按钮。先把表单填上 —— 它的 disabled 条件是 busy || !ready，空表单时 ready=false，disabled 的元素根本聚焦不了。" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set; var u=document.querySelector('#username'); s.call(u,'ring-probe'); u.dispatchEvent(new Event('input',{bubbles:true})); var p=document.querySelector('#password'); s.call(p,'Probe!2026'); p.dispatchEvent(new Event('input',{bubbles:true})); 'filled'"],
+  { "sleep": 400 },
+  ["eval", "var b=document.querySelector('button.btn.btn-primary[type=submit]'); 'SUBMIT_DISABLED=' + (b ? String(b.disabled) : 'no-btn')"],
+  ["eval", "var b=document.querySelector('button.btn.btn-primary[type=submit]'); b.focus({focusVisible:true}); var s=getComputedStyle(b); 'BTN_FOCUSED='+(document.activeElement===b)+' MATCH_FV='+b.matches(':focus-visible')+' W='+s.outlineWidth+' STYLE='+s.outlineStyle+' COLOR='+s.outlineColor+' OFFSET='+s.outlineOffset"],
+  { "sleep": 400 },
+  ["screenshot", "docs/self-test/v8/ring-01-btn-brass.png"],
+
+  { "note": "⑦ 同一枚按钮在三主题下的环：环必须跟着主题换色。ivory 若还画亮金，那圈环在纸面上等于隐形（对比度不到 2:1）" },
+  ["eval", "document.documentElement.setAttribute('data-theme','emerald');'emerald'"],
+  { "sleep": 500 },
+  ["screenshot", "docs/self-test/v8/ring-02-btn-emerald.png"],
+  ["eval", "document.documentElement.setAttribute('data-theme','ivory');'ivory'"],
+  { "sleep": 500 },
+  ["screenshot", "docs/self-test/v8/ring-03-btn-ivory.png"],
+  ["eval", "document.documentElement.removeAttribute('data-theme');'brass'"],
+  { "sleep": 400 },
+
+  { "note": "⑧ 输入框走另一套语言：聚焦只描金、不画环（例外规则真的生效的证据）。边框色带 0.18s 过渡，聚焦与读数必须分两拍，否则会读到过渡起点。" },
+  ["eval", "var i=document.querySelector('#username'); i.focus({focusVisible:true}); 'focused'"],
+  { "sleep": 500 },
+  ["eval", "var i=document.querySelector('#username');var s=getComputedStyle(i);'INPUT_FOCUSED='+(document.activeElement===i)+' MATCH_FV='+i.matches(':focus-visible')+' W='+s.outlineWidth+' STYLE='+s.outlineStyle+' BORDER='+s.borderTopColor+' SHADOW='+(s.boxShadow!=='none')"],
+  { "sleep": 400 },
+  ["screenshot", "docs/self-test/v8/ring-04-input-focus.png"],
+
+  { "note": "⑨ 占位文字全站一个色：此前只有 .input::placeholder 定过色，搜索 / 命令 / 备注 / 语义描述等输入框全在吃浏览器默认灰" },
+  ["eval", "var i=document.querySelector('#username');var ph=getComputedStyle(i,'::placeholder');'PH_COLOR='+ph.color+' PH_OPACITY='+ph.opacity"],
+
+  { "note": "收尾硬刷：探测期间改过 data-theme、也留过焦点，不 reload 会带进下一个剧本" },
+  ["eval", "location.reload(); 'cleaned'"]
+]

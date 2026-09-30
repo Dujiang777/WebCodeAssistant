@@ -63,7 +63,21 @@ export function TopBar({
 
   return (
     <header className="topbar">
-      <div className="brand">
+      {/* 品牌区也是「回工作区列表」的入口 —— 与二级页顶栏保持一致的可点感。
+          编辑器里点它不会原地打转（二级页那份是回最近编辑器，这里的语义就是回列表）。 */}
+      <div
+        className="brand brand-link"
+        role="button"
+        tabIndex={0}
+        title="返回工作区列表"
+        onClick={onBack}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onBack();
+          }
+        }}
+      >
         <TerminalMark size={22} className="brand-mark" />
         <div className="brand-text">
           <span className="brand-name">WEB CODE ASSISTANT</span>

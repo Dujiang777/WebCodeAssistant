@@ -24,7 +24,7 @@ import type {
 } from '../lib/api';
 import { EMPTY_TURN, messageOf, nextToolId } from '../lib/chat';
 import type { LiveTurn, Selection, ToolItem } from '../lib/chat';
-import { navigate } from '../lib/router';
+import { navigate, rememberIde } from '../lib/router';
 import { openChatStream } from '../lib/sse';
 import type { ChatEvent, StreamStatus } from '../lib/sse';
 import { useToast } from '../lib/toast';
@@ -182,6 +182,12 @@ interface IdePageProps {
 
 export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const toast = useToast();
+
+  // 记下「最近干活的编辑器」：二级页顶栏的品牌区靠它一键回工作台。
+  // 放在这里而不是各二级页，是因为「进过编辑器」只有本页知道。
+  useEffect(() => {
+    rememberIde(workspaceId);
+  }, [workspaceId]);
 
   // ------------------------------------------------------------ 工作区 / 文件
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
