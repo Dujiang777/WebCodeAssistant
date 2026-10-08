@@ -1,0 +1,40 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "黑室换代验证：字体 / 氛围层 / 组件观感。先硬清登录态（契约前戏）" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "localStorage.clear(); location.replace('/#/login'); location.reload(); 'reset'"],
+  { "sleep": 2800 },
+
+  { "note": "① 氛围层：body 双光源背景 + 全屏颗粒层" },
+  ["eval", "var s=getComputedStyle(document.body); 'BODY_BG=' + (s.backgroundImage.match(/radial-gradient/g)||[]).length + '_RADIALS' + ' ATTACH=' + s.backgroundAttachment"],
+  ["eval", "var g=getComputedStyle(document.body,'::after'); 'GRAIN=' + g.opacity + ' BLEND=' + g.mixBlendMode + ' IMG=' + (g.backgroundImage.indexOf('svg')>=0 ? 'yes' : 'no') + ' PE=' + g.pointerEvents"],
+  ["screenshot", "docs/self-test/v8/blk-01-login.png"],
+
+  { "note": "② 字体换代：品牌名与登录大标题应是 Chakra Petch；正文仍是系统字" },
+  ["eval", "var b=document.querySelector('.brand-name'); var t=document.querySelector('.auth-title'); var i=document.querySelector('.input'); 'BRAND_FONT=' + getComputedStyle(b).fontFamily.slice(0,22) + ' TITLE_FONT=' + getComputedStyle(t).fontFamily.slice(0,22) + ' TITLE_SIZE=' + getComputedStyle(t).fontSize + ' INPUT_FONT=' + getComputedStyle(i).fontFamily.slice(0,20)"],
+
+  { "note": "③ 主按钮：三段金渐变实底" },
+  ["eval", "var b=document.querySelector('.btn-primary'); 'BTN_GRAD=' + (getComputedStyle(b).backgroundImage.indexOf('linear-gradient')>=0 ? 'yes' : 'no') + ' TEXTSHADOW=' + (getComputedStyle(b).textShadow !== 'none')"],
+
+  { "note": "④ 顶栏毛玻璃 + 输入框深井" },
+  ["eval", "var h=document.querySelector('.topbar')||document.querySelector('.auth-wrap-v2 .topbar'); 'TOPBAR_BLUR=' + (h ? getComputedStyle(h).backdropFilter : 'NO_TOPBAR')"],
+  ["eval", "var i=document.querySelector('.input'); var s=getComputedStyle(i); 'INPUT_WELL=' + (s.boxShadow.indexOf('inset')>=0 ? 'yes' : 'no') + ' BG=' + s.backgroundColor"],
+
+  { "note": "⑤ 登录进工作区：卡片观感 + IDE 顶栏毛玻璃实拍" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set; var u=document.querySelector('#username'); s.call(u,'admin'); u.dispatchEvent(new Event('input',{bubbles:true})); var p=document.querySelector('#password'); s.call(p,'WcaAdmin!2026'); p.dispatchEvent(new Event('input',{bubbles:true})); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3600 },
+  ["eval", "'AT=' + location.hash + ' CARDS=' + document.querySelectorAll('.ws-card').length"],
+  ["screenshot", "docs/self-test/v8/blk-02-workspaces.png"],
+
+  { "note": "⑥ 进编辑器：顶栏/状态栏毛玻璃 + 展示字面包屑" },
+  ["eval", "var c=document.querySelector('.ws-card'); c && c.dispatchEvent(new MouseEvent('click',{bubbles:true})); 'opened'"],
+  { "sleep": 4200 },
+  ["eval", "'AT=' + location.hash + ' TOPBAR_BLUR=' + getComputedStyle(document.querySelector('.topbar')).backdropFilter + ' CRUMBS_FONT=' + getComputedStyle(document.querySelector('.crumbs')).fontFamily.slice(0,20)"],
+  ["screenshot", "docs/self-test/v8/blk-03-ide.png"],
+
+  ["eval", "location.reload(); 'cleaned'"]
+]

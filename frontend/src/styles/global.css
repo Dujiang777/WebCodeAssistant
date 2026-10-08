@@ -12,9 +12,8 @@
 
 :root {
   /* 底色：暖调近黑，像暗房里的相纸暗盒。
-     精修（2026-09-30）：底再压深半档、面板再抬半档 —— 拉开「底 / 面 / 抬起」三级，
-     面板才像一块独立的面，而不是底色上的一片色差。 */
-  --bg-0: #0a0907;
+     黑室批（2026-10-08）：底再压深到显影盘的黑 —— 氛围光只有在足够黑的底上才读得出「环境」。 */
+  --bg-0: #080604;
   --bg-1: #14110d;
   --bg-2: #191510;
   --bg-3: #1f1a14;
@@ -56,9 +55,12 @@
   --ember-dim: var(--amber-dim);
   --ember-line: var(--amber-line);
 
+  /* 字体三轨（黑室批）：display = 品牌名/页面标题/数字，棱角仪器感；
+     ui 只承担正文（内敛）；mono 升级 JetBrains Mono 优先（数字与代码观感统一）。 */
+  --font-display: 'Chakra Petch', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --font-ui: 'Helvetica Neue', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', system-ui,
     -apple-system, 'Microsoft YaHei', 'Hiragino Sans GB', sans-serif;
-  --font-mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', 'SFMono-Regular', Consolas,
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'SFMono-Regular', Consolas,
     'Liberation Mono', monospace;
 
   --topbar-h: 42px;
@@ -116,7 +118,12 @@
      网格留在这里只会把正文和代码格成一张坐标纸。--grid-line 声明保留（历史主题会覆盖它），
      但本文件已无使用点。 */
   --grid-line: rgba(240, 232, 214, 0.03);
-  --glow: rgba(232, 180, 90, 0.055);
+  /* 氛围双光源（黑室批）：左上暖金主光（暗房安全灯）+ 右下雾蓝灰冷光对冲，
+     一暖一冷才有纵深 —— 单光源是平的。ivory/emerald 各自覆盖。 */
+  --glow: rgba(232, 180, 90, 0.085);
+  --glow-2: rgba(157, 180, 200, 0.05);
+  /* 胶片颗粒强度：body::after 的 feTurbulence 噪点层（覆盖全站像隔着胶片看） */
+  --grain-opacity: 0.05;
   /* 外壳顶部的纵深渐暗（登录 / 注册页 ::after 用）。做成变量是因为它必须跟着主题走：
      深色主题用「压黑」，浅色主题用黑色就是一块脏灰印子 —— ivory 里覆盖成暖褐。 */
   --shell-fade: rgba(0, 0, 0, 0.3);
@@ -191,7 +198,9 @@
   --amber-line: rgba(255, 177, 94, 0.38);
 
   --grid-line: rgba(220, 245, 230, 0.028);
-  --glow: rgba(61, 220, 151, 0.05);
+  --glow: rgba(61, 220, 151, 0.08);
+  --glow-2: rgba(120, 200, 230, 0.04);
+  --grain-opacity: 0.05;
   --scrollbar-thumb: #24402f;
   --panel-edge: inset 0 1px 0 rgba(220, 245, 230, 0.04);
   /* 深底主题照旧「压黑」，只把色相从蓝黑换成绿黑，跟底色同一个家族 */
@@ -250,7 +259,9 @@
   --lime-dim: rgba(46, 139, 87, 0.1);
 
   --grid-line: rgba(70, 58, 34, 0.05);
-  --glow: rgba(156, 109, 20, 0.07);
+  --glow: rgba(156, 109, 20, 0.09);
+  --glow-2: rgba(120, 150, 175, 0.05);
+  --grain-opacity: 0.06;
   --shell-fade: rgba(90, 70, 30, 0.1);
   --scrollbar-thumb: #cfc4a6;
   --panel-edge: inset 0 1px 0 rgba(255, 255, 255, 0.7);
@@ -333,11 +344,13 @@ body,
 }
 
 body {
-  /* 精修（2026-09-30）：撤掉 44px 发丝网格，只留左上角一团暖光当氛围。
-     网格原先承担「暗房」的隐喻，但代价是把每一块内容都切进格子 —— 不值。 */
+  /* 氛围层（黑室批）：双光源环境光 —— 左上暖金主光 + 右下冷光对冲，
+     一暖一冷把「平面底色」变成「有纵深的空间」。attachment:fixed 让光不随滚动跑。 */
   background:
     radial-gradient(1200px 620px at 12% -12%, var(--glow), transparent 66%),
+    radial-gradient(1000px 560px at 96% 108%, var(--glow-2), transparent 60%),
     var(--bg-0);
+  background-attachment: fixed;
   color: var(--fg-0);
   font-family: var(--font-ui);
   font-size: 13.5px;
@@ -345,6 +358,24 @@ body {
   letter-spacing: 0.01em;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+}
+
+/* 胶片颗粒：feTurbulence 噪点铺满全屏（fixed + pointer-events:none 不碰交互），
+   mix-blend-mode: overlay 让颗粒只调制明暗不吃颜色 —— 像隔着胶片看界面。
+   强度走 --grain-opacity，ivory 上略强（纸感），浅色下 blend 换 multiply。 */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+[data-theme='ivory'] body::after {
+  mix-blend-mode: multiply;
 }
 
 button {
@@ -540,17 +571,32 @@ a.link:hover,
 
 /* 主按钮：黄铜金实底、深色字 —— 全站唯一的大面积金色 */
 .btn-primary {
-  background: var(--signal);
-  border-color: var(--signal);
+  /* 黑室批：实底换「高光—正金—深铜」三段渐变，像抛过光的黄铜件。
+     color-mix 从 --signal 推导，emerald/ivory 换色相自动跟。 */
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--signal) 72%, #fff) 0%,
+    var(--signal) 55%,
+    color-mix(in srgb, var(--signal) 82%, #201203) 100%
+  );
+  border-color: color-mix(in srgb, var(--signal) 70%, #000);
   color: var(--on-signal);
   font-weight: 600;
+  text-shadow: 0 1px 1px color-mix(in srgb, var(--signal) 40%, #000);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--signal-soft);
-  border-color: var(--signal-soft);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--signal) 58%, #fff) 0%,
+    color-mix(in srgb, var(--signal) 88%, #fff) 55%,
+    var(--signal) 100%
+  );
+  border-color: color-mix(in srgb, var(--signal) 55%, #000);
   color: var(--on-signal);
-  box-shadow: 0 0 14px var(--signal-glow);
+  box-shadow:
+    0 0 18px var(--signal-glow),
+    0 0 44px color-mix(in srgb, var(--signal-glow) 60%, transparent);
 }
 
 /* 扫光：hover 时一道高光斜扫过金色实底，像按快门时的帘幕 ——
@@ -667,7 +713,9 @@ a.link:hover,
   padding: 8px 11px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
-  background: var(--bg-1);
+  /* 黑室批：底色比面板深半档 + 内阴影 —— 输入框是「井」，凹进面板里等输入 */
+  background: color-mix(in srgb, var(--bg-0) 55%, var(--bg-1));
+  box-shadow: inset 0 1px 3px color-mix(in srgb, var(--bg-0) 70%, transparent);
   color: var(--fg-0);
   font-size: 13.5px;
   transition: border-color var(--dur-2) var(--ease-soft), box-shadow var(--dur-2) var(--ease-soft);
@@ -686,7 +734,10 @@ a.link:hover,
 .input:focus {
   outline: none;
   border-color: var(--signal-line);
-  box-shadow: 0 0 0 3px var(--signal-dim);
+  /* 内晕（金）与深井 inset 叠加：井还在，光已经进来 */
+  box-shadow:
+    inset 0 1px 3px color-mix(in srgb, var(--bg-0) 70%, transparent),
+    0 0 0 3px var(--signal-dim);
 }
 
 .form-stack {
@@ -813,9 +864,9 @@ a.link:hover,
 }
 
 .empty-title {
-  font-family: var(--font-ui);
-  font-size: 21px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
   letter-spacing: 0.01em;
   text-transform: none;
   color: var(--fg-0);
@@ -964,9 +1015,10 @@ a.link:hover,
 
 .auth-title {
   margin: 18px 0 12px;
-  font-size: clamp(24px, 3vw, 34px);
-  line-height: 1.28;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: clamp(28px, 3.4vw, 40px);
+  line-height: 1.18;
+  font-weight: 600;
   letter-spacing: 0.01em;
 }
 
@@ -1293,9 +1345,12 @@ a.link:hover,
   gap: 10px;
   padding: 0 12px;
   border-bottom: 1px solid var(--line);
+  /* 黑室批：半透明 + 背景模糊 —— 顶栏变成一块悬在内容上方的玻璃仪表条 */
   background:
     linear-gradient(180deg, var(--panel-sheen), transparent 60%),
-    var(--bg-1);
+    color-mix(in srgb, var(--bg-1) 76%, transparent);
+  backdrop-filter: blur(12px) saturate(1.25);
+  -webkit-backdrop-filter: blur(12px) saturate(1.25);
 }
 
 .topbar-spacer {
@@ -1338,10 +1393,10 @@ a.link:hover,
 }
 
 .brand-name {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
   color: var(--fg-0);
   white-space: nowrap;
   transition: color var(--dur-2) var(--ease-soft);
@@ -1358,8 +1413,10 @@ a.link:hover,
   align-items: center;
   gap: 7px;
   min-width: 0;
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   color: var(--fg-1);
   white-space: nowrap;
 }
@@ -1397,7 +1454,11 @@ a.link:hover,
   gap: 14px;
   padding: 0 12px;
   border-top: 1px solid var(--line);
-  background: var(--bg-1);
+  background:
+    linear-gradient(0deg, var(--panel-sheen), transparent 60%),
+    color-mix(in srgb, var(--bg-1) 76%, transparent);
+  backdrop-filter: blur(12px) saturate(1.25);
+  -webkit-backdrop-filter: blur(12px) saturate(1.25);
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--fg-2);
@@ -1615,9 +1676,10 @@ a.link:hover,
 }
 
 .editor-empty-title {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 0.06em;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
   color: var(--fg-1);
 }
 
