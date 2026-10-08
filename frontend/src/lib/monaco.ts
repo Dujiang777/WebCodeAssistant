@@ -62,7 +62,7 @@ export function configureMonaco(): void {
       'editorSuggestWidget.background': '#14110d',
       'editorSuggestWidget.selectedBackground': '#2a2317',
       'editorGutter.background': '#14110d',
-      'editorOverviewRuler.border': '#0a0907',
+      'editorOverviewRuler.border': '#080604',
       'scrollbarSlider.background': '#2e2a2280',
       'scrollbarSlider.hoverBackground': '#3e382bb0',
       'scrollbarSlider.activeBackground': '#4a4230c0',

@@ -28,7 +28,7 @@ export const THEMES: ThemeMeta[] = [
     key: 'brass',
     label: '暗房黄铜',
     hint: '暖调近黑 + 黄铜金。默认主题，暗房里冲胶片的那种温润。',
-    swatch: ['#0a0907', '#272119', '#e8b45a'],
+    swatch: ['#080604', '#272119', '#e8b45a'],
   },
   {
     key: 'emerald',
