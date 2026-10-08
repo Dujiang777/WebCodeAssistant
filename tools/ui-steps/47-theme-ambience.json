@@ -1,0 +1,39 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "黑室 2.1：三主题氛围巡览。先硬清登录态并登录，再逐主题切换实拍" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "localStorage.clear(); location.replace('/#/login'); location.reload(); 'reset'"],
+  { "sleep": 2800 },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set; var u=document.querySelector('#username'); s.call(u,'admin'); u.dispatchEvent(new Event('input',{bubbles:true})); var p=document.querySelector('#password'); s.call(p,'WcaAdmin!2026'); p.dispatchEvent(new Event('input',{bubbles:true})); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3600 },
+  ["eval", "'AT=' + location.hash"],
+
+  { "note": "① emerald：切换后读氛围变量并实拍" },
+  ["eval", "localStorage.setItem('wca.theme','emerald'); location.reload(); 'switched'"],
+  { "sleep": 3400 },
+  ["eval", "var cs=getComputedStyle(document.body); var g=getComputedStyle(document.body,'::after'); 'EM_BG=' + cs.backgroundImage.match(/radial-gradient/g).length + 'rad GLOW=' + getComputedStyle(document.documentElement).getPropertyValue('--glow').trim() + ' GRAIN=' + g.opacity + '/' + g.mixBlendMode"],
+  ["screenshot", "docs/self-test/v8/blk-25-emerald-workspaces.png"],
+
+  { "note": "② ivory：浅色纸面，颗粒应 multiply、辉光应是暖褐" },
+  ["eval", "localStorage.setItem('wca.theme','ivory'); location.reload(); 'switched'"],
+  { "sleep": 3400 },
+  ["eval", "var cs=getComputedStyle(document.body); var g=getComputedStyle(document.body,'::after'); 'IV_BG=' + cs.backgroundImage.match(/radial-gradient/g).length + 'rad GLOW=' + getComputedStyle(document.documentElement).getPropertyValue('--glow').trim() + ' GRAIN=' + g.opacity + '/' + g.mixBlendMode"],
+  ["screenshot", "docs/self-test/v8/blk-25-ivory-workspaces.png"],
+
+  { "note": "③ ivory 登录页：大标题/渐变按钮在纸面上是否协调" },
+  ["eval", "location.href='/#/account'; 'nav'"],
+  { "sleep": 2000 },
+  ["screenshot", "docs/self-test/v8/blk-25-ivory-account.png"],
+
+  { "note": "④ emerald 登录页（退到登录再切）" },
+  ["eval", "localStorage.setItem('wca.theme','emerald'); location.href='/#/login'; 'nav'"],
+  { "sleep": 2400 },
+  ["screenshot", "docs/self-test/v8/blk-25-emerald-login.png"],
+
+  { "note": "恢复 brass 后清理" },
+  ["eval", "localStorage.setItem('wca.theme','brass'); location.reload(); 'restored'"]
+]

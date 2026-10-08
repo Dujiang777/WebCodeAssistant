@@ -34,6 +34,7 @@
   ["eval", "var c=document.querySelector('.ws-card'); c && c.dispatchEvent(new MouseEvent('click',{bubbles:true})); 'opened'"],
   { "sleep": 4200 },
   ["eval", "'AT=' + location.hash + ' TOPBAR_BLUR=' + getComputedStyle(document.querySelector('.topbar')).backdropFilter + ' CRUMBS_FONT=' + getComputedStyle(document.querySelector('.crumbs')).fontFamily.slice(0,20)"],
+  ["eval", "var sb=document.querySelector('.statusbar-item + .statusbar-item'); 'SB_TABULAR=' + getComputedStyle(document.querySelector('.statusbar')).fontVariantNumeric + ' SB_SEP=' + (sb ? getComputedStyle(sb).borderLeftWidth : 'none') + ' TREE_CURSOR=' + getComputedStyle(document.querySelector('.tree-row')).borderLeftWidth"],
   ["screenshot", "docs/self-test/v8/blk-03-ide.png"],
 
   ["eval", "location.reload(); 'cleaned'"]
