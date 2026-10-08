@@ -232,7 +232,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
         <h1 className="auth-title">
           把仓库放进浏览器，
           <br />
-          让 AI 读懂它再动手。
+          <span className="auth-title-gold">让 AI 读懂它再动手。</span>
         </h1>
 
         <p className="auth-lead">

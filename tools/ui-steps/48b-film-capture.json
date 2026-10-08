@@ -1,0 +1,14 @@
+[
+  { "note": "批26 补拍：等上一回合跑完，拍对话流最终态 + 补丁卡 hover 实拍" },
+  ["open", "http://127.0.0.1:5173/#/ide/175"],
+  { "sleep": 5000 },
+  ["eval", "'AT=' + location.hash + ' PATCH=' + document.querySelectorAll('.patch-card').length + ' TOOL=' + document.querySelectorAll('.tool-card').length + ' PLAN=' + document.querySelectorAll('.plan-card').length"],
+  { "sleep": 8000 },
+  ["eval", "var el=document.querySelector('.patch-card'); el && el.scrollIntoView({block:'center'}); 'scrolled'"],
+  { "sleep": 800 },
+  ["eval", "var n=document.querySelector('.patch-card'); var a=n?getComputedStyle(n,'::after'):null; var b2=n?getComputedStyle(n,'::before'):null; 'PATCH_CORNERS=' + (a ? (a.backgroundImage.match(/linear-gradient/g)||[]).length + '_LAYERS' : 'NO_PATCH') + ' SERRATION=' + (b2 ? (b2.backgroundImage.indexOf('repeating-linear-gradient')>=0 ? 'yes':'no') : 'none')"],
+  ["screenshot", "docs/self-test/v9/69b-film-chat-final.png"],
+  ["hover", ".patch-card"],
+  { "sleep": 600 },
+  ["screenshot", "docs/self-test/v9/69c-film-patch-hover.png"]
+]

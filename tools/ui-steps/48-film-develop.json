@@ -1,0 +1,55 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "批26「胶片冲印」验证：对话流胶片齿孔/相纸取景框 + 登录页大字金渐变。先硬清登录态（契约前戏）" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "localStorage.clear(); location.replace('/#/login'); location.reload(); 'reset'"],
+  { "sleep": 2800 },
+
+  { "note": "① 登录页：标题放大 + 第二行金渐变 + 登录卡四角刻线 + 扫描光带" },
+  ["eval", "var t=document.querySelector('.auth-title'); var g=document.querySelector('.auth-title-gold'); var s=g?getComputedStyle(g):null; 'TITLE_SIZE=' + getComputedStyle(t).fontSize + ' GOLD_CLIP=' + (s ? s.webkitBackgroundClip + '/' + s.webkitTextFillColor : 'NO_GOLD_SPAN')"],
+  ["eval", "var c=document.querySelector('.auth-wrap-v2 .auth-form-wrap .card'); var a=c?getComputedStyle(c,'::after'):null; 'CARD_CORNERS=' + (a ? (a.backgroundImage.match(/linear-gradient/g)||[]).length + '_LAYERS op=' + a.opacity : 'NONE')"],
+  ["eval", "var h=document.querySelector('.auth-hero'); var a=h?getComputedStyle(h,'::after'):null; 'SWEEP=' + (a ? a.animationName + ' ' + a.animationDuration + ' PE=' + a.pointerEvents : 'NONE')"],
+  ["screenshot", "docs/self-test/v9/68-film-login.png"],
+
+  { "note": "② 登录 → 开工作区 → 进 IDE" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set; var u=document.querySelector('#username'); s.call(u,'admin'); u.dispatchEvent(new Event('input',{bubbles:true})); var p=document.querySelector('#password'); s.call(p,'WcaAdmin!2026'); p.dispatchEvent(new Event('input',{bubbles:true})); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3600 },
+  ["eval", "var c=document.querySelector('.ws-card'); c && c.dispatchEvent(new MouseEvent('click',{bubbles:true})); 'opened'"],
+  { "sleep": 4200 },
+  ["eval", "'AT=' + location.hash"],
+
+  { "note": "③ 触发「分步计划」：一条消息产出计划卡 + 工具卡 + 补丁卡" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set; var t=document.querySelector('.composer-input'); s.call(t,'请用分步计划完成一次重构演示'); t.dispatchEvent(new Event('input',{bubbles:true})); 'typed'"],
+  { "sleep": 400 },
+  ["eval", "var b=document.querySelector('.composer-send'); b && b.click(), 'sent'"],
+  { "sleep": 24000 },
+
+  { "note": "④ 对话流断言：齿孔条 / 四角取景框 / 顶部刻度带 / 帧标" },
+  ["eval", "var tc=document.querySelector('.tool-card'); var pc=tc?getComputedStyle(tc,'::before'):null; 'TOOL_HOLES=' + (pc ? (pc.backgroundImage.indexOf('repeating-linear-gradient')>=0 ? 'yes':'no') + ' w=' + pc.width + ' op=' + pc.opacity : 'NO_TOOLCARD')"],
+  ["eval", "var n=document.querySelector('.patch-card'); var a=n?getComputedStyle(n,'::after'):null; var b2=n?getComputedStyle(n,'::before'):null; 'PATCH_CORNERS=' + (a ? (a.backgroundImage.match(/linear-gradient/g)||[]).length + '_LAYERS' : 'NO_PATCH') + ' SERRATION=' + (b2 ? (b2.backgroundImage.indexOf('repeating-linear-gradient')>=0 ? 'yes':'no') : 'none')"],
+  ["eval", "var mh=document.querySelector('.msg-role-assistant .msg-head'); var f=mh?getComputedStyle(mh,'::before'):null; 'FRAME_MARK=' + (f ? f.borderTopWidth + '_' + f.borderTopColor.slice(0,20) : 'NONE')"],
+  ["screenshot", "docs/self-test/v9/69-film-chat.png"],
+
+  { "note": "⑤ 真实鼠标 hover：齿孔条与补丁取景框点亮（合成事件不触发 CSS:hover，必须真 hover）" },
+  ["hover", ".tool-card"],
+  { "sleep": 500 },
+  ["eval", "var tc=document.querySelector('.tool-card'); 'TOOL_HOLE_OP_HOVER=' + getComputedStyle(tc,'::before').opacity"],
+  ["hover", ".patch-card"],
+  { "sleep": 500 },
+  ["eval", "var n=document.querySelector('.patch-card'); 'PATCH_CORNER_OP_HOVER=' + getComputedStyle(n,'::after').opacity + ' SERR_OP_HOVER=' + getComputedStyle(n,'::before').opacity"],
+
+  { "note": "⑥ emerald / ivory 主题巡览：齿孔与取景框色从变量推导，应自动适配" },
+  ["eval", "document.documentElement.setAttribute('data-theme','emerald'); 'em'"],
+  { "sleep": 600 },
+  ["eval", "var tc=document.querySelector('.tool-card'); 'EM_HOLE_COLOR=' + getComputedStyle(tc,'::before').backgroundImage.slice(0,80)"],
+  ["screenshot", "docs/self-test/v9/70-film-emerald.png"],
+  ["eval", "document.documentElement.setAttribute('data-theme','ivory'); 'iv'"],
+  { "sleep": 600 },
+  ["eval", "var n=document.querySelector('.patch-card'); 'IV_CORNER=' + getComputedStyle(n,'::after').backgroundImage.slice(0,60)"],
+  ["screenshot", "docs/self-test/v9/71-film-ivory.png"],
+  ["eval", "document.documentElement.setAttribute('data-theme','brass'); location.reload(); 'cleaned'"]
+]

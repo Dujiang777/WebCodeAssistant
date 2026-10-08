@@ -7660,3 +7660,203 @@ button.risk-chip:hover {
   border-left: 1px solid var(--line-soft);
   padding-left: 14px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   批26「胶片冲印」：把暗房隐喻推到对话流和登录页
+   —— 胶片齿孔条 / 补丁相纸取景框 / 登录页金渐变大字 + 扫描光带
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. 工具卡 / 计划卡：左缘换成胶片齿孔条 ──
+   原来的 2px 刻线升级成 7px 宽的齿孔条：均匀打孔像 35mm 胶片的边缘。
+   计划卡 live 时齿孔变金 —— 「显影中」；落库后回雾蓝灰。 */
+.tool-card,
+.plan-card {
+  position: relative;
+  border-left: none;
+  padding-left: 24px;
+}
+
+.tool-card::before,
+.plan-card::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  left: 6px;
+  width: 7px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    180deg,
+    var(--cyan) 0 3px,
+    transparent 3px 8px
+  );
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity var(--dur-2) var(--ease-soft);
+}
+
+.tool-card:hover::before,
+.plan-card:hover::before {
+  opacity: 0.9;
+}
+
+.plan-card-live::before {
+  background: repeating-linear-gradient(
+    180deg,
+    var(--signal) 0 3px,
+    transparent 3px 8px
+  );
+  opacity: 0.85;
+  animation: safe-light 2.2s var(--ease-soft) infinite alternate;
+}
+
+/* ── 2. 补丁卡：曝光相纸 ──
+   四角取景框刻线（与 ws-card 同语言但四角全上）+ 顶部胶片刻度带。
+   紫是补丁的身份色，hover 时对焦点亮。 */
+.patch-card {
+  position: relative;
+}
+
+/* 顶部胶片刻度带：一排细密竖刻度，像胶片边缘的曝光齿 */
+.patch-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12px;
+  right: 12px;
+  height: 5px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--violet) 0 2px,
+    transparent 2px 10px
+  );
+  opacity: 0.32;
+  pointer-events: none;
+  transition: opacity var(--dur-2) var(--ease-soft);
+}
+
+.patch-card:hover::before {
+  opacity: 0.7;
+}
+
+/* 四角取景框：一个伪元素全覆盖，8 层渐变各画半边 —— 圆角处内缩 6px */
+.patch-card::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--violet-dim), var(--violet-dim)) 0 0 / 14px 1px,
+    linear-gradient(var(--violet-dim), var(--violet-dim)) 0 0 / 1px 14px,
+    linear-gradient(var(--violet-dim), var(--violet-dim)) 100% 0 / 14px 1px,
+    linear-gradient(var(--violet-dim), var(--violet-dim)) 100% 0 / 1px 14px,
+    linear-gradient(var(--violet-dim), var(--violet-dim)) 0 100% / 14px 1px,
+    linear-gradient(var(--violet-dim), var(--violet-dim)) 0 100% / 1px 14px,
+    linear-gradient(var(--violet-dim), var(--violet-dim)) 100% 100% / 14px 1px,
+    linear-gradient(var(--violet-dim), var(--violet-dim)) 100% 100% / 1px 14px;
+  background-repeat: no-repeat;
+  opacity: 0.75;
+  transition: opacity var(--dur-2) var(--ease-soft);
+}
+
+.patch-card:hover::after {
+  opacity: 1;
+}
+
+/* ── 3. 助手消息帧标：消息头前一枚微型取景角 ── */
+.msg-role-assistant .msg-head::before {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-top: 2px solid var(--signal);
+  border-left: 2px solid var(--signal);
+  opacity: 0.75;
+}
+
+/* ── 4. 登录页：第一屏拉满 ── */
+.auth-title {
+  font-size: clamp(30px, 4vw, 46px);
+  font-weight: 700;
+  letter-spacing: 0.005em;
+  line-height: 1.22;
+}
+
+/* 第二行金渐变：从 --signal 推导，三主题自动适配（ivory 纸底上也成立） */
+.auth-title-gold {
+  background: linear-gradient(
+    100deg,
+    var(--signal) 0%,
+    color-mix(in srgb, var(--signal) 45%, #fff6e0) 48%,
+    var(--signal) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* 登录卡对角刻线：四角取景框（同补丁卡工艺，色随 --signal），
+   和左上角那盏安全灯呼吸点共存 —— 一个是设备信号，一个是取景对焦 */
+.auth-wrap-v2 .auth-form-wrap .card::after {
+  content: '';
+  position: absolute;
+  inset: 11px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--signal-line), var(--signal-line)) 0 0 / 16px 1px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 0 0 / 1px 16px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 100% 0 / 16px 1px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 100% 0 / 1px 16px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 0 100% / 16px 1px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 0 100% / 1px 16px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 100% 100% / 16px 1px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 100% 100% / 1px 16px;
+  background-repeat: no-repeat;
+  opacity: 0.8;
+}
+
+/* 扫描光带：一条极淡的竖光带每 13s 从左缓扫到右 —— 暗房里那道
+   从门缝漏进来的光。峰值透明度压在 0.06，看得见但绝不抢戏。 */
+.auth-hero::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: -12%;
+  width: 10vw;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--signal) 7%, transparent),
+    transparent
+  );
+  animation: auth-sweep 13s linear infinite;
+}
+
+@keyframes auth-sweep {
+  0% {
+    left: -12%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    left: 104%;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-card-live::before,
+  .auth-hero::after {
+    animation: none !important;
+  }
+}
+
