@@ -7860,3 +7860,137 @@ button.risk-chip:hover {
   }
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════
+   批27「点灯」：把暗房的灯拧亮 —— 全部是第一眼可见的改动
+   ① 氛围光强度翻倍 + 底部地平线光晕  ② 顶栏金渐变线 + 品牌金字
+   ③ 主按钮辉光炸亮  ④ 状态栏金线  ⑤ 登录页大字辉光 + 光带加亮
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. 氛围光翻倍：三个主题同步，肉眼立刻可见 ── */
+:root {
+  --glow: rgba(232, 180, 90, 0.17);
+  --glow-2: rgba(157, 180, 200, 0.1);
+}
+
+[data-theme='emerald'] {
+  --glow: rgba(61, 220, 151, 0.16);
+  --glow-2: rgba(120, 200, 230, 0.08);
+}
+
+[data-theme='ivory'] {
+  --glow: rgba(156, 109, 20, 0.17);
+  --glow-2: rgba(120, 150, 175, 0.1);
+}
+
+/* 底部地平线光晕：整页最下方一道大范围的暖光，像暗房门口透进的光 */
+body {
+  background-image:
+    radial-gradient(1200px 620px at 12% -12%, var(--glow), transparent 66%),
+    radial-gradient(1000px 560px at 96% 108%, var(--glow-2), transparent 60%),
+    radial-gradient(1400px 480px at 50% 118%, var(--glow), transparent 70%);
+}
+
+/* ── 2. 顶栏：底部换成金渐变线（左亮右暗，像仪表台的灯带）── */
+.topbar {
+  position: relative;
+  border-bottom-color: transparent;
+}
+
+.topbar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--signal) 85%, transparent),
+    color-mix(in srgb, var(--signal) 35%, transparent) 45%,
+    transparent 90%
+  );
+  pointer-events: none;
+}
+
+/* 品牌名换金渐变字：全站唯一、一眼可辨 */
+.brand-name {
+  font-size: 14px;
+  background: linear-gradient(
+    100deg,
+    var(--signal) 0%,
+    color-mix(in srgb, var(--signal) 40%, #fff8e8) 50%,
+    var(--signal) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* ── 3. 主按钮辉光炸亮：静止就有光，hover 像点着了一样 ── */
+.btn-primary {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--signal) 25%, transparent),
+    0 2px 14px color-mix(in srgb, var(--signal) 40%, transparent);
+}
+
+.btn-primary:hover:not(:disabled) {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--signal) 45%, transparent),
+    0 3px 22px color-mix(in srgb, var(--signal) 60%, transparent),
+    0 0 40px color-mix(in srgb, var(--signal) 30%, transparent);
+}
+
+/* ── 4. 状态栏：上边缘一条极细金线，与顶栏灯带呼应 ── */
+.statusbar {
+  position: relative;
+  border-top-color: transparent;
+}
+
+.statusbar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -1px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--signal) 30%, transparent) 40%,
+    color-mix(in srgb, var(--signal) 55%, transparent) 75%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* ── 5. 登录页：标题辉光 + 光带加亮一倍 ── */
+.auth-title {
+  font-size: clamp(32px, 4.6vw, 54px);
+  text-shadow: 0 0 34px color-mix(in srgb, var(--signal) 22%, transparent);
+}
+
+.auth-title-gold {
+  background: linear-gradient(
+    100deg,
+    var(--signal) 0%,
+    color-mix(in srgb, var(--signal) 30%, #fff8e8) 48%,
+    var(--signal) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--signal) 35%, transparent));
+}
+
+/* 光带从 0.07 提到 0.14 —— 真的看得见了 */
+.auth-hero::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--signal) 14%, transparent),
+    transparent
+  );
+}
