@@ -8009,3 +8009,87 @@ body {
 .topbar {
   z-index: 50;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   批28「全站格调」：把档案卡/取景框语言推广到二级页
+   ① .card / .ac-card / .md-card 四角取景框（hover 对焦提亮）
+   ② 卡头前置微型帧标（与助手消息帧标同语言）
+   ③ 分节割线前置胶片刻度块
+   ④ 助手抽屉左缘金渐变线（片盒）
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. 档案卡四角：静默灰金，hover 对焦变金 ── */
+.card,
+.ac-card,
+.md-card {
+  position: relative;
+}
+
+.card::after,
+.ac-card::after,
+.md-card::after {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--signal-line), var(--signal-line)) 0 0 / 15px 1px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 0 0 / 1px 15px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 100% 0 / 15px 1px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 100% 0 / 1px 15px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 0 100% / 15px 1px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 0 100% / 1px 15px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 100% 100% / 15px 1px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 100% 100% / 1px 15px;
+  background-repeat: no-repeat;
+  opacity: 0.4;
+  transition: opacity var(--dur-2) var(--ease-soft);
+}
+
+.card:hover::after,
+.ac-card:hover::after,
+.md-card:hover::after {
+  opacity: 0.95;
+}
+
+/* ── 2. 卡头帧标：金 L 角，标记「这是档案的封面」── */
+.card-head::before,
+.ac-card-head::before,
+.md-card-head::before {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-top: 2px solid var(--signal);
+  border-left: 2px solid var(--signal);
+  border-top-left-radius: 2px;
+  opacity: 0.9;
+}
+
+/* ── 3. 分节割线：前置三格胶片刻度 ── */
+.section-divider::before {
+  content: '';
+  flex: none;
+  width: 14px;
+  height: 9px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--signal) 0 2px,
+    transparent 2px 6px
+  );
+  opacity: 0.6;
+}
+
+/* ── 4. 抽屉片盒：左缘金渐变线，光从盒缝里透出来 ── */
+.ad-drawer-panel::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, var(--signal), transparent 85%);
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 1;
+}
