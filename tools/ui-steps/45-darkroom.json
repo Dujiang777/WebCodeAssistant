@@ -1,0 +1,46 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "暗房气质强化包验证：安全灯 / 主按钮扫光 / 取景框角标 / hover 抬升复活" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "localStorage.clear(); location.replace('/#/login'); location.reload(); 'reset'"],
+  { "sleep": 2800 },
+
+  { "note": "① 登录卡安全灯：金点在呼吸（animation-name = safe-light）" },
+  ["eval", "var c=document.querySelector('.auth-wrap-v2 .auth-form-wrap .card'); var s=c?getComputedStyle(c,'::before'):null; 'SAFE_LIGHT=' + (s ? s.animationName + '/' + s.animationDuration + ' BG=' + s.backgroundColor + ' W=' + s.width : 'NOT_FOUND')"],
+  ["screenshot", "docs/self-test/v8/dark-01-login-safelight.png"],
+
+  { "note": "② 主按钮扫光：真实鼠标 hover 后扫光条应扫到右侧（translateX 大正值）" },
+  ["hover", ".btn-primary"],
+  { "sleep": 700 },
+  ["eval", "var b=document.querySelector('.btn-primary'); var s=getComputedStyle(b,'::after'); 'SHEEN_BASE=' + s.transform + ' HOVERED=' + b.matches(':hover')"],
+  ["screenshot", "docs/self-test/v8/dark-02-btn-sheen.png"],
+
+  { "note": "③ 登录进工作区列表：取景框角标 + hover 抬升复活（transform 应为 -3px 矩阵）" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set; var u=document.querySelector('#username'); s.call(u,'admin'); u.dispatchEvent(new Event('input',{bubbles:true})); var p=document.querySelector('#password'); s.call(p,'WcaAdmin!2026'); p.dispatchEvent(new Event('input',{bubbles:true})); 'filled'"],
+  { "sleep": 300 },
+
+  { "note": "②b 表单就绪按钮启用后：hover 应看到扫光扫到右侧（X 分量大正值）" },
+  ["hover", ".btn-primary"],
+  { "sleep": 700 },
+  ["eval", "var b=document.querySelector('.btn-primary'); var s=getComputedStyle(b,'::after'); 'SHEEN_HOVER=' + s.transform + ' DISABLED=' + b.disabled + ' HOVERED=' + b.matches(':hover')"],
+  ["screenshot", "docs/self-test/v8/dark-02b-btn-sheen-hover.png"],
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3400 },
+
+  { "note": "工作区卡静止态角标（灰线）+ ad-fade-up 修复后 hover 抬升是否真的生效" },
+  ["eval", "var c=document.querySelector('.ws-card'); var s=getComputedStyle(c,'::before'); var t=getComputedStyle(c); 'CORNER_REST=' + s.borderTopColor + ' CARD_TF=' + t.transform + ' ANIM=' + t.animationName + '/' + t.animationFillMode"],
+  ["screenshot", "docs/self-test/v8/dark-03-workspaces-corners.png"],
+
+  { "note": "hover 态（真实鼠标）：角标内收变金（top 5px / border-color 金）+ 卡片抬升 translateY(-3px)" },
+  ["hover", ".ws-card"],
+  { "sleep": 700 },
+  ["eval", "var c=document.querySelector('.ws-card'); var s=getComputedStyle(c,'::before'); 'CORNER_HOVER=' + s.borderTopColor + '/' + s.top + ' CARD_TF=' + getComputedStyle(c).transform + ' HOVERED=' + c.matches(':hover')"],
+  ["screenshot", "docs/self-test/v8/dark-04-ws-card-hover.png"],
+
+  { "note": "④ 模态角标（静止金线）" },
+  ["eval", "var bd=document.createElement('div'); bd.className='modal-backdrop'; var m=document.createElement('div'); m.className='modal'; m.style.position='relative'; m.style.zIndex='80'; m.innerHTML='<div style=\"height:120px\"></div>'; bd.appendChild(m); document.body.appendChild(bd); var s=getComputedStyle(m,'::before'); var out='MODAL_CORNER=' + s.borderTopColor + '/' + s.width + ' ANIM=' + getComputedStyle(m).animationName; bd.remove(); out"],
+
+  ["eval", "location.reload(); 'cleaned'"]
+]

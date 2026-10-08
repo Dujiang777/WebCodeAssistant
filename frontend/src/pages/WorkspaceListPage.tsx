@@ -282,6 +282,14 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
                 className="workspace-row ws-card"
                 style={{ animationDelay: `${Math.min(index * 45, 320)}ms` }}
                 onClick={() => navigate(`/ide/${workspace.id}`)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    navigate(`/ide/${workspace.id}`);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
                 title="打开这个工作区"
               >
                 <span className="ws-card-icon">

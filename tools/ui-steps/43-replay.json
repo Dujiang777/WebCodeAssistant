@@ -1,0 +1,45 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "验证：任务进行中切走再切回，重连带 afterId、后端环形缓冲回放断开期间的帧 —— 进度无缝恢复。判据：切回后 1 秒内 .composer-stop（停止按钮）重现 = 回合被回放重建；旧代码（afterId=null）在此刻什么都不显示，直到 done 才靠 REST 兜底。" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "localStorage.clear(); location.replace('/#/login'); location.reload(); 'reset'"],
+  { "sleep": 2800 },
+
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set; var u=document.querySelector('#username'); s.call(u,'admin'); u.dispatchEvent(new Event('input',{bubbles:true})); var p=document.querySelector('#password'); s.call(p,'WcaAdmin!2026'); p.dispatchEvent(new Event('input',{bubbles:true})); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3400 },
+
+  ["eval", "var row=document.querySelector('.workspace-row'); row && row.click(), 'opened'"],
+  { "sleep": 5500 },
+  ["eval", "window.__ideHash = location.hash; 'IDE_HASH=' + window.__ideHash"],
+
+  { "note": "发一条长任务（mock 每步延迟 1.5s，整轮约 25 秒），4 秒后确认任务在跑" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set; var t=document.querySelector('.composer-input'); s.call(t,'请给我一个分步计划，顺便解释一下这个项目的目录结构'); t.dispatchEvent(new Event('input',{bubbles:true})); 'typed'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.composer-send').click(); window.__sentAt = Date.now(); 'SENT'"],
+  { "sleep": 4000 },
+  ["eval", "'MID_TASK stop_btn=' + (document.querySelector('.composer-stop') ? 'yes' : 'no') + ' elapsed=' + ((Date.now() - window.__sentAt) / 1000).toFixed(1) + 's'"],
+
+  { "note": "★ 任务进行中切走（IdePage 卸载 → SSE 断开 → 组件内存态全丢，但模块级 seq Map 留存）" },
+  ["eval", "location.hash = '#/account'; 'switched-away'"],
+  { "sleep": 600 },
+  ["eval", "'AT_ACCOUNT composer_gone=' + (document.querySelector('.composer') ? 'no' : 'yes')"],
+  { "sleep": 5000 },
+
+  { "note": "★ 切回：断流约 5.6 秒，此刻任务还在跑 —— 看回放是否把进行中的回合重建出来" },
+  ["eval", "location.hash = window.__ideHash; 'switched-back'"],
+  { "sleep": 1200 },
+  ["eval", "'REPLAY stop_btn=' + (document.querySelector('.composer-stop') ? 'yes' : 'no') + ' hash=' + location.hash + ' elapsed=' + ((Date.now() - window.__sentAt) / 1000).toFixed(1) + 's'"],
+  ["screenshot", "docs/self-test/v8/replay-01-live-turn-restored.png"],
+
+  { "note": "等任务跑完：done 应正常收尾（sending 归零、答案完整、无重复消息）" },
+  { "sleep": 32000 },
+  ["eval", "'FINAL stop_btn=' + (document.querySelector('.composer-stop') ? 'yes' : 'no') + ' asst_msgs=' + document.querySelectorAll('.msg-role-assistant').length"],
+  ["eval", "var asst=document.querySelectorAll('.msg-role-assistant'); var last=asst.length ? asst[asst.length-1].innerText : ''; 'LAST_CHARS=' + last.length + ' PREVIEW=' + last.replace(/\\s+/g, ' ').substring(0, 100)"],
+  ["screenshot", "docs/self-test/v8/replay-02-final.png"],
+
+  ["eval", "location.reload(); 'cleaned'"]
+]
