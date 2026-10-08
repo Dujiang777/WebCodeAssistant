@@ -180,6 +180,17 @@ interface IdePageProps {
   onLogout: () => void;
 }
 
+/**
+ * 每个会话最近收到的 seq。
+ *
+ * 必须放模块级而不是组件里：切页/路由会让 React 卸载 IdePage、丢掉一切组件内存态，
+ * 而任务还在后端虚拟线程里照跑。没有这份记录，重连只能带 afterId=null（只要新事件），
+ * 断开期间的事件 —— 甚至整个回合 —— 前端就看不到了。
+ * 有了它，重连带着 seq 回来，后端环形缓冲会回放 seq 之后的所有帧。
+ * 整页刷新时 Map 自然清空，退回旧行为：REST 拉历史 + 只要新事件。
+ */
+const lastSeqBySession = new Map<number, number>();
+
 export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const toast = useToast();
 
@@ -580,6 +591,15 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     if (turnRef.current?.stopped && event.type !== 'done' && event.type !== 'error') {
       return;
     }
+    // 回放恢复：事件凭空重建回合（turnRef 为空）说明后台有仍在进行的任务。
+    // 恢复 sending 让停止按钮可用 —— 切回页面后照样能停掉它。
+    // 若这批回放属于已完成的旧回合，紧随的 done 会把它复位；同一批 setState，中间态不会上屏。
+    if (
+      !turnRef.current &&
+      (event.type === 'text' || event.type === 'tool_call' || event.type === 'plan' || event.type === 'patch')
+    ) {
+      setSending(true);
+    }
     switch (event.type) {
       case 'text': {
         const delta = typeof event.delta === 'string' ? event.delta : '';
@@ -760,8 +780,15 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     const handle = openChatStream({
       sessionId,
       getToken: ensureAccessToken,
-      afterId: null,
-      onEvent: (event) => handlersRef.current.onEvent(event),
+      // 断开期间后端照跑任务：带着上次收到的 seq 重连，环形缓冲回放漏掉的帧。
+      // 没有记录（首次进入 / 整页刷新）时为 null，行为同旧版 —— 只要新事件。
+      afterId: lastSeqBySession.get(sessionId) ?? null,
+      onEvent: (event) => {
+        if (typeof event.seq === 'number' && Number.isFinite(event.seq)) {
+          lastSeqBySession.set(sessionId, event.seq);
+        }
+        handlersRef.current.onEvent(event);
+      },
       onStatus: (status) => handlersRef.current.onStatus(status),
     });
     return () => handle.close();

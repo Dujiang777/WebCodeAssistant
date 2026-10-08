@@ -1,0 +1,38 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "样式精修包验证：模态入场 / 页面入场 / 输入框 hover / 禁用态统一 —— computed 值断言 + 截图" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "localStorage.clear(); location.replace('/#/login'); location.reload(); 'reset'"],
+  { "sleep": 2800 },
+
+  { "note": "① 输入框 hover 规则真的在样式表里（非死代码）" },
+  ["eval", "var hit=null; for (var sheet of document.styleSheets) { try { for (var r of sheet.cssRules) { if (r.selectorText && r.selectorText.indexOf('.input:hover') === 0) hit = r.selectorText + ' { ' + r.style.borderTopColor + ' }'; } } catch(e) {} } 'INPUT_HOVER_RULE=' + (hit || 'NOT_FOUND')"],
+
+  { "note": "② 模态入场：按真实结构造 backdrop>modal，读 computed 动画" },
+  ["eval", "var bd=document.createElement('div'); bd.className='modal-backdrop'; var m=document.createElement('div'); m.className='modal'; m.style.position='relative'; m.style.zIndex='80'; m.innerHTML='<div style=\"height:120px\"></div>'; bd.appendChild(m); document.body.appendChild(bd); var s=getComputedStyle(m), b=getComputedStyle(bd); var out='MODAL_ANIM=' + s.animationName + '/' + s.animationDuration + ' BACKDROP_ANIM=' + b.animationName + '/' + b.animationDuration; bd.remove(); out"],
+
+  { "note": "③ 登录页截图（输入框 hover 语言的载体）" },
+  ["screenshot", "docs/self-test/v8/style-01-login.png"],
+
+  { "note": "④ 登录 → 账号页：page-wrap 入场动画" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set; var u=document.querySelector('#username'); s.call(u,'admin'); u.dispatchEvent(new Event('input',{bubbles:true})); var p=document.querySelector('#password'); s.call(p,'WcaAdmin!2026'); p.dispatchEvent(new Event('input',{bubbles:true})); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3400 },
+  ["eval", "location.hash = '#/account'; 'nav'"],
+  { "sleep": 1000 },
+  ["eval", "var w=document.querySelector('.page-wrap'); var s=w?getComputedStyle(w):null; 'PAGE_ANIM=' + (s ? s.animationName + '/' + s.animationDuration + '/' + s.animationTimingFunction : 'NOT_FOUND')"],
+  ["screenshot", "docs/self-test/v8/style-02-account.png"],
+
+  { "note": "⑤ IDE：空输入时发送键的禁用态透明度（应统一为 0.45）" },
+  ["eval", "location.hash = '#/workspaces'; 'nav'"],
+  { "sleep": 1500 },
+  ["eval", "var row=document.querySelector('.workspace-row'); row && row.click(), 'opened'"],
+  { "sleep": 5500 },
+  ["eval", "var b=document.querySelector('.composer-send'); 'SEND_DISABLED_OPACITY=' + (b ? getComputedStyle(b).opacity + ' CURSOR=' + getComputedStyle(b).cursor : 'NOT_FOUND')"],
+  ["screenshot", "docs/self-test/v8/style-03-ide.png"],
+
+  ["eval", "location.reload(); 'cleaned'"]
+]

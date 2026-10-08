@@ -140,6 +140,11 @@
   --press: 0.97;
   --press-hard: 0.94;
 
+  /* 禁用态统一：此前 .btn/.icon-btn/.chip-btn/.composer-send 各写各的，
+     opacity 有 0.45 / 0.4 / 0.55 / 0.4 四种、cursor 混用 not-allowed 与 default。
+     「不可用」的表达全站必须一个样 —— 透明度一致、光标一律 not-allowed（明确说「别点了」）。 */
+  --disabled-opacity: 0.45;
+
   /* ---- 键盘焦点环（2026-09-30 · 批22）----
      焦点环是键盘用户的「鼠标指针」—— 它必须永远看得见。
      此前全站只有 .btn 一处 :focus-visible，另外 12 处 `outline: none` 其实是
@@ -488,6 +493,8 @@ a.link:hover,
 /* --------------------------------------------------------------- 按钮 */
 
 .btn {
+  position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -517,7 +524,7 @@ a.link:hover,
 }
 
 .btn:disabled {
-  opacity: 0.45;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -544,6 +551,26 @@ a.link:hover,
   border-color: var(--signal-soft);
   color: var(--on-signal);
   box-shadow: 0 0 14px var(--signal-glow);
+}
+
+/* 扫光：hover 时一道高光斜扫过金色实底，像按快门时的帘幕 ——
+   高光白是「光」，不是新色相。translateX 百分比按扫光条自身宽度算，
+   起点藏在左外、终点扫出右外。 */
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  top: -40%;
+  bottom: -40%;
+  left: 0;
+  width: 30%;
+  background: rgba(255, 255, 255, 0.30);
+  transform: skewX(-24deg) translateX(-160%);
+  pointer-events: none;
+  transition: transform calc(var(--dur-3) * 1.6) var(--ease-out);
+}
+
+.btn-primary:hover:not(:disabled)::after {
+  transform: skewX(-24deg) translateX(500%);
 }
 
 .btn-ghost {
@@ -594,7 +621,7 @@ a.link:hover,
 }
 
 .icon-btn:disabled {
-  opacity: 0.4;
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
 }
 
@@ -644,6 +671,12 @@ a.link:hover,
   color: var(--fg-0);
   font-size: 13.5px;
   transition: border-color var(--dur-2) var(--ease-soft), box-shadow var(--dur-2) var(--ease-soft);
+}
+
+/* 输入框 hover：边框先探一口气（预告 focus 的金），但不上内晕 —— 晕是「光标已在等输入」的专属信号。
+   此前输入框 hover 零反馈，鼠标挪过去和挪到一块石头上没有区别。 */
+.input:hover:not(:focus) {
+  border-color: var(--signal-line);
 }
 
 .input::placeholder {
@@ -1482,6 +1515,12 @@ a.link:hover,
 /* 按压：文件树是全站最高频的点击区，最该有手感 —— 点下去沉一档 */
 .tree-row:active {
   background: var(--bg-3);
+}
+
+/* 键盘聚焦：树行贴满容器宽度、外层还有会裁溢出的滚动容器，
+   环照常外扩会被裁掉左右半圈 —— 这里收到内缩（环画在行内）。 */
+.tree-row:focus-visible {
+  outline-offset: -2px;
 }
 
 .tree-row.selected {
@@ -2852,6 +2891,19 @@ button.risk-chip:hover {
 
 /* --------------------------------------------------------------- 弹窗 */
 
+/* 模态入场：背景淡入 + 卡片 pop 落位。此前是「啪」一下硬切出来，
+   和全站「东西被轻轻放下」的入场语言不一致。
+   用 translate/scale 独立属性（不用 transform），避免 fill-mode 压住元素自身的变换。 */
+@keyframes overlay-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-pop {
+  from { opacity: 0; translate: 0 12px; scale: 0.985; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -2862,9 +2914,11 @@ button.risk-chip:hover {
   justify-content: center;
   z-index: 60;
   padding: 24px;
+  animation: overlay-fade var(--dur-2) var(--ease-out);
 }
 
 .modal {
+  position: relative;
   width: min(1180px, calc(100vw - 48px));
   max-height: calc(100vh - 64px);
   display: flex;
@@ -2874,6 +2928,39 @@ button.risk-chip:hover {
   background: var(--bg-1);
   box-shadow: var(--panel-edge), var(--shadow-modal);
   overflow: hidden;
+  animation: modal-pop var(--dur-3) var(--ease-out);
+}
+
+/* 弹窗是「全画幅」，角标也用取景器语言 —— 静止金线（弹窗没有 hover 态），
+   和工作区卡的灰→金 hover 形成同一意象的两种强度。 */
+.modal::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 16px;
+  height: 16px;
+  border-top: 1px solid var(--signal);
+  border-left: 1px solid var(--signal);
+  border-top-left-radius: 3px;
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.modal::after {
+  content: '';
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 16px;
+  height: 16px;
+  border-bottom: 1px solid var(--signal);
+  border-right: 1px solid var(--signal);
+  border-bottom-right-radius: 3px;
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .modal-head {
@@ -3538,8 +3625,8 @@ button.risk-chip:hover {
 }
 
 .chip-btn:disabled {
-  opacity: 0.55;
-  cursor: default;
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
 }
 
 /* --------------------------------------------------------------- 语义检索（功能 11） */
@@ -4878,6 +4965,14 @@ button.risk-chip:hover {
   overflow: auto;
 }
 
+/* 二级页内容入场：每次切页，内容轻轻地放下来（8px 上移淡入）。
+   此前页面切换是「瞬移」—— 内容啪一下砸出来，和消息/卡片的入场语言脱节。
+   顶栏（.page-bar）不动：钉住的壳不参与入场，动的只有内容。 */
+@keyframes page-in {
+  from { opacity: 0; translate: 0 8px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
 .page-wrap {
   max-width: 1080px;
   margin: 0 auto;
@@ -4885,6 +4980,7 @@ button.risk-chip:hover {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  animation: page-in var(--dur-3) var(--ease-out) both;
 }
 
 .page-h2 {
@@ -5516,8 +5612,8 @@ button.risk-chip:hover {
    ========================================================================== */
 
 @keyframes ad-fade-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; translate: 0 10px; }
+  to { opacity: 1; translate: 0 0; }
 }
 
 @keyframes ad-slide-in {
@@ -6492,8 +6588,8 @@ button.risk-chip:hover {
 }
 
 .composer-send:disabled {
-  opacity: 0.4;
-  cursor: default;
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
 }
 
 /* ── 空态：品牌轨道 ── */
@@ -7011,12 +7107,34 @@ button.risk-chip:hover {
 }
 
 /* ── 右侧表单：玻璃卡 ── */
+/* 安全灯：暗房门口那盏小灯 —— 一枚呼吸金点，登录卡的「设备已通电」信号。
+   亮度呼吸（纯 opacity），不位移：灯只会明灭，不会跳。 */
+@keyframes safe-light {
+  from { opacity: 0.3; }
+  to { opacity: 1; }
+}
+
 .auth-wrap-v2 .auth-form-wrap .card {
+  position: relative;
   background: color-mix(in srgb, var(--bg-2) 82%, transparent);
   backdrop-filter: blur(14px);
   border-color: var(--line-strong);
   box-shadow: var(--shadow-soft), var(--panel-edge);
   animation: ad-fade-up var(--dur-3) var(--ease-out) both;
+}
+
+.auth-wrap-v2 .auth-form-wrap .card::before {
+  content: '';
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 3px var(--signal), 0 0 12px var(--signal-glow);
+  animation: safe-light 2.4s var(--ease-soft) infinite alternate;
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -7135,6 +7253,7 @@ button.risk-chip:hover {
 }
 
 .ws-card {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -7162,6 +7281,51 @@ button.risk-chip:hover {
 .ws-card:active {
   transform: translateY(-1px) scale(0.996);
   transition-duration: var(--dur-1);
+}
+
+/* ---- 取景框角标：暗房品牌的记忆点 ----
+   相机取景器的对角 L 形刻线，静止时是低调的灰线，hover 时向内收一档并点亮成金 ——
+   卡片被「对焦」了。这是全站独一份的结构性装饰，别的产品抄不走也撞不上。 */
+.ws-card::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  width: 13px;
+  height: 13px;
+  border-top: 1px solid var(--line-strong);
+  border-left: 1px solid var(--line-strong);
+  border-top-left-radius: 3px;
+  pointer-events: none;
+  transition: top var(--dur-2) var(--ease-soft), left var(--dur-2) var(--ease-soft),
+    border-color var(--dur-2) var(--ease-soft);
+}
+
+.ws-card::after {
+  content: '';
+  position: absolute;
+  bottom: 7px;
+  right: 7px;
+  width: 13px;
+  height: 13px;
+  border-bottom: 1px solid var(--line-strong);
+  border-right: 1px solid var(--line-strong);
+  border-bottom-right-radius: 3px;
+  pointer-events: none;
+  transition: bottom var(--dur-2) var(--ease-soft), right var(--dur-2) var(--ease-soft),
+    border-color var(--dur-2) var(--ease-soft);
+}
+
+.ws-card:hover::before {
+  top: 5px;
+  left: 5px;
+  border-color: var(--signal);
+}
+
+.ws-card:hover::after {
+  bottom: 5px;
+  right: 5px;
+  border-color: var(--signal);
 }
 
 .ws-card-icon {

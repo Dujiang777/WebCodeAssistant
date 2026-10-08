@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 
 import type { FileNode } from '../lib/api';
 import { formatBytes } from '../lib/api';
@@ -130,12 +131,46 @@ function TreeRow({
 
   const indent = 8 + depth * 13;
 
+  // 键盘导航（roving tabindex）：Tab 进入树后，方向键在行间巡游，Enter/Space 激活。
+  // 行是自绘 div（不是原生 button），这些能力必须自己给 —— 否则键盘用户根本走不到文件树里。
+  const handleRowKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      if (isDir) onToggle(node.path);
+      else onSelect(node);
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      // 排除内联创建行（那是表单，不是树节点）
+      const rows = Array.from(document.querySelectorAll<HTMLDivElement>('.tree-row:not(.create-row)'));
+      const index = rows.indexOf(event.currentTarget);
+      const next = rows[event.key === 'ArrowDown' ? index + 1 : index - 1];
+      next?.focus();
+      return;
+    }
+    if (isDir && event.key === 'ArrowRight' && !open) {
+      event.preventDefault();
+      onToggle(node.path);
+      return;
+    }
+    if (isDir && event.key === 'ArrowLeft' && open) {
+      event.preventDefault();
+      onToggle(node.path);
+    }
+  };
+
   return (
     <>
       <div
         className={`tree-row${selected ? ' selected' : ''}`}
         style={{ paddingLeft: indent }}
         onClick={() => (isDir ? onToggle(node.path) : onSelect(node))}
+        onKeyDown={handleRowKeyDown}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isDir ? open : undefined}
+        aria-current={selected ? 'true' : undefined}
         title={node.path}
       >
         <span className={`tree-twisty${open ? ' open' : ''}`}>
