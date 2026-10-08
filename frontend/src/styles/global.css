@@ -1571,6 +1571,8 @@ a.link:hover,
 .tree-row:hover {
   background: var(--bg-2);
   color: var(--fg-0);
+  /* 仪器游标：hover 先亮出暗刻线，选中才升金 —— 游标语言有两级 */
+  border-left-color: var(--line-strong);
 }
 
 /* 按压：文件树是全站最高频的点击区，最该有手感 —— 点下去沉一档 */
@@ -7637,4 +7639,24 @@ button.risk-chip:hover {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ── 黑室批 2.3：数字仪表化 ─────────────────────────────────────────────
+   界面上所有会变化的数字（积分、时间戳、行号列、配额）统一等宽数字位：
+   数值刷新时字宽不变，读数像仪器表盘而不是正文。 */
+.statusbar,
+.crumbs,
+.msg-meta,
+.cr-balance-value,
+.cr-balance-row,
+.ad-drawer-balance,
+.ws-card,
+.tree-row {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 状态栏分段刻线：每个读数之间一道发丝竖线，像仪表条的刻度分隔 */
+.statusbar-item + .statusbar-item {
+  border-left: 1px solid var(--line-soft);
+  padding-left: 14px;
 }
