@@ -1731,7 +1731,9 @@ a.link:hover,
   }
   to {
     opacity: 1;
-    translate: 0;
+    /* translate: none —— 不能写 translate: 0：fill-mode both 会把 0 永久留在元素上，
+       每条消息从此常驻 stacking context，在 DOM 里排在顶栏后面就会整体画到顶栏之上 */
+    translate: none;
   }
 }
 
@@ -1742,7 +1744,7 @@ a.link:hover,
   }
   to {
     opacity: 1;
-    translate: 0;
+    translate: none;
   }
 }
 
@@ -7993,4 +7995,17 @@ body {
     color-mix(in srgb, var(--signal) 14%, transparent),
     transparent
   );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   批27b 修复：头像菜单被对话流压住
+   根因：黑室批给顶栏加的 backdrop-filter 让 .topbar 自成 stacking
+   context，.avatar-menu 的 z-index:96 被困在顶栏内部；而对话列在
+   DOM 里靠后，消息一有 stacking context 就整体画到顶栏之上。
+   双保险：①msg 入场 to 帧改 translate:none（不再常驻 context）；
+   ②顶栏给显式 z-index，保证顶栏语境（含菜单）永远画在主内容上。
+   50 < 模态 60 / toast 80 / 抽屉 90，不抢全局遮罩的层级。
+   ═══════════════════════════════════════════════════════════════════ */
+.topbar {
+  z-index: 50;
 }
