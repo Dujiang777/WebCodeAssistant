@@ -1,0 +1,10 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "批30 线上验收（与 28 同口径：不登生产库，只验外壳 / 指纹 / 登录页视觉）" },
+  ["open", "http://139.199.88.15:8081/#/login"],
+  { "sleep": 4500 },
+  ["eval", "'TITLE=' + document.title + ' THEME=' + document.documentElement.dataset.theme + ' FORM=' + (document.querySelector('.form-stack') ? 'yes' : 'no') + ' GOLD=' + (document.querySelector('.auth-title-gold') ? 'yes' : 'no')"],
+  ["eval", "var s=Array.from(document.querySelectorAll('script[src]')).map(function(x){return x.getAttribute('src')}).join(','); 'ASSETS=' + s.slice(0, 140)"],
+  ["screenshot", "docs/self-test/v9/86-live-login.png"]
+]
