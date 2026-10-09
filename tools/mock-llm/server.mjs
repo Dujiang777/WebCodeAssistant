@@ -69,6 +69,19 @@ function streamToolCall(res, name, args) {
   sendChunk(res, { choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
 }
 
+/** 同 streamToolCall，但参数是原始字符串 —— 用于注入坏 JSON（回归：坏参数自愈）。 */
+function streamToolCallRaw(res, name, rawArguments) {
+  const callId = `call_${Math.random().toString(36).slice(2, 10)}`;
+  sendChunk(res, {
+    choices: [{
+      index: 0,
+      delta: { role: 'assistant', tool_calls: [{ index: 0, id: callId, type: 'function', function: { name, arguments: rawArguments } }] },
+      finish_reason: null,
+    }],
+  });
+  sendChunk(res, { choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
+}
+
 function sendChunk(res, payload) {  const body = {
     id: `chatcmpl-mock-${Date.now()}`,
     object: 'chat.completion.chunk',
@@ -350,6 +363,15 @@ function handleCompletion(body, res) {
   const toolMessages = findToolMessages(messages);
   const intent = detectIntent(messages);
   const currentFile = extractCurrentFile(messages);
+
+  // 回归场景「坏JSON恢复测试」：第一轮故意吐坏 JSON 工具参数 —— 后端应把解析失败
+  // 作为工具结果喂回模型（而不是静默挂死），下一轮 mock 看到失败结果后正常收尾。
+  if (lastUserText.includes('坏JSON恢复测试') && toolMessages.length === 0) {
+    return (STEP_DELAY_MS > 0 ? sleep(STEP_DELAY_MS) : Promise.resolve()).then(() => {
+      streamToolCallRaw(res, 'read_file', '{"path": "src/adc"乱}');
+      return finish(res, { inputTokens: 400, outputTokens: 30 });
+    });
+  }
 
   return (STEP_DELAY_MS > 0 ? sleep(STEP_DELAY_MS) : Promise.resolve()).then(() =>
     respond(toolMessages, intent, currentFile, lastUserText.includes('分步计划'), res),

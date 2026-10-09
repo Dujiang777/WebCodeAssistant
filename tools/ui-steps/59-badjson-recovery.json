@@ -1,0 +1,30 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "批30.5 回归：模型吐坏 JSON 工具参数 → 后端必须喂回失败结果让回合自愈，而不是永远「正在思考」" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "localStorage.clear(); location.replace('/#/login'); location.reload(); 'reset'"],
+  { "sleep": 2800 },
+
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set; var u=document.querySelector('#username'); s.call(u,'admin'); u.dispatchEvent(new Event('input',{bubbles:true})); var p=document.querySelector('#password'); s.call(p,'WcaAdmin!2026'); p.dispatchEvent(new Event('input',{bubbles:true})); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3600 },
+
+  { "note": "进 IDE，发触发消息" },
+  ["eval", "var c=document.querySelector('.ws-card'); c && c.dispatchEvent(new MouseEvent('click',{bubbles:true})); 'opened'"],
+  { "sleep": 4200 },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set; var t=document.querySelector('.composer-input'); s.call(t,'坏JSON恢复测试'); t.dispatchEvent(new Event('input',{bubbles:true})); 'typed'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.composer-send').click(), 'sent'"],
+
+  { "note": "轮询：坏参数应被喂回模型，mock 第二轮吐收尾文本 —— 回合必须结束" },
+  { "sleep": 4000 },
+  ["eval", "'POLL1=' + (document.body.innerText.indexOf('我这次没有拿到文件正文')>=0 ? 'recovered' : 'waiting') + ' thinking=' + (document.querySelector('.thinking-row') ? 'still' : 'done')"],
+  { "sleep": 4000 },
+  ["eval", "'POLL2=' + (document.body.innerText.indexOf('我这次没有拿到文件正文')>=0 ? 'recovered' : 'waiting') + ' thinking=' + (document.querySelector('.thinking-row') ? 'still' : 'done')"],
+  { "sleep": 4000 },
+  ["eval", "'POLL3=' + (document.body.innerText.indexOf('我这次没有拿到文件正文')>=0 ? 'recovered' : 'waiting') + ' thinking=' + (document.querySelector('.thinking-row') ? 'still' : 'done')"],
+  ["screenshot", "docs/self-test/v9/87-badjson-recovery.png"]
+]
