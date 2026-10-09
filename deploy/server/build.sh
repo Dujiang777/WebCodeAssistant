@@ -58,11 +58,23 @@ GRADLE_USER_HOME="$GRADLE_HOME_DIR" ./gradlew --no-daemon --console=plain \
   --init-script "$OUT/init.gradle" bootJar || { say "BE_BUILD_FAILED"; exit 1; }
 say "BE_OK"
 
-say "4/5 落产物"
-cp build/libs/*.jar "$OUT/app.jar" || exit 1
+say "4/6 落产物（原子替换，别原地 cp —— 旧进程还开着这个文件，"
+say "    原地覆盖会让它懒加载时读到错位的 zip 内容 → NoClassDefFoundError）"
+install -m 644 build/libs/*.jar "$OUT/app.jar.new" || exit 1
+mv -f "$OUT/app.jar.new" "$OUT/app.jar" || exit 1
 rm -rf "$OUT/dist"
 cp -r ../frontend/dist "$OUT/dist" || exit 1
 ls -la "$OUT/app.jar"
 du -sh "$OUT/dist"
 
-say "5/5 ALL_DONE"
+say "5/6 重启后端并等健康"
+systemctl restart wca-backend || { say "RESTART_FAILED"; exit 1; }
+for i in $(seq 1 30); do
+  sleep 2
+  CODE=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/auth/me || true)
+  if [ "$CODE" != "000" ]; then say "HEALTH_OK http=$CODE after ${i}x2s"; break; fi
+done
+if [ "$CODE" = "000" ]; then say "HEALTH_TIMEOUT"; exit 1; fi
+systemctl is-active wca-backend
+
+say "6/6 ALL_DONE"
