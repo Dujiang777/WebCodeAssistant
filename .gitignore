@@ -33,3 +33,4 @@ deploy/.env
 *.iml
 .DS_Store
 Thumbs.db
+docs/media-src/
