@@ -27,6 +27,7 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.output.TokenUsage;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.service.TokenStream;
 import org.slf4j.Logger;
@@ -315,7 +316,11 @@ public class AgentOrchestrator {
 
             Assistant assistant = AiServices.builder(Assistant.class)
                     .streamingChatModel(modelGateway.require(model))
-                    .tools(toolbox)
+                    // 不用 .tools(toolbox)：框架自动生成的执行器对「参数 JSON 解析失败」
+                    // 没有兜底（解析在 try 之外），坏 JSON 会穿透到 SSE 关闭回调被静默
+                    // 吞掉，前端永远「正在思考」。SafeToolExecutors 把它降级为喂回模型的
+                    // 工具失败结果，回合可自行恢复。见 SafeToolExecutors 类注释。
+                    .tools(SafeToolExecutors.of(toolbox))
                     .chatMemory(memory)
                     .build();
 
@@ -325,8 +330,18 @@ public class AgentOrchestrator {
                         publisher.text(delta);
                     })
                     .onCompleteResponse(response -> {
-                        assistantMessageId[0] = finish(request, workspace, answer, response, toolbox,
-                                publisher, charge);
+                        // 收尾自身抛出的异常会被 langchain4j 的 ignoringExceptions 静默
+                        // 吞掉（不进 onError），前端会永远「正在思考」。必须自己兜住：
+                        // 至少让用户看到错误、把预扣退掉，而不是无声挂死。
+                        try {
+                            assistantMessageId[0] = finish(request, workspace, answer, response, toolbox,
+                                    publisher, charge);
+                        } catch (RuntimeException ex) {
+                            log.error("回合收尾异常 session={}", request.sessionId(), ex);
+                            persistAssistantError(request.sessionId(), describe(ex));
+                            publisher.error("回合收尾失败，本轮已退还预扣积分：" + describe(ex));
+                            refundFailedTurn(request, charge);
+                        }
                     })
                     .onError(error -> {
                         log.warn("Agent 回合失败 session={}", request.sessionId(), error);
@@ -552,12 +567,25 @@ public class AgentOrchestrator {
     }
 
     private static long tokenOf(ChatResponse response, boolean input) {
-        if (response == null || response.tokenUsage() == null) {
+        if (response == null) {
+            return 0;
+        }
+        TokenUsage usage;
+        try {
+            usage = response.tokenUsage();
+        } catch (ClassCastException ex) {
+            // langchain4j 1.0.0 缺陷：多步回合的终响应会把跨步累计的 usage 塞回
+            // OpenAiChatResponseMetadata，而它的 getter 强转 OpenAiTokenUsage；
+            // 终轮缺 usage chunk 时 add(null) 返回基类实例 → 一读就 CCE。
+            // 降级为 0：回合照常结算收尾，不能因为计量问题把整个回合炸掉。
+            return 0;
+        }
+        if (usage == null) {
             return 0;
         }
         Integer value = input
-                ? response.tokenUsage().inputTokenCount()
-                : response.tokenUsage().outputTokenCount();
+                ? usage.inputTokenCount()
+                : usage.outputTokenCount();
         return value == null ? 0 : value;
     }
 
