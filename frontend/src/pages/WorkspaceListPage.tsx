@@ -292,6 +292,10 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
                 tabIndex={0}
                 title="打开这个工作区"
               >
+                {/* 片库墙：片盒脊上的竖排帧号（01 起编，hover 点亮成金） */}
+                <span className="ws-card-frame" aria-hidden="true">
+                  {String(index + 1).padStart(2, '0')}
+                </span>
                 <span className="ws-card-icon">
                   <FolderOpenIcon size={17} />
                 </span>

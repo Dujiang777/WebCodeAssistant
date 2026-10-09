@@ -8201,3 +8201,159 @@ body {
   opacity: 0.8;
   pointer-events: none;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   批30「仪器台 II」：片边标注 · 片库墙 · 曝光表
+   —— 会话面包屑变成胶片片边那排出厂小字；工作区列表变成片库墙（卡片=片盒，
+   hover 抽片）；配额条变成测光表（刻度表尺 + 曝光扫过的金针）。
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. 会话面包屑 = 片边标注 ──
+   胶片边缘的出厂刻字：暗片基、上下缘细密帧线、右端一枚小箭头。
+   select 是替换元素（伪元素不渲染），全部用多层 background 画；
+   appearance:none 收掉原生箭头后自绘 chevron。 */
+.session-select {
+  appearance: none;
+  -webkit-appearance: none;
+  max-width: 240px;
+  padding: 5px 22px 5px 12px;
+  color: var(--fg-1);
+  letter-spacing: 0.02em;
+  background:
+    /* 自绘 chevron：两段斜线拼一个「∨」 */
+    linear-gradient(to bottom right, transparent 44%, var(--fg-2) 44% 56%, transparent 56%)
+      calc(100% - 13px) 50% / 5px 6px,
+    linear-gradient(to bottom left, transparent 44%, var(--fg-2) 44% 56%, transparent 56%)
+      calc(100% - 8px) 50% / 5px 6px,
+    /* 上下缘片边帧线 */
+    repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 6px) 0 0 / 100% 3px,
+    repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 6px) 0 100% / 100% 3px,
+    /* 片基本体 */
+    linear-gradient(var(--bg-0), var(--bg-0)) 0 0 / 100% 100%;
+  background-repeat: no-repeat;
+  transition: border-color var(--dur-2) var(--ease-soft), color var(--dur-2) var(--ease-soft);
+}
+
+.session-select:hover {
+  border-color: var(--signal-line);
+  color: var(--fg-0);
+}
+
+/* ── 2. 工作区列表 = 片库墙 ──
+   每张卡是一片盒：左缘 18px 片盒脊（帧号竖排在脊上，hover 点亮成金），
+   hover 时整盒向右「抽」出 2px。取景框角标（批28）保留不动。 */
+.ws-grid {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.ws-card {
+  padding-left: 32px;
+  background:
+    /* 脊与内容的分隔发丝线 */
+    linear-gradient(var(--line), var(--line)) 18px 0 / 1px 100%,
+    /* 片盒脊 */
+    linear-gradient(var(--bg-0), var(--bg-0)) 0 0 / 18px 100%,
+    /* 卡片本体（覆盖原 background，保住主题变量） */
+    linear-gradient(var(--bg-1), var(--bg-1)) 0 0 / 100% 100%;
+  background-repeat: no-repeat;
+}
+
+.ws-card .workspace-name {
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+
+.ws-card-time {
+  font-family: var(--font-mono);
+}
+
+/* 帧号：竖排在片盒脊上（TSX 注入 .ws-card-frame，两位数从 01 起编） */
+.ws-card-frame {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  writing-mode: vertical-rl;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--fg-3);
+  opacity: 0.7;
+  transition: color var(--dur-2) var(--ease-soft), opacity var(--dur-2) var(--ease-soft);
+  pointer-events: none;
+}
+
+/* 抽片：hover 整盒右移，脊上帧号点亮成金。
+   注意本条在原 :active 之后，所以 :active 压回的规则必须在下一条重新压制。 */
+.ws-card:hover {
+  transform: translateY(-3px) translateX(2px);
+  background:
+    linear-gradient(var(--line), var(--line)) 18px 0 / 1px 100%,
+    linear-gradient(var(--bg-0), var(--bg-0)) 0 0 / 18px 100%,
+    linear-gradient(var(--bg-2), var(--bg-2)) 0 0 / 100% 100%;
+}
+
+.ws-card:hover .ws-card-frame {
+  color: var(--signal);
+  opacity: 1;
+}
+
+/* 按下压回：恢复「从抬升态回落」的手感（上面的 hover 改了 transform，这里要跟着收） */
+.ws-card:active {
+  transform: translateY(-1px) translateX(2px) scale(0.996);
+}
+
+/* ── 3. 配额条 = 曝光表 ──
+   斜纹换刻度表尺：已曝光的部分被金渐变扫过，扫过前沿留一枚亮金指针；
+   未曝光的部分露出底尺刻度 —— 「还能拍多少张」读起来像测光表而不是进度条。 */
+.quota-bar-track {
+  height: 10px;
+  border-radius: 2px;
+  background:
+    /* 主刻度：每 10% 一道 */
+    repeating-linear-gradient(90deg, var(--line-strong) 0 1px, transparent 1px 10%),
+    /* 表尺底 */
+    linear-gradient(var(--bg-0), var(--bg-0)) 0 0 / 100% 100%;
+  background-repeat: repeat, no-repeat;
+}
+
+.quota-bar-fill {
+  position: relative;
+  border-radius: 2px 0 0 2px;
+}
+
+/* 曝光指针：fill 前沿一枚实心亮金针（0% 时 fill 宽为 0，指针自然隐藏） */
+.quota-bar-fill::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--signal);
+  box-shadow: 0 0 6px var(--signal-dim);
+}
+
+.quota-bar-row.warn .quota-bar-fill::after {
+  background: var(--amber);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--amber) 30%, transparent);
+}
+
+.quota-bar-row.exhausted .quota-bar-fill::after {
+  background: var(--rose);
+  box-shadow: none;
+}
+
+/* 表头读数：展示字体 + 提亮，读数像表盘数字 */
+.quota-bar-num {
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--fg-0);
+}
