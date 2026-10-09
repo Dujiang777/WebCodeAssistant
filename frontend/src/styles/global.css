@@ -8093,3 +8093,111 @@ body {
   pointer-events: none;
   z-index: 1;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   批29「仪器台」：管理仪表台大数字 / 流水显影 / 取景器对焦屏
+   ① 后台统计卡：角标 + 底部刻度尺 + 大数字换展示字
+   ② 流水表格：表头金底线、行 hover 显影 + 左缘指针
+   ③ 编辑器空态：四角对焦括号 + 中心十字（无网格，工作面保持干净）
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. 仪表台：像调音台的电平表 ── */
+.ad-stat-card {
+  position: relative;
+}
+
+.ad-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid var(--signal);
+  border-left: 2px solid var(--signal);
+  border-top-left-radius: 2px;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+/* 底部刻度尺：细密发丝刻线，最左一格是金色的「0 位」 */
+.ad-stat-card::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  right: 15px;
+  bottom: 5px;
+  height: 5px;
+  background:
+    linear-gradient(var(--signal), var(--signal)) 0 0 / 2px 5px,
+    repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 9px);
+  background-repeat: no-repeat, repeat;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.ad-stat-value {
+  font-family: var(--font-display);
+  font-size: 27px;
+  letter-spacing: 0.01em;
+}
+
+/* ── 2. 流水胶片：行 hover 像「显影」 ── */
+.cr-table th {
+  border-bottom: 1px solid color-mix(in srgb, var(--signal) 30%, var(--line));
+}
+
+.cr-table td {
+  transition: background var(--dur-1) var(--ease-soft), box-shadow var(--dur-1) var(--ease-soft);
+}
+
+.cr-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--signal) 6%, var(--bg-2));
+}
+
+/* 显影指针：当前行左缘一枚金针 */
+.cr-table tbody tr:hover td:first-child {
+  box-shadow: inset 2px 0 0 var(--signal);
+}
+
+/* ── 3. 取景器对焦屏：空态就是一块等待合焦的毛玻璃 ── */
+.editor-empty {
+  position: relative;
+}
+
+.editor-empty::before {
+  content: '';
+  position: absolute;
+  inset: 20px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--signal-line), var(--signal-line)) 0 0 / 22px 1px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 0 0 / 1px 22px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 100% 0 / 22px 1px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 100% 0 / 1px 22px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 0 100% / 22px 1px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 0 100% / 1px 22px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 100% 100% / 22px 1px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 100% 100% / 1px 22px;
+  background-repeat: no-repeat;
+  opacity: 0.35;
+}
+
+/* 中心十字：合焦标记 */
+.editor-empty::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  translate: -50% -50%;
+  background:
+    linear-gradient(var(--signal-line), var(--signal-line)) 50% 0 / 1px 7px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 50% 100% / 1px 7px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 0 50% / 7px 1px,
+    linear-gradient(var(--signal-line), var(--signal-line)) 100% 50% / 7px 1px;
+  background-repeat: no-repeat;
+  opacity: 0.8;
+  pointer-events: none;
+}
