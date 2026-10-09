@@ -1,0 +1,41 @@
+[
+  ["set", "viewport", "1512", "950"],
+
+  { "note": "批30「仪器台 II」验证：会话面包屑片边标注 / 工作区片库墙 / 配额曝光表。先硬清登录态（契约前戏）" },
+  ["open", "http://127.0.0.1:5173/#/login"],
+  { "sleep": 2400 },
+  ["eval", "localStorage.clear(); location.replace('/#/login'); location.reload(); 'reset'"],
+  { "sleep": 2800 },
+
+  { "note": "① 登录 → 落在工作区列表页（片库墙主场）" },
+  ["eval", "var s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set; var u=document.querySelector('#username'); s.call(u,'admin'); u.dispatchEvent(new Event('input',{bubbles:true})); var p=document.querySelector('#password'); s.call(p,'WcaAdmin!2026'); p.dispatchEvent(new Event('input',{bubbles:true})); 'filled'"],
+  { "sleep": 300 },
+  ["eval", "document.querySelector('.form-stack .btn-primary').click(), 'submitted'"],
+  { "sleep": 3600 },
+  ["eval", "'AT=' + location.hash"],
+
+  { "note": "② 片库墙断言：片盒脊 18px + 内容让位 32px + 竖排帧号存在" },
+  ["eval", "var c=document.querySelector('.ws-card'); var cs=c?getComputedStyle(c):null; 'LIB_SPINE=' + (cs ? 'padL=' + cs.paddingLeft + ' bg0=' + (cs.backgroundImage.indexOf('linear-gradient')>=0 ? 'yes':'no') + ' layers=' + (cs.backgroundImage.match(/linear-gradient/g)||[]).length : 'NO_CARD')"],
+  ["eval", "var f=document.querySelector('.ws-card-frame'); var fs=f?getComputedStyle(f):null; 'LIB_FRAME=' + (fs ? 'wm=' + fs.writingMode + ' font=' + fs.fontFamily.slice(0,20) + ' text=' + (f.textContent||'') : 'NONE')"],
+  ["screenshot", "docs/self-test/v9/83-film-library.png"],
+
+  { "note": "③ 真实 hover：抽片（translateX 2px）+ 帧号点亮成金（合成事件不触发 :hover，必须真 hover）" },
+  ["hover", ".ws-card"],
+  { "sleep": 600 },
+  ["eval", "var c=document.querySelector('.ws-card'); 'LIB_HOVER_TF=' + getComputedStyle(c).transform + ' FRAME_COLOR=' + getComputedStyle(document.querySelector('.ws-card-frame')).color"],
+
+  { "note": "④ 进 IDE：会话面包屑片边标注 + 曝光表" },
+  ["eval", "var c=document.querySelector('.ws-card'); c && c.dispatchEvent(new MouseEvent('click',{bubbles:true})); 'opened'"],
+  { "sleep": 4200 },
+  ["eval", "var s=document.querySelector('.session-select'); var cs=s?getComputedStyle(s):null; 'CRUMB_EDGE=' + (cs ? 'holes=' + (cs.backgroundImage.indexOf('repeating-linear-gradient')>=0?'yes':'no') + ' arrow=' + (cs.backgroundImage.indexOf('to right bottom')>=0?'yes':'no') + ' appearance=' + cs.appearance : 'NO_SELECT')"],
+  ["eval", "var t=document.querySelector('.quota-bar-track'); var cs=t?getComputedStyle(t):null; 'METER_TICKS=' + (cs ? 'ticks=' + (cs.backgroundImage.indexOf('repeating-linear-gradient')>=0?'yes':'no') + ' h=' + cs.height : 'NO_TRACK')"],
+  ["eval", "var f=document.querySelector('.quota-bar-fill'); var a=f?getComputedStyle(f,'::after'):null; 'METER_NEEDLE=' + (a ? 'w=' + a.width + ' pos=' + a.position + ' right=' + a.right : 'NO_FILL')"],
+  ["eval", "var n=document.querySelector('.quota-bar-num'); var cs=n?getComputedStyle(n):null; 'METER_NUM=' + (cs ? 'font=' + cs.fontFamily.slice(0,16) + ' size=' + cs.fontSize : 'NO_NUM')"],
+  ["screenshot", "docs/self-test/v9/84-instrument-ide.png"],
+
+  { "note": "⑤ ivory 主题巡览：片基/脊/表尺全部走变量，纸面应自动适配" },
+  ["eval", "document.documentElement.setAttribute('data-theme','ivory'); 'iv'"],
+  { "sleep": 600 },
+  ["screenshot", "docs/self-test/v9/85-instrument-ivory.png"],
+  ["eval", "document.documentElement.setAttribute('data-theme','brass'); location.reload(); 'cleaned'"]
+]
