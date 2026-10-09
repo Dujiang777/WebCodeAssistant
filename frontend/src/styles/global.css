@@ -8357,3 +8357,63 @@ body {
   letter-spacing: 0.02em;
   color: var(--fg-0);
 }
+
+/* ------------------------------------------------------------------
+   批32：对话流破相修复
+   症状：长 inline 代码/引用标记把 chat-scroll 撑出横向滚动条，
+   消息操作条与补丁卡右缘被裁。
+   ------------------------------------------------------------------ */
+.chat-scroll {
+  overflow-x: hidden;
+}
+
+.chat-scroll .msg-in,
+.chat-scroll .patch-card,
+.chat-scroll .plan-card,
+.chat-scroll .tool-card {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* 长标识符/路径必须可断行，永远不再撑出横向滚动 */
+.chat-scroll :is(code, pre) {
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------
+   批32b：AI 回复排版减负
+   反馈原话「AI 回复我的样式我看的难受」：引用胶囊 + 代码胶囊 + 正文
+   三种盒子挤在一段里，视觉上全是边框。引用标记降级成「虚线注脚」——
+   可点、可识别，但不再和正文抢注意力；行内代码去边框留淡底；正文
+   放大半号字、拉开行距。用户气泡（白纸切片）的深铜变体特异性更高，
+   保持原样不受影响。
+   ------------------------------------------------------------------ */
+.msg-body {
+  font-size: 14px;
+  line-height: 1.95;
+  letter-spacing: 0.012em;
+}
+
+.msg-body code {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--fg-0) 8%, transparent);
+}
+
+.cite-chip {
+  display: inline;
+  padding: 0 3px;
+  border: none;
+  border-bottom: 1px dashed color-mix(in srgb, var(--signal) 55%, transparent);
+  border-radius: 0;
+  background: transparent;
+  color: var(--signal-soft);
+  font-size: 12px;
+  line-height: inherit;
+  vertical-align: baseline;
+}
+
+.cite-chip:hover {
+  background: color-mix(in srgb, var(--signal) 16%, transparent);
+  border-bottom: 1px solid var(--signal);
+  color: var(--signal-soft);
+}
