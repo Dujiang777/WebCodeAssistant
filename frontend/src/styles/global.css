@@ -8535,3 +8535,118 @@ body {
   color: var(--signal);
   opacity: 1;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   批34「暗房三拍」：把批33 的静态零件做成会动的机构
+   ① 文件树 = 抽片台（hover 把这一行往右抽出来，帧号跟着联动）
+   ② 登录卡 = 待冲印的相纸（左侧片边印帧号刻度）
+   ③ 补丁卡 = 冲印完成的印章（应用后盖「已冲印」印）
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── ① 文件树抽片台 ──
+   从片盒里抽出一张片子：整行右移 2px，左缘游标跟着变宽（批29 的两级游标）。
+   动画走 transform 不触发布局，60fps 无压力；
+   reduced-motion 由文末通配把 animation-duration 归零兜住。 */
+.tree-row {
+  transition:
+    background var(--dur-1) var(--ease-soft),
+    color var(--dur-1) var(--ease-soft),
+    border-color var(--dur-1) var(--ease-soft),
+    translate var(--dur-2) var(--ease-out);
+}
+
+.tree-row:hover:not(.selected) {
+  translate: 2px 0;
+}
+
+/* 选中行不抽片：它已经在「曝光位」上了，再抽就叠出去了 */
+.tree-row.selected {
+  translate: 0 0;
+}
+
+/* 抽片时帧号先亮一瞬 —— 像抽出片子先对上焦 */
+.tree-row:hover:not(.selected) .tree-frame-no::before {
+  color: var(--fg-0);
+}
+
+/* ── ② 登录卡片边帧号 ──
+   登录是「进暗房」，这张卡就是等着冲印的相纸：左缘压一条 3px 片边，
+   里面打一列曝光刻度（4px 实 / 5px 空，像 35mm 的边码）。
+   为什么用真实元素而不是伪元素：登录卡的 ::before 是安全灯（呼吸点）、
+   ::after 是四角取景框，两个位子都满了 —— 抢权重会把那两处记忆点弄坏。 */
+.card-print {
+  position: relative;
+  padding-left: 30px;
+}
+
+.card-print-edge {
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 11px;
+  width: 3px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    180deg,
+    var(--signal-line) 0 4px,
+    transparent 4px 9px
+  );
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity var(--dur-2) var(--ease-soft);
+}
+
+/* 卡片「被拿起来看」时片边显影更深 —— 和 patch-card 的对焦点亮同一拍 */
+.card-print:hover .card-print-edge {
+  opacity: 0.9;
+}
+
+/* ── ③ 补丁卡「已冲印」印章 ──
+   补丁写盘成功 = 这一张冲印完成。盖一枚橡皮章：双线圆角框（外框 + 内框），
+   旋转 -9°，压在校验行右侧。印章是 overlay，不占布局高度，
+   pointer-events:none 保证不挡用户点「完整对比」。 */
+.patch-card {
+  position: relative;
+}
+
+.patch-stamp {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 2;
+  padding: 3px 9px 4px;
+  border: 1.5px solid var(--lime);
+  border-radius: 4px;
+  color: var(--lime);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1.1;
+  rotate: -9deg;
+  opacity: 0.9;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--bg-2) 82%, transparent);
+  /* 双线印章：外框是 border，再压一条 inset 阴影当内框 */
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lime) 45%, transparent);
+  animation: stamp-press 420ms var(--ease-out) both;
+}
+
+/* 盖章动作：先砸下去再回弹一点点 —— 盖印的力道感。
+   独立属性（scale/rotate/translate 分开写）互不干扰，
+   to 帧显式写 translate: none，避免 fill:both 留下永久合成层。 */
+@keyframes stamp-press {
+  0% { opacity: 0; scale: 1.5; rotate: -20deg; translate: 0 0; }
+  60% { opacity: 1; scale: 0.92; rotate: -6deg; translate: 0 0; }
+  100% { opacity: 0.9; scale: 1; rotate: -9deg; translate: none; }
+}
+
+/* 窄屏时印章容易和 patch-stat 的 +N/-M 撞上 —— 压小并挪到标题下方一点 */
+@media (max-width: 720px) {
+  .patch-stamp {
+    top: 34px;
+    right: 10px;
+    font-size: 9.5px;
+    padding: 2px 7px 3px;
+  }
+}

@@ -263,7 +263,10 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
       </section>
 
       <section className="auth-form-wrap">
-        <div className="card">
+        {/* 批34：登录卡 = 一张待冲印的相纸。左侧留出片边（.card-print-edge），
+             卡上两个伪元素已被安全灯/取景框占满，片边用真实元素承载，避免权重打架。 */}
+        <div className="card card-print">
+          <span className="card-print-edge" aria-hidden="true" />
           <div className="card-head">
             <TerminalMark size={20} />
             <span className="card-title">{title}</span>
