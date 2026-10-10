@@ -6,6 +6,7 @@ import type {
   BuildResult,
   ChatMessage,
   ChatSession,
+  CharterAudit,
   FlagView,
   GatePolicy,
   PatchRecord,
@@ -81,6 +82,7 @@ interface PatchDeps {
   onFixFromCompile: (patch: PatchRecord, result: BuildResult) => void;
   onOpenCitation: (file: string, line: number | null) => void;
   fitOf?: (patchId: string) => { fits: boolean; redzone: boolean; reason: string | null } | null;
+  charterOf?: (patchId: string) => CharterAudit | null;
 }
 
 interface ChatPaneProps extends PatchDeps {
@@ -94,6 +96,9 @@ interface ChatPaneProps extends PatchDeps {
   streamStatus: StreamStatus;
   currentFile: string | null;
   selection: Selection | null;
+  /** 从编辑器选区条 / Ctrl+K 灌进输入框。token 变化才触发。 */
+  composerSeed?: { token: number; text: string } | null;
+  onAskSelection?: (kind: 'explain' | 'edit' | 'usages') => void;
   mode: AgentMode;
   onModeChange: (mode: AgentMode) => void;
   onSend: (content: string) => void;
@@ -183,6 +188,8 @@ export function ChatPane({
   streamStatus,
   currentFile,
   selection,
+  composerSeed = null,
+  onAskSelection,
   mode,
   onModeChange,
   onSend,
@@ -230,6 +237,7 @@ export function ChatPane({
   onFixFromCompile,
   onOpenCitation,
   fitOf,
+  charterOf,
 }: ChatPaneProps) {
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -272,6 +280,17 @@ export function ChatPane({
       // 隐私模式记不住草稿就算了
     }
   }, [draft, sessionId]);
+
+  useEffect(() => {
+    if (!composerSeed?.text) return;
+    const seed = composerSeed.text;
+    setDraft((current) => {
+      if (!current.trim()) return seed;
+      if (current.includes(seed)) return current;
+      return `${current.replace(/\s+$/, '')}\n${seed}`;
+    });
+    window.setTimeout(() => textareaRef.current?.focus(), 0);
+  }, [composerSeed?.token]);
 
   // 自动滚到底，但用户手动往上翻时不打断他 —— 这是聊天界面的基本礼貌
   useEffect(() => {
@@ -334,6 +353,7 @@ export function ChatPane({
     onFixFromCompile,
     onOpenCitation,
     fitOf,
+    charterOf,
   };
 
   const livePatchIds = turn?.patchIds ?? [];
@@ -367,6 +387,7 @@ export function ChatPane({
       onFixFromCompile={onFixFromCompile}
       onOpenRef={onOpenCitation}
       fit={fitOf?.(patch.id) ?? null}
+      charter={charterOf?.(patch.id) ?? null}
     />
   );
 
@@ -683,8 +704,21 @@ export function ChatPane({
           )}
 
           {selection && (
-            <span className="chip" style={{ color: 'var(--cyan)', borderColor: 'rgba(78,201,216,0.3)' }}>
-              选中 第 {selection.startLine}–{selection.endLine} 行 · {selection.text.length} 字符
+            <span className="chip sel-chip" style={{ color: 'var(--cyan)', borderColor: 'rgba(78,201,216,0.3)' }}>
+              选中 第 {selection.startLine}–{selection.endLine} 行
+              {onAskSelection && (
+                <>
+                  <button type="button" className="sel-chip-act" onClick={() => onAskSelection('explain')}>
+                    解释
+                  </button>
+                  <button type="button" className="sel-chip-act" onClick={() => onAskSelection('edit')}>
+                    改
+                  </button>
+                  <button type="button" className="sel-chip-act" onClick={() => onAskSelection('usages')}>
+                    谁在用
+                  </button>
+                </>
+              )}
               <button
                 className="icon-btn"
                 style={{ width: 14, height: 14 }}
@@ -885,6 +919,8 @@ function MessageBlock({
                 onCompile={deps.onCompilePatch}
                 onFixFromCompile={deps.onFixFromCompile}
                 onOpenRef={deps.onOpenCitation}
+                fit={deps.fitOf?.(patch.id) ?? null}
+                charter={deps.charterOf?.(patch.id) ?? null}
               />
             ))}
           </div>

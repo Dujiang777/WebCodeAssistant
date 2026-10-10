@@ -7,6 +7,7 @@ import type {
   BuildResult,
   ChatMessage,
   ChatSession,
+  CharterAudit,
   ConstitutionView,
   CreditSummary,
   DeskView,
@@ -310,6 +311,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const [flagAcks, setFlagAcks] = useState<Set<string>>(() => new Set<string>());
   const [redzone, setRedzone] = useState<string[]>([]);
   const [fits, setFits] = useState<Record<string, { fits: boolean; redzone: boolean; reason: string | null }>>({});
+  const [charters, setCharters] = useState<Record<string, CharterAudit>>({});
+  const [composerSeed, setComposerSeed] = useState<{ token: number; text: string } | null>(null);
 
   // ------------------------------------------------- 商业级账号：积分
   /** 顶栏徽标用的轻量概览。完整账单在积分中心页，这里只要余额与告警位。 */
@@ -405,6 +408,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   /** 同理，特性开关分析每个补丁只算一次。 */
   const flagRequested = useRef<Set<string>>(new Set());
   const fitRequested = useRef<Set<string>>(new Set());
+  const charterRequested = useRef<Set<string>>(new Set());
+  const composerSeedToken = useRef(0);
   const handlersRef = useRef({
     onEvent: (_event: ChatEvent) => {},
     onStatus: (_status: StreamStatus) => {},
@@ -548,6 +553,21 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           setFits((current) => ({ ...current, [patch.id]: fit }));
         } catch {
           // 贴合检查失败不挡主流程
+        }
+      })();
+    }
+  }, [patches]);
+
+  useEffect(() => {
+    for (const patch of patches) {
+      if (patch.status !== 'pending' || charterRequested.current.has(patch.id)) continue;
+      charterRequested.current.add(patch.id);
+      void (async () => {
+        try {
+          const audit = await api.patchCharter(patch.id);
+          setCharters((current) => ({ ...current, [patch.id]: audit }));
+        } catch {
+          // 宪章对账失败不挡主流程
         }
       })();
     }
@@ -1234,6 +1254,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       toast.info(on ? `已划入禁区：${path}` : `已解开禁区：${path}`);
       fitRequested.current.clear();
       setFits({});
+      charterRequested.current.clear();
+      setCharters({});
     } catch (err) {
       toast.error(messageOf(err));
     }
@@ -1389,6 +1411,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     } catch (err) {
       if (err instanceof HttpError && err.code === 'FLAG_ACK_REQUIRED') {
         toast.info('这张补丁改动了行为 —— 先在卡片上勾选「已确认开关关闭时的旧路径」，再点应用。');
+      } else if (err instanceof HttpError && err.code === 'CHARTER_BLOCKED') {
+        toast.info(messageOf(err) || '宪章禁止这项改动，先改宪法或丢掉补丁');
       } else {
         toast.error(messageOf(err));
       }
@@ -1472,6 +1496,27 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       return;
     }
     await send(lastUser.content);
+  };
+
+  const askSelection = (kind: 'explain' | 'edit' | 'usages') => {
+    if (!selection) {
+      toast.info('先在编辑器里选一段代码');
+      return;
+    }
+    if (sending) {
+      toast.info('这一轮还在跑，先等它说完');
+      return;
+    }
+    if (kind === 'edit') {
+      composerSeedToken.current += 1;
+      setComposerSeed({ token: composerSeedToken.current, text: '把选中的这段改成：' });
+      return;
+    }
+    if (kind === 'explain') {
+      void send('解释一下选中的这段代码：它在做什么、有什么边界情况和风险。');
+      return;
+    }
+    void send('选中的这段还在哪些地方被用到？列出调用方和改它可能波及的地方。');
   };
 
   const send = async (content: string) => {
@@ -1876,6 +1921,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           onSelectTab={(path) => void openFile(path)}
           onCloseTab={(path) => void closeTab(path)}
           onQuickOpen={() => setQuickOpen(true)}
+          onAskSelection={askSelection}
         />
 
         {chatVisible && (
@@ -1901,6 +1947,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               streamStatus={streamStatus}
               currentFile={selectedPath}
               selection={selection}
+              composerSeed={composerSeed}
+              onAskSelection={askSelection}
               mode={mode}
               onModeChange={(next) => {
                 setMode(next);
@@ -1939,6 +1987,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               onFixFromCompile={(patch, result) => fixFromCompile(patch, result)}
               onOpenCitation={(path, line) => void openCitation(path, line)}
               fitOf={(patchId) => fits[patchId] ?? null}
+              charterOf={(patchId) => charters[patchId] ?? null}
               gates={gates}
               gateBusyId={gateBusyId}
               gatePolicy={gatePolicy}
