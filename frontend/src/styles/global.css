@@ -2970,6 +2970,13 @@ button.risk-chip:hover {
   to { opacity: 1; translate: 0 0; scale: 1; }
 }
 
+/* 开盒显影：弹窗打开瞬间像相纸浸入显影液 —— 先过曝（亮而褪色），
+   再沉回正常曝光。一次性动画，结束后 filter 自然归位 none，不建常驻层。 */
+@keyframes modal-develop {
+  0% { filter: brightness(1.45) saturate(0.55); }
+  100% { filter: brightness(1) saturate(1); }
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -2994,39 +3001,57 @@ button.risk-chip:hover {
   background: var(--bg-1);
   box-shadow: var(--panel-edge), var(--shadow-modal);
   overflow: hidden;
-  animation: modal-pop var(--dur-3) var(--ease-out);
+  /* 双轨入场：modal-pop 上浮 + modal-develop 过曝回落 —— 相纸进显影液，
+     先亮后显，1.4 倍时长的显影比上浮更慢收，像药水里的影像慢慢沉实。 */
+  animation: modal-pop var(--dur-3) var(--ease-out),
+    modal-develop calc(var(--dur-3) * 1.4) var(--ease-soft);
 }
 
-/* 弹窗是「全画幅」，角标也用取景器语言 —— 静止金线（弹窗没有 hover 态），
-   和工作区卡的灰→金 hover 形成同一意象的两种强度。 */
+/* 弹窗是「全画幅」：批33 把批26 的对角双 L 升级为四角取景框（批28 patch-card 工艺，
+   8 层渐变各画半边，inset 内缩避开圆角），金线随三主题换相。
+   静止金线（弹窗没有 hover 态）——和补丁卡的灰→金 hover 形成同一意象的两种强度。 */
 .modal::before {
   content: '';
   position: absolute;
-  top: 8px;
-  left: 8px;
-  width: 16px;
-  height: 16px;
-  border-top: 1px solid var(--signal);
-  border-left: 1px solid var(--signal);
-  border-top-left-radius: 3px;
-  opacity: 0.85;
+  inset: 7px;
+  background:
+    linear-gradient(var(--signal), var(--signal)) 0 0 / 15px 1px,
+    linear-gradient(var(--signal), var(--signal)) 0 0 / 1px 15px,
+    linear-gradient(var(--signal), var(--signal)) 100% 0 / 15px 1px,
+    linear-gradient(var(--signal), var(--signal)) 100% 0 / 1px 15px,
+    linear-gradient(var(--signal), var(--signal)) 0 100% / 15px 1px,
+    linear-gradient(var(--signal), var(--signal)) 0 100% / 1px 15px,
+    linear-gradient(var(--signal), var(--signal)) 100% 100% / 15px 1px,
+    linear-gradient(var(--signal), var(--signal)) 100% 100% / 1px 15px;
+  background-repeat: no-repeat;
+  opacity: 0.8;
   pointer-events: none;
   z-index: 1;
 }
 
+/* 显影扫光：开盒瞬间一道金光从顶掠到底（单次），像相纸过药水时那道反光。
+   独立覆盖层，扫完停在高处被 overflow:hidden 裁掉，无残留。 */
 .modal::after {
   content: '';
   position: absolute;
-  bottom: 8px;
-  right: 8px;
-  width: 16px;
-  height: 16px;
-  border-bottom: 1px solid var(--signal);
-  border-right: 1px solid var(--signal);
-  border-bottom-right-radius: 3px;
-  opacity: 0.85;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 26%;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--signal) 13%, transparent) 55%,
+    transparent 100%
+  );
   pointer-events: none;
-  z-index: 1;
+  z-index: 2;
+  animation: modal-sweep calc(var(--dur-3) * 1.6) var(--ease-soft) 1 both;
+}
+
+@keyframes modal-sweep {
+  from { translate: 0 -105%; }
+  to { translate: 0 385%; }
 }
 
 .modal-head {
@@ -8416,4 +8441,97 @@ body {
   background: color-mix(in srgb, var(--signal) 16%, transparent);
   border-bottom: 1px solid var(--signal);
   color: var(--signal-soft);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   批33「暗盒三刀」：把胶片暗盒的机械感装进三处高频小件
+   ① 消息操作条 = 暗盒出口的齿孔窄带（左端齿列 + 按钮间齿孔分隔）
+   ② 文件树文件行 = 片边帧号（FRAME 01 / 02 …，CSS counter 全自动）
+   ③ 模态弹窗 = 四角取景框 + 开盒显影（改在上方 .modal 原位规则）
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── ① 消息操作条：暗盒齿装 ──
+   操作条左端一列三颗齿孔 —— 胶片从暗盒出口拉出来的传动齿；
+   按钮之间各嵌一颗小方孔 —— 每个操作是胶片上的一格画格。
+   安静时是灰齿，消息 hover 时整条齿带点亮成金（和按钮升级同拍）。 */
+.msg-actions {
+  gap: 9px;
+}
+
+.msg-actions::before {
+  content: '';
+  flex: none;
+  align-self: center;
+  width: 3px;
+  height: 5px;
+  margin-right: 2px;
+  border-radius: 1px;
+  background: var(--line-strong);
+  /* 串珠式三颗齿：中心本体 + 上下各一颗，总高 15px，正好卡在窄带里 */
+  box-shadow:
+    0 -5px 0 0 var(--line-strong),
+    0 5px 0 0 var(--line-strong);
+  transition: background var(--dur-2) var(--ease-soft), box-shadow var(--dur-2) var(--ease-soft);
+}
+
+.msg-role-assistant:hover .msg-actions::before,
+.msg-role-user:hover .msg-actions::before,
+.msg-actions:focus-within::before {
+  background: color-mix(in srgb, var(--signal) 60%, transparent);
+  box-shadow:
+    0 -5px 0 0 color-mix(in srgb, var(--signal) 60%, transparent),
+    0 5px 0 0 color-mix(in srgb, var(--signal) 60%, transparent);
+}
+
+/* 按钮间分隔齿孔：hover 某个按钮时，它与前格之间的齿孔先亮 ——
+   「胶片走到这一格」。负定位卡进 9px 间隙的正中。 */
+.msg-action {
+  position: relative;
+}
+
+.msg-action + .msg-action::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  translate: 0 -50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 0.5px;
+  background: var(--line-soft);
+  transition: background var(--dur-2) var(--ease-soft);
+}
+
+.msg-action:hover::before {
+  background: color-mix(in srgb, var(--signal) 70%, transparent);
+}
+
+/* ── ② 文件树片边帧号 ──
+   文件行的空箭头位印上 FRAME 编号：像 35mm 胶片边缘的帧号印刷字。
+   counter 跟随 DOM 顺序，展开/折叠重排后自动重编 —— 每个文件
+   都是「当前曝光序列」里的一帧。目录行不占号（目录是片盒不是帧）。 */
+.tree {
+  counter-reset: frame;
+}
+
+.tree-frame-no::before {
+  counter-increment: frame;
+  content: counter(frame, decimal-leading-zero);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.02em;
+  color: var(--fg-3);
+  opacity: 0.85;
+  transition: color var(--dur-1) var(--ease-soft), opacity var(--dur-1) var(--ease-soft);
+}
+
+/* 游标两级升色：hover 升雾白（像片边字被灯照到），选中升金（当前帧进焦） */
+.tree-row:hover .tree-frame-no::before {
+  color: var(--fg-1);
+  opacity: 1;
+}
+
+.tree-row.selected .tree-frame-no::before {
+  color: var(--signal);
+  opacity: 1;
 }

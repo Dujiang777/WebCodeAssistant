@@ -173,9 +173,15 @@ function TreeRow({
         aria-current={selected ? 'true' : undefined}
         title={node.path}
       >
-        <span className={`tree-twisty${open ? ' open' : ''}`}>
-          {isDir ? <ChevronIcon size={11} /> : null}
-        </span>
+        {isDir ? (
+          <span className={`tree-twisty${open ? ' open' : ''}`}>
+            <ChevronIcon size={11} />
+          </span>
+        ) : (
+          /* 文件行没有箭头，空出的 14px 位正好印「片边帧号」——
+             像胶片边缘的 FRAME 编号，CSS counter 全自动：展开/折叠重排即重编。 */
+          <span className="tree-twisty tree-frame-no" aria-hidden="true" />
+        )}
 
         <span className="tree-glyph" style={badge ? { color: badge.color } : undefined}>
           {isDir ? (
