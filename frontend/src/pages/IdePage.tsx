@@ -22,7 +22,7 @@ import type {
   TestRunResult,
   Workspace,
 } from '../lib/api';
-import { EMPTY_TURN, messageOf, nextToolId } from '../lib/chat';
+import { beginTurn, messageOf, nextToolId } from '../lib/chat';
 import type { LiveTurn, Selection, ToolItem } from '../lib/chat';
 import { navigate, rememberIde } from '../lib/router';
 import { openChatStream } from '../lib/sse';
@@ -642,14 +642,14 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       case 'text': {
         const delta = typeof event.delta === 'string' ? event.delta : '';
         if (!delta) return;
-        const base = turnRef.current ?? EMPTY_TURN;
+        const base = turnRef.current ?? beginTurn();
         turnRef.current = { ...base, text: base.text + delta };
         setTurn(turnRef.current);
         return;
       }
 
       case 'tool_call': {
-        const base = turnRef.current ?? EMPTY_TURN;
+        const base = turnRef.current ?? beginTurn();
         const item: ToolItem = {
           id: nextToolId(),
           name: String(event.name ?? 'tool'),
@@ -664,7 +664,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       }
 
       case 'tool_result': {
-        const base = turnRef.current ?? EMPTY_TURN;
+        const base = turnRef.current ?? beginTurn();
         const name = String(event.name ?? '');
         const ok = event.ok !== false;
         const summary = typeof event.summary === 'string' ? event.summary : '';
@@ -685,7 +685,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         const steps = Array.isArray(event.steps)
           ? event.steps.map((step) => String(step)).filter((step) => step.length > 0)
           : [];
-        const base = turnRef.current ?? EMPTY_TURN;
+        const base = turnRef.current ?? beginTurn();
         turnRef.current = { ...base, plan: steps };
         setTurn(turnRef.current);
         return;
@@ -711,7 +711,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
             ? list.map((patch) => (patch.id === id ? { ...patch, ...record, messageId: patch.messageId } : patch))
             : [...list, record],
         );
-        const base = turnRef.current ?? EMPTY_TURN;
+        const base = turnRef.current ?? beginTurn();
         turnRef.current = {
           ...base,
           patchIds: base.patchIds.includes(id) ? base.patchIds : [...base.patchIds, id],
@@ -1226,7 +1226,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       return;
     }
     setSending(true);
-    turnRef.current = { ...EMPTY_TURN };
+    turnRef.current = beginTurn();
     setTurn(turnRef.current);
 
     const optimisticId = -Date.now();
@@ -1547,6 +1547,12 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               onStop={() => void stopTurn()}
               onRegenerate={() => void regenerate()}
               onSelectSession={setSessionId}
+              liveSessionIds={[
+                ...(sessionId !== null && sending && turn && !turn.stopped ? [sessionId] : []),
+                ...[...turnBySession.current.entries()]
+                  .filter(([id, snap]) => id !== sessionId && Boolean(snap && !snap.stopped))
+                  .map(([id]) => id),
+              ]}
               onNewSession={() => void createSession()}
               onClearSelection={() => setSelection(null)}
               onApplyAll={() => void applyAll()}

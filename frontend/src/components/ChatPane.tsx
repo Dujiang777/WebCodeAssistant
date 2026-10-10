@@ -12,7 +12,16 @@ import type {
   PendingGate,
 } from '../lib/api';
 import { countInvalid } from '../lib/citations';
-import { MODE_META, streamLabel, summarizeToolArgs, toolArgsPeek, toolLabel } from '../lib/chat';
+import {
+  describeTurnStage,
+  formatElapsed,
+  MODE_META,
+  streamLabel,
+  summarizeToolArgs,
+  toolArgsPeek,
+  toolLabel,
+  toolPathOf,
+} from '../lib/chat';
 import type { LiveTurn, Selection, ToolItem } from '../lib/chat';
 import type { StreamStatus } from '../lib/sse';
 import { CitationText } from './CitationText';
@@ -93,6 +102,8 @@ interface ChatPaneProps extends PatchDeps {
    */
   onRegenerate: () => void;
   onSelectSession: (id: number) => void;
+  /** 正在跑回合的会话，下拉里标「运行中」。 */
+  liveSessionIds?: number[];
   onNewSession: () => void;
   onClearSelection: () => void;
   onApplyAll: () => void;
@@ -171,6 +182,7 @@ export function ChatPane({
   onStop,
   onRegenerate,
   onSelectSession,
+  liveSessionIds = [],
   onNewSession,
   onClearSelection,
   onApplyAll,
@@ -288,6 +300,11 @@ export function ChatPane({
   const livePatchIds = turn?.patchIds ?? [];
   const livePatches = patches.filter((patch) => livePatchIds.includes(patch.id));
   const pendingCount = patches.filter((patch) => patch.status === 'pending').length;
+  const stage = turn
+    ? describeTurnStage(turn, streamStatus, sending, gates.length)
+    : null;
+  const elapsed =
+    turn?.startedAt && sending && !turn.stopped ? formatElapsed(now - turn.startedAt) : null;
 
   const renderPatch = (patch: PatchRecord) => (
     <PatchCard
@@ -320,6 +337,11 @@ export function ChatPane({
         <span className="pane-label">
           对话
         </span>
+        {sending && stage && !turn?.stopped && (
+          <span className="pane-live" title={stage.detail || stage.label}>
+            {stage.label}
+          </span>
+        )}
 
         <div className="topbar-spacer" />
 
@@ -334,6 +356,7 @@ export function ChatPane({
           {sessions.map((session) => (
             <option key={session.id} value={session.id}>
               #{session.id} · {session.title}
+              {liveSessionIds.includes(session.id) ? ' · 运行中' : ''}
             </option>
           ))}
         </select>
@@ -422,6 +445,7 @@ export function ChatPane({
                   <div className="msg-head">
                     <span className={`dot ${turn.stopped ? 'dot-idle' : 'dot-warn'}`} />
                     <span>{turn.stopped ? '已停止' : '正在处理'}</span>
+                    {elapsed && <span className="turn-elapsed">{elapsed}</span>}
                     {!turn.stopped && sending && (
                       <button
                         className="composer-stop tool-stop"
@@ -437,28 +461,33 @@ export function ChatPane({
                   {turn.plan.length > 0 && <PlanCard steps={turn.plan} live={!turn.stopped} />}
 
                   {turn.tools.length > 0 && (
-                    <div className="stack-gap">
+                    <div className="stack-gap turn-trace">
                       {turn.tools.map((tool) => (
-                        <ToolCard key={tool.id} tool={tool} now={now} />
+                        <ToolCard key={tool.id} tool={tool} now={now} onOpenPath={onOpenCitation} />
                       ))}
                     </div>
                   )}
 
-                  {turn.text && (
-                    <div className="msg-body">
-                      <CitationText text={turn.text} citations={turn.citations} onOpen={onOpenCitation} />
-                      {sending && <span className="caret" />}
-                    </div>
-                  )}
-
-                  {!turn.text && sending && (
-                    <div className="thinking-row">
+                  {!turn.text && sending && stage && (
+                    <div className="thinking-row" data-stage={stage.key}>
                       <span className="dots">
                         <span />
                         <span />
                         <span />
                       </span>
-                      <span>模型正在思考…</span>
+                      <span className="thinking-label">{stage.label}</span>
+                      {stage.detail ? <span className="thinking-detail">{stage.detail}</span> : null}
+                    </div>
+                  )}
+
+                  {(turn.text || (sending && !turn.stopped)) && (
+                    <div className={`msg-body${turn.text ? '' : ' msg-body-live'}`}>
+                      {turn.text ? (
+                        <CitationText text={turn.text} citations={turn.citations} onOpen={onOpenCitation} />
+                      ) : (
+                        <span className="msg-body-placeholder">回答会出现在这里</span>
+                      )}
+                      {sending && !turn.stopped && <span className="caret" />}
                     </div>
                   )}
 
@@ -852,7 +881,15 @@ function PlanCard({ steps, live }: { steps: string[]; live: boolean }) {
   );
 }
 
-function ToolCard({ tool, now }: { tool: ToolItem; now: number }) {
+function ToolCard({
+  tool,
+  now,
+  onOpenPath,
+}: {
+  tool: ToolItem;
+  now: number;
+  onOpenPath?: (file: string, line: number | null) => void;
+}) {
   const [open, setOpen] = useState(false);
   const tone = tool.status === 'failed' ? 'failed' : tool.status === 'running' ? 'pending' : '';
   const elapsed =
@@ -860,6 +897,8 @@ function ToolCard({ tool, now }: { tool: ToolItem; now: number }) {
   // 批35：参数铭牌 —— hover 时从右侧抽出「键 值」铭牌，像仪器上翻出来的说明牌。
   // 只取前两个标量参数（长文本走 title 与点击展开的 JSON，不在这里堆版面）。
   const peek = toolArgsPeek(tool.args);
+  const path = toolPathOf(tool.name, tool.args);
+  const summary = summarizeToolArgs(tool.name, tool.args);
 
   return (
     <div className={`tool-card ${tone}`}>
@@ -870,8 +909,22 @@ function ToolCard({ tool, now }: { tool: ToolItem; now: number }) {
           }`}
         />
         <span className="tool-name">{toolLabel(tool.name)}</span>
-        <span className="tool-summary" title={summarizeToolArgs(tool.name, tool.args)}>
-          {summarizeToolArgs(tool.name, tool.args)}
+        <span className="tool-summary" title={summary}>
+          {path && onOpenPath ? (
+            <button
+              type="button"
+              className="tool-path"
+              title={`在编辑器打开 ${path}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenPath(path, null);
+              }}
+            >
+              {summary}
+            </button>
+          ) : (
+            summary
+          )}
         </span>
         <span style={{ marginLeft: 'auto', color: 'var(--fg-3)', fontSize: 10.5, flex: 'none' }}>
           {tool.status === 'running'

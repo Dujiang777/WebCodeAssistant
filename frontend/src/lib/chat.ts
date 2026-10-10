@@ -39,6 +39,8 @@ export interface LiveTurn {
   error: string | null;
   /** 用户点了停止：后续增量一律忽略，工具卡片标「已停止」。 */
   stopped?: boolean;
+  /** 本轮在前端挂上的本地时间，用来显示已用时。 */
+  startedAt?: number;
 }
 
 export const EMPTY_TURN: LiveTurn = {
@@ -49,6 +51,52 @@ export const EMPTY_TURN: LiveTurn = {
   citations: [],
   error: null,
 };
+
+export function beginTurn(): LiveTurn {
+  return { ...EMPTY_TURN, startedAt: Date.now() };
+}
+
+export interface TurnStage {
+  key: 'connect' | 'wait' | 'tool' | 'write' | 'gate' | 'stop';
+  label: string;
+  detail: string;
+}
+
+export function formatElapsed(ms: number): string {
+  const sec = Math.max(0, Math.floor(ms / 1000));
+  if (sec < 60) return `${sec}s`;
+  const minutes = Math.floor(sec / 60);
+  const rest = sec % 60;
+  return `${minutes}m${String(rest).padStart(2, '0')}s`;
+}
+
+/** 进行中的回合该显示哪一句人话：禁止只写「正在思考」。 */
+export function describeTurnStage(
+  turn: LiveTurn,
+  streamStatus: 'connecting' | 'open' | 'reconnecting' | 'closed',
+  sending: boolean,
+  gateCount: number,
+): TurnStage {
+  if (turn.stopped) return { key: 'stop', label: '已停止', detail: '半截回答会保留' };
+  if (streamStatus === 'connecting') return { key: 'connect', label: '正在连接事件流…', detail: '' };
+  if (streamStatus === 'reconnecting') {
+    return { key: 'connect', label: '事件流断开，正在重连…', detail: '会补齐断线期间的事件' };
+  }
+  if (streamStatus === 'closed' && sending) {
+    return { key: 'connect', label: '事件流未连接', detail: '正在重试' };
+  }
+  if (gateCount > 0) return { key: 'gate', label: '等你放行工具', detail: `${gateCount} 步被拦下` };
+  const running = [...turn.tools].reverse().find((tool) => tool.status === 'running');
+  if (running) {
+    return {
+      key: 'tool',
+      label: `正在${toolLabel(running.name)}`,
+      detail: summarizeToolArgs(running.name, running.args),
+    };
+  }
+  if (turn.text) return { key: 'write', label: '正在写回答…', detail: '' };
+  return { key: 'wait', label: '已发送，正在等模型首字…', detail: '不是卡住，模型常会先读文件再开口' };
+}
 
 let toolSeq = 0;
 
@@ -80,6 +128,20 @@ export const TOOL_LABELS: Record<string, string> = {
 
 export function toolLabel(name: string): string {
   return TOOL_LABELS[name] ?? name;
+}
+
+/** 工具参数里能打开的文件路径；目录 / 纯模式串不返回。 */
+export function toolPathOf(name: string, args: unknown): string | null {
+  const record = (args ?? {}) as Record<string, unknown>;
+  const raw =
+    typeof record.path === 'string' && record.path.length > 0
+      ? record.path
+      : typeof record.file === 'string' && record.file.length > 0
+        ? record.file
+        : '';
+  if (!raw || raw === '.' || raw === '/') return null;
+  if (!/\.[A-Za-z0-9]{1,12}$/.test(raw)) return null;
+  return raw;
 }
 
 /** 把工具入参压成一行，用于卡片头部的副标题。 */
