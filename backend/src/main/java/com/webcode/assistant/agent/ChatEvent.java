@@ -76,6 +76,12 @@ public record ChatEvent(long seq, String type, Map<String, Object> body) {
      */
     public static final String TYPE_PLAN = "plan";
 
+    /**
+     * 回合阶段（人话）。首 token 到来之前用来代替「三个点」，
+     * 避免模型还在排队时前端只能空转。
+     */
+    public static final String TYPE_STAGE = "stage";
+
     public String toJson(ObjectMapper mapper) throws JsonProcessingException {
         ObjectNode node = mapper.createObjectNode();
         node.put("seq", seq);

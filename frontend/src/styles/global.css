@@ -8842,3 +8842,180 @@ body {
   color: var(--signal-soft);
   text-decoration-color: var(--signal);
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   批38：暗房黄铜「加厚显影」
+   工作面 .chat 仍保持纯色（契约 CHAT_BGIMG=none），厚度加在对话流、
+   阶段板、空态铭牌、输入井上。轨道 / 发送键光泽 / composer 底光不拆。
+   ═══════════════════════════════════════════════════════════════════ */
+
+.chat-scroll {
+  box-shadow:
+    inset 0 18px 28px -22px rgba(0, 0, 0, 0.55),
+    inset 0 -22px 36px -26px rgba(232, 180, 90, 0.08);
+}
+
+.pane-head-live {
+  box-shadow: inset 0 -2px 0 var(--signal);
+}
+
+.pane-live {
+  position: relative;
+  padding: 2px 9px 2px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--signal-dim);
+  border: 1px solid var(--signal-line);
+  color: var(--signal-soft);
+  max-width: min(56%, 320px);
+  animation: brass-live-pulse 1.8s var(--ease-soft) infinite;
+}
+
+.pane-live::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--signal);
+  transform: translateY(-50%);
+  box-shadow: 0 0 8px var(--signal);
+}
+
+@keyframes brass-live-pulse {
+  0%,
+  100% { box-shadow: 0 0 0 0 var(--signal-dim); }
+  50% { box-shadow: 0 0 0 4px transparent; }
+}
+
+.turn-elapsed {
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-4);
+  border: 1px solid var(--line);
+  color: var(--signal-soft);
+}
+
+.msg-live .msg-main {
+  padding: 6px 4px 4px;
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, var(--signal-dim), transparent 42%);
+}
+
+.msg-avatar-live {
+  box-shadow: 0 0 0 3px var(--signal-dim), 0 0 16px var(--signal-dim);
+  animation: brass-live-pulse 1.8s var(--ease-soft) infinite;
+}
+
+.thinking-row {
+  position: relative;
+  margin: 6px 0 12px;
+  padding: 11px 13px 11px 16px;
+  gap: 10px;
+  overflow: hidden;
+  border: 1px solid var(--signal-line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(90deg, var(--signal-dim), transparent 36%),
+    var(--bg-3);
+  box-shadow: var(--panel-edge), 0 10px 24px rgba(0, 0, 0, 0.32);
+}
+
+.thinking-rail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--signal-soft), var(--signal));
+  animation: thinking-rail-scan 1.6s var(--ease-soft) infinite;
+}
+
+@keyframes thinking-rail-scan {
+  0%,
+  100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+.thinking-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.thinking-label {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--signal-soft);
+}
+
+.thinking-detail {
+  color: var(--fg-2);
+}
+
+.msg-body-live {
+  padding: 11px 13px;
+  border: 1px dashed var(--signal-line);
+  border-radius: var(--radius-s);
+  background: color-mix(in srgb, var(--signal) 6%, transparent);
+}
+
+.msg-body-placeholder {
+  font-style: italic;
+  letter-spacing: 0.01em;
+}
+
+.empty-kicker {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--signal);
+  text-shadow: 0 0 18px var(--signal-dim);
+}
+
+.empty-hero .empty-title {
+  font-size: 28px;
+  text-shadow: 0 0 24px var(--signal-dim);
+}
+
+.empty-chip {
+  box-shadow: var(--panel-edge);
+}
+
+.empty-chip:hover {
+  box-shadow: 0 0 0 1px var(--signal-line), 0 8px 18px var(--signal-dim);
+}
+
+.composer-input {
+  box-shadow: inset 0 1px 0 rgba(242, 236, 222, 0.04);
+}
+
+[data-theme='ivory'] .msg-live .msg-main {
+  background: linear-gradient(180deg, rgba(232, 180, 90, 0.1), transparent 50%);
+}
+
+[data-theme='ivory'] .thinking-row {
+  background:
+    linear-gradient(90deg, rgba(232, 180, 90, 0.12), transparent 40%),
+    #f7f1e4;
+}
+
+[data-theme='ivory'] .chat-scroll {
+  box-shadow:
+    inset 0 18px 28px -22px rgba(80, 60, 20, 0.12),
+    inset 0 -22px 36px -26px rgba(232, 180, 90, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pane-live,
+  .msg-avatar-live,
+  .thinking-rail {
+    animation-duration: 0.01ms;
+  }
+}

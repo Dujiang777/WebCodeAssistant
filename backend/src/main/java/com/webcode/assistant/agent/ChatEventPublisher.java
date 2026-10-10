@@ -134,4 +134,12 @@ public class ChatEventPublisher {
     public void plan(java.util.List<String> steps) {
         channel.publish(ChatEvent.TYPE_PLAN, Map.of("steps", steps == null ? java.util.List.of() : steps));
     }
+
+    /** 回合阶段：首字未到时让前端显示具体在等什么。 */
+    public void stage(String message) {
+        if (message == null || message.isBlank()) {
+            return;
+        }
+        channel.publish(ChatEvent.TYPE_STAGE, Map.of("message", message));
+    }
 }

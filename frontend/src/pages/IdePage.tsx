@@ -634,7 +634,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     // 若这批回放属于已完成的旧回合，紧随的 done 会把它复位；同一批 setState，中间态不会上屏。
     if (
       !turnRef.current &&
-      (event.type === 'text' || event.type === 'tool_call' || event.type === 'plan' || event.type === 'patch')
+      (event.type === 'text' || event.type === 'tool_call' || event.type === 'plan' || event.type === 'patch' || event.type === 'stage')
     ) {
       setSending(true);
     }
@@ -800,6 +800,15 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         return;
       }
 
+      case 'stage': {
+        const hint = typeof event.message === 'string' ? event.message : '';
+        if (!hint) return;
+        const base = turnRef.current ?? beginTurn();
+        turnRef.current = { ...base, stageHint: hint };
+        setTurn(turnRef.current);
+        return;
+      }
+
       case 'done': {
         finishTurn(Number(event.messageId));
         return;
@@ -838,6 +847,32 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     });
     return () => handle.close();
   }, [sessionId]);
+
+  // 空转看门狗：超过 2 分钟既没有字也没有工具，当作模型挂死，停掉并退预扣。
+  useEffect(() => {
+    if (!sending || !turn || turn.text || turn.tools.length > 0 || turn.stopped) {
+      return;
+    }
+    const started = turn.startedAt ?? Date.now();
+    const wait = Math.max(1_000, 120_000 - (Date.now() - started));
+    const timer = window.setTimeout(() => {
+      const current = turnRef.current;
+      if (!current || current.text || current.tools.length > 0 || current.stopped) {
+        return;
+      }
+      turnRef.current = {
+        ...current,
+        error: '模型超过 2 分钟没有输出。已停止本轮并会退还预扣，请重试或换更快的模型。',
+      };
+      setTurn(turnRef.current);
+      const sid = sessionIdRef.current;
+      if (sid !== null) {
+        void api.cancelTurn(sid).catch(() => undefined);
+      }
+      setSending(false);
+    }, wait);
+    return () => window.clearTimeout(timer);
+  }, [sending, turn?.startedAt, turn?.text, turn?.tools.length, turn?.stopped]);
 
   // 换会话时把工位 / 闸门拉一次现状：
   // SSE 只推「变化」，刷新页面后拿不到历史 desk 事件，所以这里必须有一次性拉取兜底。
