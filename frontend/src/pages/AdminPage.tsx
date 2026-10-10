@@ -19,6 +19,7 @@ import type {
   AdminUserRow,
 } from '../lib/api';
 import { messageOf } from '../lib/chat';
+import { FilmSprocket } from '../components/FilmSprocket';
 import { PageBar } from '../components/PageBar';
 import { CloseIcon, SearchIcon, ShieldIcon } from '../components/icons';
 
@@ -1002,6 +1003,7 @@ export function AdminPage({ initialTab, onBack, onLogout }: {
 
       <main className="page-scroll">
         <div className="page-wrap">
+          <FilmSprocket variant="page" />
           <p className="page-kicker">DARKROOM · ADMIN</p>
           {error && <div className="form-error">{error}</div>}
           {notice && <div className="form-notice">{notice}</div>}

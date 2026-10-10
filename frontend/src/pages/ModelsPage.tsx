@@ -15,6 +15,7 @@ import type {
   SaveProviderBody,
 } from '../lib/api';
 import { messageOf } from '../lib/chat';
+import { FilmSprocket } from '../components/FilmSprocket';
 import { PageBar } from '../components/PageBar';
 import { CloseIcon, PlugIcon, PlusIcon, RefreshIcon, TrashIcon } from '../components/icons';
 
@@ -403,6 +404,7 @@ export function ModelsPage({ onBack, onLogout, onModelChanged }: {
 
       <main className="page-scroll">
         <div className="page-wrap">
+          <FilmSprocket variant="page" />
           <p className="page-kicker">OPTICS · MODELS</p>
           {error && <div className="form-error">{error}</div>}
           {notice && <div className="form-notice">{notice}</div>}
