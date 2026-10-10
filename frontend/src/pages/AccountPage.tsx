@@ -4,7 +4,6 @@ import type { FormEvent } from 'react';
 import { adoptAuth, api, formatDateTime, loadUser, subscribeSession } from '../lib/api';
 import type { AuthUser, Dispatch, LoginSession, MeInfo } from '../lib/api';
 import { messageOf } from '../lib/chat';
-import { FilmSprocket } from '../components/FilmSprocket';
 import { PageBar } from '../components/PageBar';
 import { DeviceIcon, KeyIcon, TerminalMark } from '../components/icons';
 
@@ -141,8 +140,6 @@ export function AccountPage({ onBack, onLogout }: { onBack: () => void; onLogout
 
       <main className="page-scroll">
         <div className="page-wrap">
-          <FilmSprocket variant="page" />
-          <p className="page-kicker">IDENTITY · SAFE</p>
           {error && <div className="form-error">{error}</div>}
           {notice && <div className="form-notice">{notice}</div>}
 

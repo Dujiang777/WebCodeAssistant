@@ -119,6 +119,16 @@ export function lastIdePath(): string | null {
   }
 }
 
+/** 最近打开的工作区 id，列表页用来标「上次打开」。 */
+export function lastIdeWorkspaceId(): number | null {
+  try {
+    const id = Number(localStorage.getItem(LAST_IDE_KEY));
+    return Number.isInteger(id) && id > 0 ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 export function useRoute(): Route {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.hash));
 

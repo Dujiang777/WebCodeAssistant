@@ -77,7 +77,6 @@ export function AgentDesk({ desk, loading, live, onOpenFile, onClose }: AgentDes
     <div className="desk">
       <div className="pane-head">
         <WrenchIcon size={13} />
-        <span className="pane-kicker">SET</span>
         <span className="pane-label">
           工位
         </span>

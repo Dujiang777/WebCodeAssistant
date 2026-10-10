@@ -90,7 +90,6 @@ export function TopBar({
         工作区
       </button>
 
-      <span className="topbar-rec" aria-hidden="true">REC</span>
       <div className="crumbs">
         <span className="crumbs-ws">{workspaceName}</span>
         {filePath ? (

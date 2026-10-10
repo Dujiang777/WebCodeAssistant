@@ -31,6 +31,8 @@ export interface CreateTarget {
 interface FileTreeProps {
   nodes: FileNode[];
   loading: boolean;
+  query?: string;
+  onQueryChange?: (value: string) => void;
   selectedPath: string | null;
   expanded: Set<string>;
   onToggle: (path: string) => void;
@@ -43,9 +45,42 @@ interface FileTreeProps {
   createBusy: boolean;
 }
 
+function filterNodes(nodes: FileNode[], query: string): FileNode[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return nodes;
+  const walk = (list: FileNode[]): FileNode[] => {
+    const next: FileNode[] = [];
+    for (const node of list) {
+      const hit = node.name.toLowerCase().includes(needle);
+      const children = node.children ? walk(node.children) : [];
+      if (hit || children.length > 0) {
+        next.push(children.length > 0 ? { ...node, children } : node);
+      }
+    }
+    return next;
+  };
+  return walk(nodes);
+}
+
+function dirsOf(nodes: FileNode[]): string[] {
+  const out: string[] = [];
+  const walk = (list: FileNode[]) => {
+    for (const node of list) {
+      if (node.type === 'dir') {
+        out.push(node.path);
+        if (node.children) walk(node.children);
+      }
+    }
+  };
+  walk(nodes);
+  return out;
+}
+
 export function FileTree({
   nodes,
   loading,
+  query = '',
+  onQueryChange,
   selectedPath,
   expanded,
   onToggle,
@@ -66,8 +101,22 @@ export function FileTree({
     );
   }
 
+  const visible = filterNodes(nodes, query);
+  const forceOpen = query.trim() ? new Set(dirsOf(visible)) : null;
+
   return (
     <div className="tree">
+      {onQueryChange && (
+        <div className="tree-filter-wrap">
+          <input
+            className="input tree-filter"
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="筛选文件名…"
+            aria-label="筛选文件"
+          />
+        </div>
+      )}
       {creating && (
         <CreateRow
           target={creating}
@@ -77,21 +126,23 @@ export function FileTree({
         />
       )}
 
-      {nodes.length === 0 && !creating ? (
+      {visible.length === 0 && !creating ? (
         <div className="empty" style={{ padding: '26px 16px' }}>
-          <div className="empty-title">工作区是空的</div>
+          <div className="empty-title">{query.trim() ? '没有匹配的文件' : '工作区是空的'}</div>
           <div className="empty-text">
-            用上面的 <PlusIcon size={11} /> 新建文件，或回到工作区列表导入一个仓库。
+            {query.trim()
+              ? '换个关键字，或清空筛选再看整棵树。'
+              : '用上面的 + 新建文件，或回到工作区列表导入一个仓库。'}
           </div>
         </div>
       ) : (
-        nodes.map((node) => (
+        visible.map((node) => (
           <TreeRow
             key={node.path}
             node={node}
             depth={0}
             selectedPath={selectedPath}
-            expanded={expanded}
+            expanded={forceOpen ?? expanded}
             onToggle={onToggle}
             onSelect={onSelect}
             onRequestCreate={onRequestCreate}

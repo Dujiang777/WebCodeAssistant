@@ -153,6 +153,18 @@ function findInterestingFile(nodes: FileNode[]): string | null {
  * 目的很朴素：打开工作区就能看见一个可以点开的代码文件，
  * 而不是面对一堆折叠的目录点五下。
  */
+function treeHasPath(root: FileNode | null, path: string): boolean {
+  if (!root || !path) return false;
+  const walk = (list: FileNode[]): boolean => {
+    for (const node of list) {
+      if (node.path === path) return true;
+      if (node.children && walk(node.children)) return true;
+    }
+    return false;
+  };
+  return root.path === path || walk(root.children ?? []);
+}
+
 function autoExpand(root: FileNode | null): Set<string> {
   const result = new Set<string>();
   if (!root) return result;
@@ -208,6 +220,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const [treeLoading, setTreeLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set<string>());
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [treeQuery, setTreeQuery] = useState('');
   const [file, setFile] = useState<FileContent | null>(null);
   const [docText, setDocText] = useState('');
   const [savedText, setSavedText] = useState('');
@@ -363,6 +376,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const dirtyRef = useRef(false);
   /** 已经为哪些补丁发过影响面请求 —— 防止 patches 每次变化都重发一遍。 */
   const radiusRequested = useRef<Set<string>>(new Set());
+  const didAutopen = useRef(false);
 
   /** 丢掉当前会话的回合快照 —— 回合落库或彻底失败后调用，否则切回会恢复出「幽灵进行中」。 */
   const dropTurnSnapshot = () => {
@@ -531,6 +545,11 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId]);
+
+  useEffect(() => {
+    didAutopen.current = false;
+    setTreeQuery('');
   }, [workspaceId]);
 
   // ------------------------------------------------------------ 会话切换
@@ -918,6 +937,11 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       setFile(content);
       setDocText(content.content ?? '');
       setSavedText(content.content ?? '');
+      try {
+        localStorage.setItem(`wca.lastFile.${workspaceId}`, path);
+      } catch {
+        // 隐私模式记不住就算了
+      }
     } catch (err) {
       setFile(null);
       setDocText('');
@@ -930,6 +954,23 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       setFileLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (didAutopen.current || treeLoading || !tree) return;
+    didAutopen.current = true;
+    let remembered: string | null = null;
+    try {
+      remembered = localStorage.getItem(`wca.lastFile.${workspaceId}`);
+    } catch {
+      remembered = null;
+    }
+    const path =
+      (remembered && treeHasPath(tree, remembered) ? remembered : null) ??
+      findInterestingFile(tree.children ?? []);
+    if (path) void openFile(path);
+    // openFile 每轮渲染都是新函数，这里只在树就绪时跑一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [treeLoading, tree, workspaceId]);
 
   /**
    * 引用跳转：对话里点一个 `路径:行号` 时调用。
@@ -1476,7 +1517,6 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         {treeVisible && (
           <div className="pane">
             <div className="pane-head">
-              <span className="pane-kicker">NEG</span>
               <span className="pane-label">文件</span>
               <div className="topbar-spacer" />
               <button
@@ -1501,6 +1541,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               <FileTree
                 nodes={tree?.children ?? []}
                 loading={treeLoading}
+                query={treeQuery}
+                onQueryChange={setTreeQuery}
                 selectedPath={selectedPath}
                 expanded={expanded}
                 onToggle={(path) =>

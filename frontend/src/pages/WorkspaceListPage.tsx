@@ -3,9 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { api, formatBytes, loadUser, subscribeSession } from '../lib/api';
 import type { AuthUser, HealthInfo, Workspace } from '../lib/api';
 import { messageOf } from '../lib/chat';
-import { navigate } from '../lib/router';
+import { lastIdeWorkspaceId, navigate } from '../lib/router';
 import { AvatarMenu } from '../components/AvatarMenu';
-import { FilmSprocket } from '../components/FilmSprocket';
 import { TerminalMark, FolderOpenIcon, PlusIcon, RefreshIcon } from '../components/icons';
 
 /**
@@ -34,6 +33,7 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
   const [name, setName] = useState('');
   const [gitUrl, setGitUrl] = useState('');
   const [zipFile, setZipFile] = useState<File | null>(null);
+  const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -95,6 +95,16 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
     !busy &&
     ((mode === 'sample') || (mode === 'git' && gitUrl.trim().length > 0) || (mode === 'zip' && zipFile !== null));
 
+  const lastId = lastIdeWorkspaceId();
+  const needle = query.trim().toLowerCase();
+  const visible = needle
+    ? workspaces.filter(
+        (workspace) =>
+          workspace.name.toLowerCase().includes(needle) ||
+          (workspace.gitUrl ?? '').toLowerCase().includes(needle),
+      )
+    : workspaces;
+
   const MODE_CARDS: { key: CreateMode; title: string; tag: string; desc: string }[] = [
     { key: 'sample', title: '内置示例', tag: '最快', desc: '一个刻意留了问题的 Spring 项目，几秒铺好，开箱即跑通全流程' },
     { key: 'git', title: 'Git 克隆', tag: '常用', desc: '浅克隆（depth=1），填 HTTPS 地址即可' },
@@ -103,8 +113,6 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
 
   return (
     <div className="centered-page centered-page-v2 ws-library">
-      <FilmSprocket variant="left" />
-      <FilmSprocket variant="right" />
       <div className="card wide ws-page">
         <div className="card-head">
           <TerminalMark size={32} />
@@ -160,12 +168,6 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
         )}
 
         <div className="ws-hero">
-          <div className="ws-slate" aria-hidden="true">
-            <span>SCENE 01</span>
-            <span>TAKE 01</span>
-            <span>ISO 400</span>
-          </div>
-          <p className="page-kicker">FILM LIBRARY</p>
           <div className="ws-hero-title">
             欢迎回来，<b>{username}</b>
           </div>
@@ -272,24 +274,35 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
           )}
         </div>
 
-        <div className="section-divider">我的工作区（{workspaces.length}）</div>
+        <div className="section-divider">
+          我的工作区（{needle ? `${visible.length}/${workspaces.length}` : workspaces.length}）
+          <input
+            className="input ws-search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="搜索工作区…"
+            aria-label="搜索工作区"
+          />
+        </div>
 
         {loading ? (
           <div className="loading-block">
             <span className="spinner" />
             <span>正在加载工作区…</span>
           </div>
-        ) : workspaces.length === 0 ? (
+        ) : visible.length === 0 ? (
           <div className="empty">
-            <div className="empty-title">还没有工作区</div>
-            <div className="empty-text">用上面的「内置示例」一键创建，几秒后就能进入编辑器。</div>
+            <div className="empty-title">{needle ? '没有匹配的工作区' : '还没有工作区'}</div>
+            <div className="empty-text">
+              {needle ? '换个关键字，或清空搜索再看全部。' : '用上面的「内置示例」一键创建，几秒后就能进入编辑器。'}
+            </div>
           </div>
         ) : (
           <div className="ws-grid">
-            {workspaces.map((workspace, index) => (
+            {visible.map((workspace, index) => (
               <div
                 key={workspace.id}
-                className="workspace-row ws-card"
+                className={`workspace-row ws-card${workspace.id === lastId ? ' ws-card-recent' : ''}`}
                 style={{ animationDelay: `${Math.min(index * 45, 320)}ms` }}
                 onClick={() => navigate(`/ide/${workspace.id}`)}
                 onKeyDown={(event) => {
@@ -311,6 +324,7 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
                 </span>
                 <div className="workspace-row-body">
                   <div className="workspace-name">{workspace.name}</div>
+                  {workspace.id === lastId && <span className="ws-recent-tag">上次打开</span>}
                   <div className="workspace-meta">
                     {workspace.gitUrl ?? '本地导入'} · {formatBytes(workspace.sizeBytes)}
                   </div>

@@ -9803,6 +9803,75 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   批43：其他页收干净 + 三处能用的功能
+   工作区搜索 / 文件树筛选 / 进 IDE 自动打开上次的文件。
+   场记牌、齿孔、REC 从非登录页拿掉，避免再堆配件。
+   ═══════════════════════════════════════════════════════════════════ */
+
+.ws-library .ws-hero-title {
+  font-size: clamp(28px, 3.6vw, 40px);
+  text-shadow: none;
+}
+
+.ws-library .ws-hero {
+  padding: 28px 56px 18px;
+}
+
+.section-divider:has(.ws-search)::after {
+  display: none;
+}
+
+.ws-search {
+  margin-left: auto;
+  width: min(260px, 46vw);
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.ws-card-recent {
+  border-color: var(--signal-line);
+}
+
+.ws-recent-tag {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--signal-line);
+  background: var(--signal-dim);
+  color: var(--signal-soft);
+  font-size: 10.5px;
+}
+
+.tree-filter-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 8px 10px 8px;
+  background: color-mix(in srgb, var(--bg-1) 92%, transparent);
+}
+
+.tree-filter {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+
+.page-wrap {
+  padding-left: 24px;
+}
+
+.cr-balance-value {
+  font-size: 48px;
+}
+
+.ws-library .page-kicker,
+.page-kicker {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    批42：登录页重排 —— 去掉堆出来的配件，做成一张干净的暗房片头。
    标题不再用 72 号硬挤断行；卖点收成 2×2 短句；表单是右边唯一主角。
    安全灯 / 取景框 / 片边刻度都不动。
