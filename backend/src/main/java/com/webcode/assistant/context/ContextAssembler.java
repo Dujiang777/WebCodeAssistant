@@ -62,8 +62,7 @@ public class ContextAssembler {
         ProjectSummary summary = projectProbe.probe(workspace);
 
         StringBuilder prompt = new StringBuilder();
-        prompt.append(SystemPrompts.BASE.formatted(workspace.name()));
-        prompt.append(SystemPrompts.EXECUTION_DISCIPLINE);
+        prompt.append(SystemPrompts.core(workspace.name(), request.toolProfile()));
         prompt.append(SystemPrompts.CITATION_RULES);
         prompt.append(SystemPrompts.modeBlock(request.normalizedMode()));
 
@@ -73,12 +72,6 @@ public class ContextAssembler {
         appendRulesSection(prompt, summary);
         appendOpenFileSection(prompt, workspace, request);
         appendSelectionSection(prompt, request);
-        if (request.directAnswer()) {
-            prompt.append("\n## 本轮：直接作答\n\n");
-            prompt.append("本轮没有绑定任何工具。当前文件 / 选区已经在上面。");
-            prompt.append("不要说你要去读文件，不要列计划，直接回答用户这一条。\n");
-        }
-
         return prompt.toString();
     }
 

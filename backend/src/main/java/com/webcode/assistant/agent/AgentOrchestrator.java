@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -322,22 +323,17 @@ public class AgentOrchestrator {
                     appProperties, deskService, gateService, request.sessionId(), llmProperties.maxToolSteps(),
                     cancellation, generation);
 
-            boolean direct = request.directAnswer();
+            AgentRequest.ToolProfile profile = request.toolProfile();
             var builder = AiServices.builder(Assistant.class)
                     .streamingChatModel(modelGateway.require(model))
                     .chatMemory(memory);
-            if (!direct) {
-                // 不用 .tools(toolbox)：框架自动生成的执行器对「参数 JSON 解析失败」
-                // 没有兜底（解析在 try 之外），坏 JSON 会穿透到 SSE 关闭回调被静默
-                // 吞掉，前端永远「正在思考」。SafeToolExecutors 把它降级为喂回模型的
-                // 工具失败结果，回合可自行恢复。见 SafeToolExecutors 类注释。
-                builder = builder.tools(SafeToolExecutors.of(toolbox));
+            var tools = toolsFor(profile, toolbox);
+            if (tools != null) {
+                builder = builder.tools(tools);
             }
             Assistant assistant = builder.build();
 
-            publisher.stage(direct
-                    ? "代码已在上下文，正在直接作答…"
-                    : "已接到问题，正在调用模型…");
+            publisher.stage(stageOf(profile));
             AtomicBoolean streamEnded = new AtomicBoolean(false);
             AtomicBoolean firstByte = new AtomicBoolean(false);
             TokenStream stream = assistant.chat(request.content());
@@ -391,6 +387,27 @@ public class AgentOrchestrator {
             persistAssistantError(request.sessionId(), message);
             publisher.error(message);
         }
+    }
+
+    private static java.util.Map<dev.langchain4j.agent.tool.ToolSpecification,
+            dev.langchain4j.service.tool.ToolExecutor> toolsFor(
+            AgentRequest.ToolProfile profile, AgentToolbox toolbox) {
+        return switch (profile) {
+            case DIRECT -> null;
+            case EDIT -> SafeToolExecutors.of(toolbox, Set.of("propose_patch", "grep", "read_file"));
+            case SEARCH -> SafeToolExecutors.of(toolbox,
+                    Set.of("grep", "semantic_search", "spring_map", "read_file"));
+            case FULL -> SafeToolExecutors.of(toolbox);
+        };
+    }
+
+    private static String stageOf(AgentRequest.ToolProfile profile) {
+        return switch (profile) {
+            case DIRECT -> "代码已在上下文，正在直接作答…";
+            case EDIT -> "单文件改动，正在出补丁…";
+            case SEARCH -> "正在检索引用…";
+            case FULL -> "已接到问题，正在调用模型…";
+        };
     }
 
     /**

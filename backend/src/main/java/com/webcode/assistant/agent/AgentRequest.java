@@ -42,18 +42,39 @@ public record AgentRequest(
     }
 
     /**
-     * 解释 / 问答且代码已在上下文里：不要绑工具。
-     * 每绑一次工具，模型就会先 set_plan / read_file，用户要空等一轮 HTTP。
-     * 改代码、找引用仍走工具。
+     * 本轮工具档。解释不绑工具；单文件改只给补丁/检索；查引用不给写盘；
+     * 其余才上全套。工具出现在 schema 里，模型几乎总会先调用，这是慢的主因。
      */
+    public enum ToolProfile {
+        DIRECT,
+        EDIT,
+        SEARCH,
+        FULL
+    }
+
     public boolean directAnswer() {
+        return toolProfile() == ToolProfile.DIRECT;
+    }
+
+    public ToolProfile toolProfile() {
         String text = content == null ? "" : content;
-        if (asksWrite(text) || asksSearch(text)) {
-            return false;
-        }
+        boolean write = asksWrite(text);
+        boolean search = asksSearch(text);
         boolean hasCode = (selection != null && !selection.isEmpty())
                 || (currentFile != null && !currentFile.isBlank());
-        return hasCode;
+        if (write && search) {
+            return ToolProfile.FULL;
+        }
+        if (write && hasCode) {
+            return ToolProfile.EDIT;
+        }
+        if (search) {
+            return ToolProfile.SEARCH;
+        }
+        if (hasCode) {
+            return ToolProfile.DIRECT;
+        }
+        return ToolProfile.FULL;
     }
 
     private static boolean asksWrite(String text) {

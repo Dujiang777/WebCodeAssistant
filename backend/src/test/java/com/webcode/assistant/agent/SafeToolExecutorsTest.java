@@ -48,6 +48,13 @@ class SafeToolExecutorsTest {
     }
 
     @Test
+    void 可以按名字收窄工具() {
+        var filtered = SafeToolExecutors.of(new Box(), java.util.Set.of("read_file"));
+        assertThat(filtered.keySet()).extracting(ToolSpecification::name)
+                .containsExactly("read_file");
+    }
+
+    @Test
     void 合法参数正常执行() {
         assertThat(call("read_file", "{\"path\":\"src/Main.java\"}")).isEqualTo("ok:src/Main.java");
     }
