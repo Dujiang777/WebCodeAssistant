@@ -162,8 +162,9 @@ export const DIFF_OPTIONS: monaco.editor.IStandaloneDiffEditorConstructionOption
   ...EDITOR_OPTIONS,
   readOnly: true,
   renderSideBySide: true,
+  useInlineViewWhenSpaceIsLimited: false,
   ignoreTrimWhitespace: false,
-  renderOverviewRuler: false,
+  renderOverviewRuler: true,
   diffWordWrap: 'off',
   originalEditable: false,
 };
