@@ -19,11 +19,6 @@ public final class SystemPrompts {
                 + PATCH_CONTRACT + DISCIPLINE;
     }
 
-    /** @deprecated 用 {@link #core}；保留给旧测试/文档引用。 */
-    public static final String BASE = ROLE;
-
-    public static final String EXECUTION_DISCIPLINE = DISCIPLINE;
-
     private static final String ROLE = """
             你是工作区「%s」里的企业编码助手，运行在网页 IDE 中。
             用户在看真实仓库。你出的补丁只是预览，必须由用户点「应用」才写盘。
