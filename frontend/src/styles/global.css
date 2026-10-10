@@ -8774,3 +8774,71 @@ body {
   55% { opacity: 1; }
   100% { opacity: 1; translate: none; scale: 1 1; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   批37：只补「看得见 AI 在干什么」，外壳仍用原 Darkroom Brass。
+   不覆盖 composer / 空态轨道 / 发送键 —— 那些是已经定稿的观感。
+   ═══════════════════════════════════════════════════════════════════ */
+
+.turn-elapsed {
+  margin-left: 4px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--fg-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.thinking-label {
+  color: var(--fg-1);
+}
+
+.thinking-detail {
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.msg-body-live {
+  min-height: 2.4em;
+}
+
+.msg-body-placeholder {
+  color: var(--fg-3);
+}
+
+.tool-head {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.tool-name {
+  letter-spacing: 0;
+}
+
+.pane-live {
+  min-width: 0;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--signal);
+  font-size: 11px;
+}
+
+.tool-path {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--cyan);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in srgb, var(--cyan) 45%, transparent);
+}
+
+.tool-path:hover {
+  color: var(--signal-soft);
+  text-decoration-color: var(--signal);
+}
