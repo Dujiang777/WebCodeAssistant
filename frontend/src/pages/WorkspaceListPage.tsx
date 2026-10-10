@@ -157,6 +157,7 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
         )}
 
         <div className="ws-hero">
+          <p className="page-kicker">FILM LIBRARY</p>
           <div className="ws-hero-title">
             欢迎回来，<b>{username}</b>
           </div>

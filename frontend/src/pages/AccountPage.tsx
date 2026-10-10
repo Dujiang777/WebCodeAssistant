@@ -140,6 +140,7 @@ export function AccountPage({ onBack, onLogout }: { onBack: () => void; onLogout
 
       <main className="page-scroll">
         <div className="page-wrap">
+          <p className="page-kicker">IDENTITY · SAFE</p>
           {error && <div className="form-error">{error}</div>}
           {notice && <div className="form-notice">{notice}</div>}
 

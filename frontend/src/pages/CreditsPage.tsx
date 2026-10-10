@@ -205,6 +205,7 @@ export function CreditsPage({ onBack, onLogout }: { onBack: () => void; onLogout
 
       <main className="page-scroll">
         <div className="page-wrap">
+          <p className="page-kicker">EXPOSURE · LEDGER</p>
           {error && <div className="form-error">{error}</div>}
           {notice && <div className="form-notice">{notice}</div>}
 

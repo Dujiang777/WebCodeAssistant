@@ -224,6 +224,7 @@ export function EditorPane({
       <div className="editor-wrap">
         {file?.binary ? (
           <div className="editor-empty">
+            <p className="empty-kicker">VIEWFINDER</p>
             <TerminalMark size={30} />
             <div className="editor-empty-title">这是二进制文件</div>
             <div className="editor-empty-hint">
@@ -233,6 +234,7 @@ export function EditorPane({
           </div>
         ) : !file ? (
           <div className="editor-empty">
+            <p className="empty-kicker">VIEWFINDER</p>
             <TerminalMark size={30} />
             <div className="editor-empty-title">
               {loading ? '正在打开文件…' : '从左边的文件树选一个文件'}
