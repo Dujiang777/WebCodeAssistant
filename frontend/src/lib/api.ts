@@ -514,6 +514,13 @@ export interface ConstitutionTemplate {
   content: string;
 }
 
+/** 宪章对账：禁止条款是否命中本补丁的新增行。 */
+export interface CharterAudit {
+  present: boolean;
+  blocked: boolean;
+  hits: { clause: string; needle: string; violated: boolean }[];
+}
+
 /** Spring 地图：一个 Bean 节点。 */
 export interface SpringMapNode {
   name: string;
@@ -954,6 +961,9 @@ export const api = {
     request<{ patchId: string; file: string; fits: boolean; redzone: boolean; reason: string | null }>(
       `/api/patches/${patchId}/fit`,
     ),
+
+  patchCharter: (patchId: string) =>
+    request<CharterAudit>(`/api/patches/${patchId}/charter`),
 
   constitution: (workspaceId: number) =>
     request<ConstitutionView>(`/api/workspaces/${workspaceId}/constitution`),

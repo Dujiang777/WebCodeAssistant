@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Editor } from '@monaco-editor/react';
 
 import type { FileContent, NavigateView } from '../lib/api';
@@ -6,6 +6,7 @@ import { api } from '../lib/api';
 import { EDITOR_OPTIONS, WCA_THEME } from '../lib/monaco';
 import { clearIdeMarkers, setIdeMarkers, setupEditorIde } from '../lib/editorIde';
 import type { Selection } from '../lib/chat';
+import { outlineOf } from '../lib/outline';
 import { TerminalMark, SaveIcon, CloseIcon, SearchIcon } from './icons';
 
 /** 诊断计数（状态栏显示用）。null = 当前没有可诊断的文件。 */
@@ -71,6 +72,8 @@ interface EditorPaneProps {
   onSelectTab?: (path: string) => void;
   onCloseTab?: (path: string) => void;
   onQuickOpen?: () => void;
+  /** 选中代码后的行动：解释 / 改 / 找引用。Ctrl+K 走 edit。 */
+  onAskSelection?: (kind: 'explain' | 'edit' | 'usages') => void;
 }
 
 export function EditorPane({
@@ -96,8 +99,14 @@ export function EditorPane({
   onSelectTab,
   onCloseTab,
   onQuickOpen,
+  onAskSelection,
 }: EditorPaneProps) {
   const readOnly = !file || file.binary || file.truncated;
+  const [sel, setSel] = useState<Selection | null>(null);
+  const outline = useMemo(
+    () => (file && !file.binary && !file.truncated ? outlineOf(file.path, text) : []),
+    [file, text],
+  );
 
   // Monaco 实例与命名空间：跳转与高亮都必须通过实例 API，不能用 props 声明式表达
   const editorRef = useRef<any>(null);
@@ -111,6 +120,10 @@ export function EditorPane({
   navigateRef.current = onNavigateSymbol;
   const workspaceIdRef = useRef(workspaceId);
   workspaceIdRef.current = workspaceId;
+  const askRef = useRef(onAskSelection);
+  askRef.current = onAskSelection;
+  const setSelRef = useRef(setSel);
+  setSelRef.current = setSel;
 
   // 诊断：文件内容变化后防抖 lint（编辑器缓冲区，不用等保存）。
   // 请求带序号，慢响应不许覆盖新响应 —— 打字快的时候旧 lint 还在路上是常态。
@@ -177,6 +190,22 @@ export function EditorPane({
     return () => window.clearTimeout(timer);
   }, [reveal, file]);
 
+  useEffect(() => {
+    setSel(null);
+  }, [file?.path]);
+
+  const jumpTo = (line: number) => {
+    const editor = editorRef.current;
+    const monacoApi = monacoRef.current;
+    if (!editor || !monacoApi) return;
+    const model = editor.getModel();
+    const total = model?.getLineCount() ?? 1;
+    const target = Math.min(Math.max(line, 1), total);
+    editor.revealLineInCenter(target, monacoApi.editor.ScrollType.Smooth);
+    editor.setPosition({ lineNumber: target, column: 1 });
+    editor.focus();
+  };
+
   return (
     <div className="pane">
       <div className="pane-head">
@@ -202,6 +231,27 @@ export function EditorPane({
           <button className="icon-btn" title="快速打开文件（Ctrl/⌘ + P）" onClick={onQuickOpen}>
             <SearchIcon size={13} />
           </button>
+        )}
+
+        {outline.length > 0 && (
+          <select
+            className="outline-select"
+            title="跳到本文件的符号"
+            defaultValue=""
+            onChange={(event) => {
+              const line = Number(event.target.value);
+              if (line > 0) jumpTo(line);
+              event.target.value = '';
+            }}
+          >
+            <option value="">大纲 {outline.length}</option>
+            {outline.map((item) => (
+              <option key={`${item.kind}:${item.line}:${item.name}`} value={item.line}>
+                {item.kind === 'class' ? '◇ ' : item.kind === 'heading' ? '# ' : '· '}
+                {item.name}
+              </option>
+            ))}
+          </select>
         )}
 
         {file && <span className="chip">{file.language}</span>}
@@ -376,16 +426,56 @@ export function EditorPane({
                 const selection = editor.getSelection();
                 if (!model || !selection || selection.isEmpty()) {
                   onSelectionChange(null);
+                  setSelRef.current(null);
                   return;
                 }
-                onSelectionChange({
+                const next: Selection = {
                   startLine: selection.startLineNumber,
                   endLine: selection.endLineNumber,
                   text: model.getValueInRange(selection),
-                });
+                };
+                onSelectionChange(next);
+                setSelRef.current(next);
+              });
+
+              editor.addCommand(monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyK, () => {
+                const model = editor.getModel();
+                const selection = editor.getSelection();
+                if (!model || !selection || selection.isEmpty()) return;
+                askRef.current?.('edit');
               });
             }}
           />
+        )}
+
+        {sel && file && !file.binary && (
+          <div className="sel-bar" role="toolbar" aria-label="对选中代码提问">
+            <span className="sel-bar-meta">
+              L{sel.startLine}–{sel.endLine}
+            </span>
+            <button
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => askRef.current?.('explain')}
+            >
+              解释这段
+            </button>
+            <button
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => askRef.current?.('edit')}
+            >
+              改这段
+            </button>
+            <button
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => askRef.current?.('usages')}
+            >
+              还谁在用
+            </button>
+            <span className="sel-bar-key">Ctrl+K</span>
+          </div>
         )}
 
         {/* 符号导航结果浮层：定义 + 引用，点击任何一条都直接跳 */}

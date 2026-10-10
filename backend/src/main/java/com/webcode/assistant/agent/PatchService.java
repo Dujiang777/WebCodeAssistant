@@ -2,6 +2,7 @@ package com.webcode.assistant.agent;
 
 import com.webcode.assistant.common.ApiException;
 import com.webcode.assistant.common.ErrorCode;
+import com.webcode.assistant.constitution.ConstitutionAuditService;
 import com.webcode.assistant.workspace.RedzoneService;
 import com.webcode.assistant.workspace.Workspace;
 import com.webcode.assistant.workspace.WorkspaceFileService;
@@ -60,6 +61,7 @@ public class PatchService {
     private final SnapshotService snapshotService;
     private final FeatureFlagService featureFlagService;
     private final RedzoneService redzoneService;
+    private final ConstitutionAuditService constitutionAuditService;
 
     public PatchService(PatchRepository patchRepository,
                         ChatSessionRepository sessionRepository,
@@ -68,7 +70,8 @@ public class PatchService {
                         WorkspaceService workspaceService,
                         SnapshotService snapshotService,
                         FeatureFlagService featureFlagService,
-                        RedzoneService redzoneService) {
+                        RedzoneService redzoneService,
+                        ConstitutionAuditService constitutionAuditService) {
         this.patchRepository = patchRepository;
         this.sessionRepository = sessionRepository;
         this.fileService = fileService;
@@ -77,6 +80,7 @@ public class PatchService {
         this.snapshotService = snapshotService;
         this.featureFlagService = featureFlagService;
         this.redzoneService = redzoneService;
+        this.constitutionAuditService = constitutionAuditService;
     }
 
     /**
@@ -209,6 +213,7 @@ public class PatchService {
         assertFlagAcknowledged(userId, patchId, flagAcknowledged);
         Workspace workspace = workspaceOf(userId, patchId);
         assertNotRedzoned(workspace, patch.filePath());
+        constitutionAuditService.assertClean(workspace, patch.filePath(), patch.diffText());
 
         // 应用前自动打快照 —— 打点失败就终止应用：没有安全网的写入不值得发生。
         // 快照失败时补丁保持 pending，用户重试即可。
@@ -298,6 +303,7 @@ public class PatchService {
 
         try {
             assertNotRedzoned(workspace, patch.filePath());
+            constitutionAuditService.assertClean(workspace, patch.filePath(), patch.diffText());
             FilePatch filePatch = UnifiedDiffParser.parse(patch.diffText(), patch.filePath()).get(0);
             Path target = resolveTarget(workspace, patch.filePath());
             String current = readCurrentContent(workspace, patch.filePath(), target);

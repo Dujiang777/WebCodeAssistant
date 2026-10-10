@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import type { BlastRadius, BuildResult, FlagView, PatchRecord } from '../lib/api';
+import type { BlastRadius, BuildResult, CharterAudit, FlagView, PatchRecord } from '../lib/api';
 import { parseUnifiedDiff } from '../lib/diff';
 import { BlastRadiusBar } from './BlastRadiusBar';
 import { CompileStrip } from './CompileStrip';
@@ -42,6 +42,7 @@ interface PatchCardProps {
   onOpenRef: (file: string, line: number | null) => void;
   /** 底片还贴不贴得上。pending 时才有。 */
   fit?: { fits: boolean; redzone: boolean; reason: string | null } | null;
+  charter?: CharterAudit | null;
 }
 
 const PREVIEW_LINE_LIMIT = 26;
@@ -93,6 +94,7 @@ export function PatchCard({
   onFixFromCompile,
   onOpenRef,
   fit = null,
+  charter = null,
 }: PatchCardProps) {
   const parsed = useMemo(() => parseUnifiedDiff(patch.diff), [patch.diff]);
   const preview = useMemo(() => buildPreview(patch.diff), [patch.diff]);
@@ -109,6 +111,7 @@ export function PatchCard({
   // 后端也会独立挡一次（FLAG_ACK_REQUIRED），这里只是不让用户点了才吃一个报错。
   const flagBlocksApply = patch.status === 'pending' && Boolean(flag?.required) && !flagAcked;
   const staleBlocksApply = patch.status === 'pending' && Boolean(fit && !fit.fits);
+  const charterBlocksApply = patch.status === 'pending' && Boolean(charter?.blocked);
 
   return (
     /* 批34：已应用态盖一枚「已冲印」印章（.patch-stamp），pending/已拒绝不带这个类。
@@ -166,6 +169,23 @@ export function PatchCard({
         </div>
       )}
 
+      {patch.status === 'pending' && charter?.present && (
+        <div className={`charter-audit${charter.blocked ? ' bad' : ''}`}>
+          <span className="charter-audit-label">{charter.blocked ? '宪章拦住了' : '宪章未命中禁止项'}</span>
+          {charter.hits.length === 0 ? (
+            <span className="charter-audit-ok">新增行没有踩到 CONSTITUTION 里的反引号 / 注解禁令</span>
+          ) : (
+            <ul className="charter-audit-hits">
+              {charter.hits.map((hit) => (
+                <li key={hit.needle}>
+                  命中 <code>{hit.needle}</code> · {hit.clause}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {patch.status === 'pending' && (
         <>
           <FeatureFlagCard
@@ -204,13 +224,15 @@ export function PatchCard({
           <>
             <button
               className="btn btn-sm btn-primary"
-              disabled={busy || flagBlocksApply || staleBlocksApply}
+              disabled={busy || flagBlocksApply || staleBlocksApply || charterBlocksApply}
               title={
-                staleBlocksApply
-                  ? fit?.reason || '底片已经变了，这张补丁贴不上'
-                  : flagBlocksApply
-                    ? '请先确认特性开关关闭时的旧路径'
-                    : '应用补丁并写盘'
+                charterBlocksApply
+                  ? '宪章禁止这项改动，先改宪法或丢掉补丁'
+                  : staleBlocksApply
+                    ? fit?.reason || '底片已经变了，这张补丁贴不上'
+                    : flagBlocksApply
+                      ? '请先确认特性开关关闭时的旧路径'
+                      : '应用补丁并写盘'
               }
               onClick={() => onApply(patch)}
             >

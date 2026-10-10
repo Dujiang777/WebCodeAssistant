@@ -6,6 +6,7 @@ import com.webcode.assistant.agent.FeatureFlagService;
 import com.webcode.assistant.agent.Patch;
 import com.webcode.assistant.agent.PatchService;
 import com.webcode.assistant.agent.PrPreviewService;
+import com.webcode.assistant.constitution.ConstitutionAuditService;
 import com.webcode.assistant.build.BuildResult;
 import com.webcode.assistant.build.BuildService;
 import com.webcode.assistant.build.CompileIssue;
@@ -45,6 +46,7 @@ public class PatchController {
     private final PrPreviewService prPreviewService;
     private final BuildService buildService;
     private final FeatureFlagService featureFlagService;
+    private final ConstitutionAuditService constitutionAuditService;
     private final CurrentUser currentUser;
 
     public PatchController(PatchService patchService,
@@ -52,12 +54,14 @@ public class PatchController {
                            PrPreviewService prPreviewService,
                            BuildService buildService,
                            FeatureFlagService featureFlagService,
+                           ConstitutionAuditService constitutionAuditService,
                            CurrentUser currentUser) {
         this.patchService = patchService;
         this.blastRadiusService = blastRadiusService;
         this.prPreviewService = prPreviewService;
         this.buildService = buildService;
         this.featureFlagService = featureFlagService;
+        this.constitutionAuditService = constitutionAuditService;
         this.currentUser = currentUser;
     }
 
@@ -104,10 +108,6 @@ public class PatchController {
     }
 
     /**
-     * 变更预演 PR：把「假如这是一次真实团队协作」的标题 / 正文 / 审查清单预演出来。
-     * 纯只读、随时可看；它不做新分析，只是把影响面与宪法的既有事实组织成审查者视角。
-     */
-    /**
      * 补丁还贴不贴得上：出卡之后磁盘被改过，或文件进了禁区。
      * 纯只读，给卡片上的「底片已变」标用。
      */
@@ -116,6 +116,19 @@ public class PatchController {
         return patchService.inspectFit(currentUser.requireId(), patchId);
     }
 
+    /** 宪章对账：补丁新增行有没有踩到 CONSTITUTION 里的禁止条款。纯只读。 */
+    @GetMapping("/{patchId}/charter")
+    public ConstitutionAuditService.Audit charter(@PathVariable UUID patchId) {
+        long userId = currentUser.requireId();
+        Patch patch = patchService.require(userId, patchId);
+        Workspace workspace = patchService.workspaceOf(userId, patchId);
+        return constitutionAuditService.inspect(workspace, patch.filePath(), patch.diffText());
+    }
+
+    /**
+     * 变更预演 PR：把「假如这是一次真实团队协作」的标题 / 正文 / 审查清单预演出来。
+     * 纯只读、随时可看；它不做新分析，只是把影响面与宪法的既有事实组织成审查者视角。
+     */
     @GetMapping("/{patchId}/pr-preview")
     public ApiModels.PrPreviewView prPreview(@PathVariable UUID patchId) {
         long userId = currentUser.requireId();
