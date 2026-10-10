@@ -322,17 +322,22 @@ public class AgentOrchestrator {
                     appProperties, deskService, gateService, request.sessionId(), llmProperties.maxToolSteps(),
                     cancellation, generation);
 
-            Assistant assistant = AiServices.builder(Assistant.class)
+            boolean direct = request.directAnswer();
+            var builder = AiServices.builder(Assistant.class)
                     .streamingChatModel(modelGateway.require(model))
-                    // 不用 .tools(toolbox)：框架自动生成的执行器对「参数 JSON 解析失败」
-                    // 没有兜底（解析在 try 之外），坏 JSON 会穿透到 SSE 关闭回调被静默
-                    // 吞掉，前端永远「正在思考」。SafeToolExecutors 把它降级为喂回模型的
-                    // 工具失败结果，回合可自行恢复。见 SafeToolExecutors 类注释。
-                    .tools(SafeToolExecutors.of(toolbox))
-                    .chatMemory(memory)
-                    .build();
+                    .chatMemory(memory);
+            if (!direct) {
+                // 不用 .tools(toolbox)：框架自动生成的执行器对「参数 JSON 解析失败」
+                // 没有兜底（解析在 try 之外），坏 JSON 会穿透到 SSE 关闭回调被静默
+                // 吞掉，前端永远「正在思考」。SafeToolExecutors 把它降级为喂回模型的
+                // 工具失败结果，回合可自行恢复。见 SafeToolExecutors 类注释。
+                builder = builder.tools(SafeToolExecutors.of(toolbox));
+            }
+            Assistant assistant = builder.build();
 
-            publisher.stage("已接到问题，正在调用模型…");
+            publisher.stage(direct
+                    ? "代码已在上下文，正在直接作答…"
+                    : "已接到问题，正在调用模型…");
             AtomicBoolean streamEnded = new AtomicBoolean(false);
             AtomicBoolean firstByte = new AtomicBoolean(false);
             TokenStream stream = assistant.chat(request.content());

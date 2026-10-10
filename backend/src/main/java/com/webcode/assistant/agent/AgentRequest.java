@@ -42,6 +42,40 @@ public record AgentRequest(
     }
 
     /**
+     * 解释 / 问答且代码已在上下文里：不要绑工具。
+     * 每绑一次工具，模型就会先 set_plan / read_file，用户要空等一轮 HTTP。
+     * 改代码、找引用仍走工具。
+     */
+    public boolean directAnswer() {
+        String text = content == null ? "" : content;
+        if (asksWrite(text) || asksSearch(text)) {
+            return false;
+        }
+        boolean hasCode = (selection != null && !selection.isEmpty())
+                || (currentFile != null && !currentFile.isBlank());
+        return hasCode;
+    }
+
+    private static boolean asksWrite(String text) {
+        return containsAny(text, "改成", "改一下", "帮我改", "修复", "实现", "加上",
+                "删除", "重构", "替换", "写成", "补丁", "新建", "新增", "注入",
+                "写一个", "propose_patch");
+    }
+
+    private static boolean asksSearch(String text) {
+        return containsAny(text, "谁在用", "调用方", "在哪", "找出", "搜索", "引用");
+    }
+
+    private static boolean containsAny(String text, String... needles) {
+        for (String needle : needles) {
+            if (text.contains(needle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * 选中片段。
      *
      * @param startLine 起始行（1-based）
