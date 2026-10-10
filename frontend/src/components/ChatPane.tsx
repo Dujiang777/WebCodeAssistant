@@ -332,7 +332,7 @@ export function ChatPane({
 
   return (
     <div className="chat">
-      <div className="pane-head">
+      <div className={`pane-head${sending && !turn?.stopped ? ' pane-head-live' : ''}`}>
         <SearchIcon size={13} />
         <span className="pane-label">
           对话
@@ -401,6 +401,7 @@ export function ChatPane({
               <span className="empty-orbit-ring slow" />
               <TerminalMark size={30} className="empty-orbit-mark" />
             </div>
+            <p className="empty-kicker">DARKROOM · BRASS</p>
             <div className="empty-title">开始一次对话</div>
             <p className="empty-sub">
               问我关于这个仓库的任何事。回答里的「路径:行号」都能点开核对；要我改代码，
@@ -437,8 +438,8 @@ export function ChatPane({
             ))}
 
             {turn && (
-              <div className="msg msg-role-assistant">
-                <span className="msg-avatar" aria-hidden="true">
+              <div className="msg msg-role-assistant msg-live">
+                <span className="msg-avatar msg-avatar-live" aria-hidden="true">
                   <TerminalMark size={13} />
                 </span>
                 <div className="msg-main">
@@ -470,13 +471,16 @@ export function ChatPane({
 
                   {!turn.text && sending && stage && (
                     <div className="thinking-row" data-stage={stage.key}>
+                      <span className="thinking-rail" aria-hidden="true" />
                       <span className="dots">
                         <span />
                         <span />
                         <span />
                       </span>
-                      <span className="thinking-label">{stage.label}</span>
-                      {stage.detail ? <span className="thinking-detail">{stage.detail}</span> : null}
+                      <span className="thinking-copy">
+                        <span className="thinking-label">{stage.label}</span>
+                        {stage.detail ? <span className="thinking-detail">{stage.detail}</span> : null}
+                      </span>
                     </div>
                   )}
 

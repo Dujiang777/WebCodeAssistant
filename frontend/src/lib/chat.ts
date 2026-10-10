@@ -41,6 +41,8 @@ export interface LiveTurn {
   stopped?: boolean;
   /** 本轮在前端挂上的本地时间，用来显示已用时。 */
   startedAt?: number;
+  /** 后端推的阶段文案（首字未到时）。 */
+  stageHint?: string;
 }
 
 export const EMPTY_TURN: LiveTurn = {
@@ -95,6 +97,7 @@ export function describeTurnStage(
     };
   }
   if (turn.text) return { key: 'write', label: '正在写回答…', detail: '' };
+  if (turn.stageHint) return { key: 'wait', label: turn.stageHint, detail: '' };
   return { key: 'wait', label: '已发送，正在等模型首字…', detail: '不是卡住，模型常会先读文件再开口' };
 }
 

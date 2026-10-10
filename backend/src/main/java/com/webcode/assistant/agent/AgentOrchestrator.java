@@ -39,6 +39,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Agent 编排：一次对话从「收到消息」到「推送 done」的全过程。
@@ -247,6 +248,7 @@ public class AgentOrchestrator {
         Charge charge = new Charge(refId, held, model);
 
         ChatEventPublisher publisher = eventHub.publisher(request.sessionId());
+        publisher.stage("已接到问题，正在排队启动…");
         // 新回合开始：清掉上一轮可能残留的「已停止」标志（用户在回合间隙点过停止也无妨）
         cancellation.begin(request.sessionId());
         executors.agent().submit(() -> {
@@ -305,6 +307,7 @@ public class AgentOrchestrator {
         long[] assistantMessageId = {-1L};
 
         try {
+            publisher.stage("正在组装上下文…");
             String systemPrompt = contextAssembler.buildSystemPrompt(workspace, request);
             MessageWindowChatMemory memory = buildMemory(request, systemPrompt);
 
@@ -324,12 +327,17 @@ public class AgentOrchestrator {
                     .chatMemory(memory)
                     .build();
 
+            publisher.stage("已接到问题，正在调用模型…");
+            AtomicBoolean streamEnded = new AtomicBoolean(false);
+            AtomicBoolean firstByte = new AtomicBoolean(false);
             TokenStream stream = assistant.chat(request.content());
             stream.onPartialResponse(delta -> {
+                        firstByte.set(true);
                         answer.append(delta);
                         publisher.text(delta);
                     })
                     .onCompleteResponse(response -> {
+                        streamEnded.set(true);
                         // 收尾自身抛出的异常会被 langchain4j 的 ignoringExceptions 静默
                         // 吞掉（不进 onError），前端会永远「正在思考」。必须自己兜住：
                         // 至少让用户看到错误、把预扣退掉，而不是无声挂死。
@@ -344,6 +352,7 @@ public class AgentOrchestrator {
                         }
                     })
                     .onError(error -> {
+                        streamEnded.set(true);
                         log.warn("Agent 回合失败 session={}", request.sessionId(), error);
                         if (cancellation.isCanceled(request.sessionId())) {
                             // 用户停止：半截回答也要保留（不是失败），预扣全额退还
@@ -360,6 +369,8 @@ public class AgentOrchestrator {
                     .start();
             // start() 是异步的：从这里开始，本轮的收尾（结算或退款）归事件流回调负责
             charge.handOff();
+            Thread.startVirtualThread(() ->
+                    watchFirstByte(request.sessionId(), publisher, firstByte, streamEnded));
         } catch (RuntimeException ex) {
             log.error("Agent 启动异常 session={}", request.sessionId(), ex);
             String message = describe(ex);
@@ -403,6 +414,30 @@ public class AgentOrchestrator {
         }
         history.forEach(memory::add);
         return memory;
+    }
+
+    /**
+     * 首字看门狗：模型排队时持续推 stage，避免前端只能空转。
+     * 不在这里强杀回合 —— 工具先行时可能 60s 内都没有 text。
+     */
+    private void watchFirstByte(long sessionId, ChatEventPublisher publisher,
+                                AtomicBoolean firstByte, AtomicBoolean streamEnded) {
+        try {
+            for (int tick = 1; tick <= 15; tick++) {
+                Thread.sleep(8_000);
+                if (streamEnded.get() || firstByte.get() || cancellation.isCanceled(sessionId)) {
+                    return;
+                }
+                int seconds = tick * 8;
+                if (tick <= 3) {
+                    publisher.stage("模型还在计算（已 " + seconds + " 秒），首字还没到…");
+                } else {
+                    publisher.stage("仍在等待模型首字（已 " + seconds + " 秒）。可点停止后换更快的模型。");
+                }
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** 回合结束：结算积分、落库回答、挂上补丁、校验引用、记录用量、推送 done。 */
