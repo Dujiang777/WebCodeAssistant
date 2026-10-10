@@ -2213,6 +2213,31 @@ a.link:hover,
   margin-top: 10px;
 }
 
+.patch-follow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line-soft);
+}
+
+.patch-follow-btn {
+  border: 0;
+  background: transparent;
+  color: var(--signal);
+  font-size: 11.5px;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.patch-follow-btn:hover {
+  background: var(--signal-dim);
+  color: var(--fg-0);
+}
+
 /* --------------------------------------------------------------- 引用 chip */
 /* 设计成「脚注索引」：无边框，只有一条黄铜金底线，悬停整块翻成黄铜金 */
 
@@ -10279,6 +10304,135 @@ body {
 
 .turn-reel-chip:hover {
   border-color: var(--signal-line);
+  color: var(--fg-0);
+}
+
+.turn-check {
+  flex: none;
+  padding: 8px 14px 9px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-1);
+}
+
+.turn-check-live {
+  border-bottom-color: var(--signal-line);
+}
+
+.turn-check-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--fg-1);
+  margin-bottom: 6px;
+}
+
+.turn-check-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-3);
+}
+
+.turn-check-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 132px;
+  overflow: auto;
+}
+
+.turn-check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--fg-1);
+}
+
+.turn-check-item.done .turn-check-label {
+  color: var(--fg-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--line-strong);
+}
+
+.turn-check-box,
+.turn-check-mark {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--bg-2);
+  color: var(--lime);
+  font-size: 10px;
+  line-height: 12px;
+  text-align: center;
+}
+
+.turn-check-box {
+  cursor: pointer;
+  padding: 0;
+}
+
+.turn-check-box:hover {
+  border-color: var(--signal);
+}
+
+.turn-check-item.fact .turn-check-mark {
+  border-color: transparent;
+  background: transparent;
+  color: var(--fg-3);
+}
+
+.turn-check-item.fact.done .turn-check-mark {
+  color: var(--lime);
+}
+
+.diff-ask {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-1);
+}
+
+.diff-ask-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+}
+
+.diff-ask-line {
+  flex: 1 1 160px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--fg-1);
+}
+
+.diff-ask button {
+  border: 0;
+  background: transparent;
+  color: var(--signal);
+  font-size: 11.5px;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.diff-ask button:hover {
+  background: var(--signal-dim);
   color: var(--fg-0);
 }
 

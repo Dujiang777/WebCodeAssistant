@@ -25,6 +25,8 @@ import {
 } from '../lib/chat';
 import type { LiveTurn, Selection, ToolItem } from '../lib/chat';
 import { copyText } from '../lib/clipboard';
+import { buildChecklist, checklistKey, followPrompt } from '../lib/follow';
+import type { ChecklistItem, FollowKind } from '../lib/follow';
 import type { StreamStatus } from '../lib/sse';
 import { CitationText } from './CitationText';
 import { GateCard } from './GateCard';
@@ -247,6 +249,8 @@ export function ChatPane({
   const draftSid = useRef<number | null>(null);
   // 回合进行中每秒走一次的时钟：running 工具卡显示「已执行 Ns」
   const [now, setNow] = useState(() => Date.now());
+  const [checked, setChecked] = useState<Set<string>>(() => new Set());
+  const checkSource = checklistKey(turn, messages);
 
   useEffect(() => {
     if (!sending) return;
@@ -291,6 +295,28 @@ export function ChatPane({
     });
     window.setTimeout(() => textareaRef.current?.focus(), 0);
   }, [composerSeed?.token]);
+
+  useEffect(() => {
+    if (sessionId === null) {
+      setChecked(new Set());
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(`wca.checklist.${sessionId}`);
+      if (!raw) {
+        setChecked(new Set());
+        return;
+      }
+      const parsed = JSON.parse(raw) as { key?: string; checked?: string[] };
+      if (parsed.key !== checkSource) {
+        setChecked(new Set());
+        return;
+      }
+      setChecked(new Set(parsed.checked ?? []));
+    } catch {
+      setChecked(new Set());
+    }
+  }, [sessionId, checkSource]);
 
   // 自动滚到底，但用户手动往上翻时不打断他 —— 这是聊天界面的基本礼貌
   useEffect(() => {
@@ -356,6 +382,31 @@ export function ChatPane({
     charterOf,
   };
 
+  const toggleCheck = (id: string) => {
+    setChecked((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      if (sessionId !== null) {
+        try {
+          localStorage.setItem(
+            `wca.checklist.${sessionId}`,
+            JSON.stringify({ key: checkSource, checked: [...next] }),
+          );
+        } catch {
+          // 隐私模式记不住勾选就算了
+        }
+      }
+      return next;
+    });
+  };
+
+  const followPatch = (kind: FollowKind, patch: PatchRecord) => {
+    putIntoComposer(followPrompt(kind, patch), true);
+  };
+
+  const checklist = buildChecklist(turn, messages, patches, compileOf, checked);
+
   const livePatchIds = turn?.patchIds ?? [];
   const livePatches = patches.filter((patch) => livePatchIds.includes(patch.id));
   const pendingCount = patches.filter((patch) => patch.status === 'pending').length;
@@ -388,6 +439,7 @@ export function ChatPane({
       onOpenRef={onOpenCitation}
       fit={fitOf?.(patch.id) ?? null}
       charter={charterOf?.(patch.id) ?? null}
+      onFollow={followPatch}
     />
   );
 
@@ -442,6 +494,14 @@ export function ChatPane({
           <TrashIcon size={13} />
         </button>
       </div>
+
+      {checklist.length > 0 && (
+        <TurnChecklist
+          items={checklist}
+          live={Boolean(sending && turn && !turn.stopped)}
+          onToggle={toggleCheck}
+        />
+      )}
 
       {streamStatus === 'reconnecting' && (
         <div className="banner">
@@ -510,6 +570,7 @@ export function ChatPane({
                 onRegenerate={onRegenerate}
                 onQuote={(text) => putIntoComposer(text, false)}
                 onEditResend={(text) => putIntoComposer(text, true)}
+                onFollow={followPatch}
                 canRegenerate={!sending && message.role === 'assistant' && index === messages.length - 1}
               />
             ))}
@@ -814,6 +875,7 @@ function MessageBlock({
   onRegenerate,
   onQuote,
   onEditResend,
+  onFollow,
   canRegenerate,
 }: {
   message: ChatMessage;
@@ -827,6 +889,7 @@ function MessageBlock({
   onQuote: (text: string) => void;
   /** 把这条用户消息放回输入框改完再发。 */
   onEditResend: (text: string) => void;
+  onFollow: (kind: FollowKind, patch: PatchRecord) => void;
   canRegenerate: boolean;
 }) {
   const [copied, setCopied] = useState<'idle' | 'ok' | 'fail'>('idle');
@@ -921,6 +984,7 @@ function MessageBlock({
                 onOpenRef={deps.onOpenCitation}
                 fit={deps.fitOf?.(patch.id) ?? null}
                 charter={deps.charterOf?.(patch.id) ?? null}
+                onFollow={onFollow}
               />
             ))}
           </div>
@@ -1008,6 +1072,52 @@ function TurnReel({
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** 钉在对话顶的本轮清单：计划可勾，补丁/编译跟着真实状态走，回合结束后还在。 */
+function TurnChecklist({
+  items,
+  live,
+  onToggle,
+}: {
+  items: ChecklistItem[];
+  live: boolean;
+  onToggle: (id: string) => void;
+}) {
+  const done = items.filter((item) => item.done).length;
+  return (
+    <div className={`turn-check${live ? ' turn-check-live' : ''}`}>
+      <div className="turn-check-head">
+        <span className={`dot ${live ? 'dot-warn' : done === items.length ? 'dot-ok' : 'dot-idle'}`} />
+        <span>本轮清单</span>
+        <span className="turn-check-count">
+          {done}/{items.length}
+        </span>
+      </div>
+      <ul className="turn-check-list">
+        {items.map((item) => (
+          <li key={item.id} className={`turn-check-item${item.done ? ' done' : ''}${item.kind === 'fact' ? ' fact' : ''}`}>
+            {item.kind === 'plan' ? (
+              <button
+                type="button"
+                className="turn-check-box"
+                aria-pressed={item.done}
+                title={item.done ? '标为未完成' : '标为已完成'}
+                onClick={() => onToggle(item.id)}
+              >
+                {item.done ? '✓' : ''}
+              </button>
+            ) : (
+              <span className="turn-check-mark" aria-hidden="true">
+                {item.done ? '✓' : '·'}
+              </span>
+            )}
+            <span className="turn-check-label">{item.label}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

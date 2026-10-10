@@ -43,6 +43,8 @@ interface PatchCardProps {
   /** 底片还贴不贴得上。pending 时才有。 */
   fit?: { fits: boolean; redzone: boolean; reason: string | null } | null;
   charter?: CharterAudit | null;
+  /** 对着这张卡继续说：按这张再改 / 只要这几行 / 丢掉重来。 */
+  onFollow?: (kind: 'revise' | 'narrow' | 'redo', patch: PatchRecord) => void;
 }
 
 const PREVIEW_LINE_LIMIT = 26;
@@ -95,6 +97,7 @@ export function PatchCard({
   onOpenRef,
   fit = null,
   charter = null,
+  onFollow,
 }: PatchCardProps) {
   const parsed = useMemo(() => parseUnifiedDiff(patch.diff), [patch.diff]);
   const preview = useMemo(() => buildPreview(patch.diff), [patch.diff]);
@@ -251,6 +254,35 @@ export function PatchCard({
           {patch.appliedAt ? ` · ${new Date(patch.appliedAt).toLocaleTimeString()}` : ''}
         </span>
       </div>
+
+      {onFollow && (
+        <div className="patch-follow">
+          <button
+            type="button"
+            className="patch-follow-btn"
+            title="把这张卡的路径和 diff 放进输入框，接着改"
+            onClick={() => onFollow('revise', patch)}
+          >
+            按这张再改
+          </button>
+          <button
+            type="button"
+            className="patch-follow-btn"
+            title="只要当前这几处，收成更小的一版"
+            onClick={() => onFollow('narrow', patch)}
+          >
+            只要这几行
+          </button>
+          <button
+            type="button"
+            className="patch-follow-btn"
+            title="不要沿用这张卡的写法，按原问题重做"
+            onClick={() => onFollow('redo', patch)}
+          >
+            丢掉重来
+          </button>
+        </div>
+      )}
     </div>
   );
 }

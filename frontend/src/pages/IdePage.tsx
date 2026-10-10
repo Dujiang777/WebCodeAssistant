@@ -25,6 +25,8 @@ import type {
 } from '../lib/api';
 import { beginTurn, messageOf, nextToolId, toolPathOf } from '../lib/chat';
 import type { LiveTurn, Selection, ToolItem } from '../lib/chat';
+import { diffLinePrompt } from '../lib/follow';
+import type { DiffLineAsk } from '../lib/follow';
 import { navigate, rememberIde } from '../lib/router';
 import { openChatStream } from '../lib/sse';
 import type { ChatEvent, StreamStatus } from '../lib/sse';
@@ -1525,6 +1527,17 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     void send(`${lead}\n\n${where}：\n\`\`\`\n${clip}\n\`\`\``);
   };
 
+  const askDiffLine = (ask: DiffLineAsk) => {
+    setDiffPatch(null);
+    const text = diffLinePrompt(ask);
+    if (ask.kind === 'edit') {
+      composerSeedToken.current += 1;
+      setComposerSeed({ token: composerSeedToken.current, text });
+      return;
+    }
+    void send(text);
+  };
+
   const send = async (content: string) => {
     const sid = sessionId;
     if (sid === null) {
@@ -2065,6 +2078,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           busy={patchBusyId === diffPatch.id}
           onClose={() => setDiffPatch(null)}
           onApply={(patch) => void applyPatch(patch)}
+          onAskLine={askDiffLine}
         />
       )}
 
