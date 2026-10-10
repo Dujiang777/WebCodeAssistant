@@ -5,6 +5,7 @@ import { adoptAuth, api } from '../lib/api';
 import { HttpError } from '../lib/api';
 import type { AuthResult, AuthUser, CaptchaChallenge, Dispatch } from '../lib/api';
 import { messageOf } from '../lib/chat';
+import { FilmSprocket } from '../components/FilmSprocket';
 import { RefreshIcon, TerminalMark } from '../components/icons';
 import { TypingTerminal } from '../components/TypingTerminal';
 
@@ -218,11 +219,13 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
 
   return (
     <div className="auth-wrap auth-wrap-v2">
+      <FilmSprocket variant="left" />
+      <FilmSprocket variant="right" />
       <section className="auth-hero">
         <div className="brand" style={{ borderRight: 'none', paddingRight: 0 }}>
-          <TerminalMark size={30} className="brand-mark" />
+          <TerminalMark size={38} className="brand-mark" />
           <div className="brand-text">
-            <span className="brand-name" style={{ fontSize: 14 }}>
+            <span className="brand-name" style={{ fontSize: 18 }}>
               WEB CODE ASSISTANT
             </span>
             <span className="brand-sub">网页版编码助手</span>
@@ -245,20 +248,32 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
 
         <ul className="auth-features">
           <li>
-            <b>代码在你的服务器上</b>
-            <span>工作区是服务端磁盘上的真实目录（git clone 或 zip 导入），不是浏览器里的虚拟文件系统。</span>
+            <span className="auth-frame-no">01</span>
+            <div>
+              <b>代码在你的服务器上</b>
+              <span>工作区是服务端磁盘上的真实目录（git clone 或 zip 导入），不是浏览器里的虚拟文件系统。</span>
+            </div>
           </li>
           <li>
-            <b>每个结论都挂证据</b>
-            <span>回答里的「文件:行号」可以点，点一下编辑器跳过去并高亮那一行；找不到的就明说没找到。</span>
+            <span className="auth-frame-no">02</span>
+            <div>
+              <b>每个结论都挂证据</b>
+              <span>回答里的「文件:行号」可以点，点一下编辑器跳过去并高亮那一行；找不到的就明说没找到。</span>
+            </div>
           </li>
           <li>
-            <b>应用之前先看影响面</b>
-            <span>补丁还没应用就会告诉你：改了谁、谁在调用、有没有测试覆盖、风险多高；应用后自动编译验证。</span>
+            <span className="auth-frame-no">03</span>
+            <div>
+              <b>应用之前先看影响面</b>
+              <span>补丁还没应用就会告诉你：改了谁、谁在调用、有没有测试覆盖、风险多高；应用后自动编译验证。</span>
+            </div>
           </li>
           <li>
-            <b>用多少算多少</b>
-            <span>积分按真实 token 用量结算：先用预扣额度、回合结束多退少补，每一笔都留在可对账的账本里。</span>
+            <span className="auth-frame-no">04</span>
+            <div>
+              <b>用多少算多少</b>
+              <span>积分按真实 token 用量结算：先用预扣额度、回合结束多退少补，每一笔都留在可对账的账本里。</span>
+            </div>
           </li>
         </ul>
       </section>
@@ -271,6 +286,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
           <div className="card-head">
             <TerminalMark size={20} />
             <span className="card-title">{title}</span>
+            <span className="auth-stamp">35mm</span>
           </div>
 
           <p className="card-desc">

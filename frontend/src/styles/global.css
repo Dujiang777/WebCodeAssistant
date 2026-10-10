@@ -9289,3 +9289,302 @@ body {
     text-shadow: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   批40：片孔进场 + 第二轮加厚
+   左右齿孔、更宽片库、套餐/表格/输入井镀金。不改工作面纯色、
+   顶栏高度、片盒脊层数、配额条高度、轨道发送键。
+   ═══════════════════════════════════════════════════════════════════ */
+
+.film-sprocket {
+  pointer-events: none;
+  background-color: #120e08;
+  background-image: repeating-linear-gradient(
+    180deg,
+    #120e08 0 6px,
+    #080604 6px 8px,
+    transparent 8px 18px,
+    #080604 18px 20px,
+    #120e08 20px 28px
+  );
+}
+
+.film-sprocket-left,
+.film-sprocket-right {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 22px;
+  z-index: 40;
+  box-shadow: inset 0 0 0 1px var(--signal-line), 0 0 24px rgba(0, 0, 0, 0.55);
+}
+
+.film-sprocket-left { left: 0; }
+.film-sprocket-right { right: 0; transform: scaleX(-1); }
+
+.film-sprocket-page {
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 10px;
+  width: 14px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px var(--signal-line);
+  z-index: 1;
+}
+
+.film-sprocket-rail {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 3px;
+  width: 7px;
+  border-radius: 1px;
+  opacity: 0.85;
+  z-index: 0;
+}
+
+.auth-wrap.auth-wrap-v2 {
+  padding-left: clamp(40px, 7vw, 96px);
+  padding-right: clamp(40px, 7vw, 96px);
+}
+
+.auth-frame-no {
+  flex: none;
+  width: 28px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--signal);
+  padding-top: 2px;
+}
+
+.auth-wrap-v2 .auth-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: color-mix(in srgb, var(--bg-2) 70%, transparent);
+  border: 1px solid var(--line);
+}
+
+.auth-wrap-v2 .auth-features li:hover {
+  border-color: var(--signal-line);
+}
+
+.auth-stamp {
+  margin-left: auto;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--on-signal);
+  background: var(--signal);
+  padding: 3px 8px;
+  border-radius: 2px;
+  box-shadow: 0 0 16px var(--signal-dim);
+}
+
+.term-win {
+  border-color: var(--signal-line);
+  box-shadow: var(--shadow-lift), 0 0 0 1px var(--signal-line), 0 18px 40px var(--signal-dim);
+}
+
+.term-bar {
+  background:
+    linear-gradient(180deg, var(--signal-dim), transparent 80%),
+    var(--bg-2);
+}
+
+.ws-page.card.wide {
+  position: relative;
+  width: min(1120px, calc(100vw - 56px));
+  padding: 24px 28px 28px 36px;
+  box-shadow: var(--panel-edge), var(--shadow-lift), 0 0 0 1px var(--signal-line);
+}
+
+.ws-card-icon {
+  width: 46px;
+  height: 46px;
+  box-shadow: 0 0 18px var(--signal-dim);
+}
+
+.ws-card-go {
+  font-family: var(--font-display);
+  color: var(--signal);
+  font-size: 13px;
+}
+
+.empty-orbit {
+  width: 118px;
+  height: 118px;
+}
+
+.empty-orbit-ring.slow {
+  inset: -18px;
+}
+
+.composer {
+  padding: 16px 16px 14px;
+  border-top-color: var(--signal-line);
+  background:
+    linear-gradient(180deg, var(--signal-dim), transparent 28%),
+    var(--bg-0);
+}
+
+.composer-input {
+  min-height: 76px;
+  font-size: 14.5px;
+}
+
+.input {
+  padding: 11px 13px;
+  border-color: var(--line-strong);
+}
+
+.input:focus {
+  box-shadow:
+    inset 0 1px 3px color-mix(in srgb, var(--bg-0) 70%, transparent),
+    0 0 0 4px var(--signal-dim);
+}
+
+.hint-box {
+  border: 1px solid var(--signal-line);
+  background:
+    linear-gradient(90deg, var(--signal-dim), transparent 50%),
+    var(--bg-2);
+  box-shadow: var(--panel-edge);
+}
+
+.section-divider {
+  color: var(--signal-soft);
+  font-family: var(--font-display);
+  font-size: 12px;
+}
+
+.section-divider::after {
+  background: linear-gradient(90deg, var(--signal-line), transparent);
+  height: 2px;
+}
+
+.banner {
+  padding: 12px 14px;
+  border-left-width: 5px;
+  box-shadow: var(--panel-edge);
+}
+
+.toast {
+  border-left-width: 5px;
+  box-shadow: var(--shadow-lift), 0 0 0 1px var(--signal-line);
+}
+
+.avatar-menu {
+  border-color: var(--signal-line);
+  box-shadow: var(--shadow-lift), 0 0 0 1px var(--signal-line), 0 16px 36px rgba(0, 0, 0, 0.4);
+}
+
+.modal {
+  box-shadow: var(--panel-edge), var(--shadow-modal), 0 0 0 1px var(--signal-line);
+}
+
+.cr-plan {
+  padding: 20px 18px 18px;
+  min-height: 196px;
+  box-shadow: var(--panel-edge);
+}
+
+.cr-plan:hover {
+  border-color: var(--signal);
+  box-shadow: var(--shadow-lift), 0 0 0 1px var(--signal-line);
+}
+
+.cr-plan.featured {
+  box-shadow: 0 0 0 1px var(--signal), 0 18px 36px var(--signal-dim);
+}
+
+.cr-plan-amount {
+  font-size: 36px;
+  color: var(--signal-soft);
+  text-shadow: 0 0 20px var(--signal-dim);
+}
+
+.cr-plan-name {
+  font-family: var(--font-display);
+  font-size: 16px;
+}
+
+.cr-table {
+  border-color: var(--signal-line);
+}
+
+.cr-table th {
+  background:
+    linear-gradient(180deg, var(--signal-dim), var(--bg-2));
+  color: var(--signal-soft);
+  padding: 10px 12px;
+  border-bottom-color: var(--signal-line);
+}
+
+.cr-table td {
+  padding: 11px 12px;
+}
+
+.md-card {
+  padding: 16px;
+  border-color: var(--line-strong);
+  box-shadow: var(--panel-edge);
+}
+
+.md-card.current,
+.md-card:hover {
+  border-color: var(--signal);
+  box-shadow: 0 12px 28px var(--signal-dim);
+}
+
+.page-wrap {
+  padding-left: 42px;
+}
+
+.tool-card {
+  border-color: var(--line-strong);
+  box-shadow: var(--panel-edge), 0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
+.patch-card {
+  box-shadow: var(--panel-edge), 0 10px 22px rgba(0, 0, 0, 0.24);
+}
+
+.rail {
+  position: relative;
+}
+
+.rail-mark,
+.rail-group,
+.rail-spacer {
+  position: relative;
+  z-index: 1;
+}
+
+.key-hint {
+  border-color: var(--signal-line);
+  background: var(--signal-dim);
+  color: var(--signal-soft);
+}
+
+[data-theme='ivory'] .film-sprocket {
+  background-color: #d8c9a8;
+  background-image: repeating-linear-gradient(
+    180deg,
+    #d8c9a8 0 6px,
+    #c4b28a 6px 8px,
+    transparent 8px 18px,
+    #c4b28a 18px 20px,
+    #d8c9a8 20px 28px
+  );
+}
+
+[data-theme='ivory'] .term-win,
+[data-theme='ivory'] .ws-page.card.wide,
+[data-theme='ivory'] .cr-plan.featured {
+  box-shadow: var(--panel-edge), 0 14px 28px rgba(80, 60, 20, 0.12);
+}

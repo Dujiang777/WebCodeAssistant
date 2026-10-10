@@ -5,6 +5,7 @@ import type { AuthUser, HealthInfo, Workspace } from '../lib/api';
 import { messageOf } from '../lib/chat';
 import { navigate } from '../lib/router';
 import { AvatarMenu } from '../components/AvatarMenu';
+import { FilmSprocket } from '../components/FilmSprocket';
 import { TerminalMark, FolderOpenIcon, PlusIcon, RefreshIcon } from '../components/icons';
 
 /**
@@ -103,8 +104,9 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
   return (
     <div className="centered-page centered-page-v2" style={{ alignItems: 'flex-start' }}>
       <div className="card wide ws-page" style={{ marginTop: 12 }}>
+        <FilmSprocket variant="page" />
         <div className="card-head">
-          <TerminalMark size={24} />
+          <TerminalMark size={32} />
           <div>
             <div className="card-title">选择工作区</div>
             <div className="card-desc" style={{ marginBottom: 0 }}>
