@@ -107,7 +107,14 @@ export function PatchCard({
   const flagBlocksApply = patch.status === 'pending' && Boolean(flag?.required) && !flagAcked;
 
   return (
-    <div className="patch-card">
+    /* 批34：已应用态盖一枚「已冲印」印章（.patch-stamp），pending/已拒绝不带这个类。
+       类名是自检契约 —— 只追加状态钩子，不改原有 patch-card。 */
+    <div className={`patch-card${patch.status === 'applied' ? ' patch-card-stamped' : ''}`}>
+      {patch.status === 'applied' && (
+        <span className="patch-stamp" aria-hidden="true">
+          已冲印
+        </span>
+      )}
       <div className="patch-head">
         <DiffIcon size={13} />
         <button className="patch-file" title={`在编辑器中打开 ${patch.file}`} onClick={() => onOpenRef(patch.file, null)}>
