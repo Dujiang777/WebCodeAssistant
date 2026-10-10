@@ -9556,6 +9556,9 @@ body {
 
 .rail {
   position: relative;
+  /* 悬停卡片要画进右边的文件树。树在 DOM 里靠后，筛选框又是 sticky，
+     不给轨道一个比栏更高的层，卡片就会被「筛选文件名」那一行裁掉。 */
+  z-index: 20;
 }
 
 .rail-mark,
