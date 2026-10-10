@@ -72,9 +72,11 @@ export function PatchModal({ workspaceId, patch, busy, onClose, onApply }: Patch
   const modified = computed.text;
   const parsed = useMemo(() => parseUnifiedDiff(patch.diff), [patch.diff]);
 
+  const isNewFile = original === '';
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(event) => event.stopPropagation()}>
+      <div className="modal modal-diff" onClick={(event) => event.stopPropagation()}>
         <div className="modal-head">
           <span className="modal-title">完整对比</span>
           <span className="chip mono">{patch.file}</span>
@@ -92,7 +94,19 @@ export function PatchModal({ workspaceId, patch, busy, onClose, onApply }: Patch
           </button>
         </div>
 
-        <div className="modal-body">
+        <div className="diff-pane-labels">
+          <span>{isNewFile ? '磁盘上现在（还没有这个文件）' : '磁盘上现在'}</span>
+          <span>应用之后（先预览，未写盘）</span>
+        </div>
+
+        {isNewFile && (
+          <div className="banner">
+            <span className="dot dot-ok" />
+            这是新建文件。左边是空的，右边是点「应用」后会写到磁盘上的内容。
+          </div>
+        )}
+
+        <div className="modal-body modal-body-diff">
           {original === null ? (
             <div className="loading-block" style={{ padding: '20px 16px' }}>
               <span className="spinner" />
@@ -100,11 +114,15 @@ export function PatchModal({ workspaceId, patch, busy, onClose, onApply }: Patch
             </div>
           ) : (
             <DiffEditor
+              height="100%"
               original={original}
               modified={modified}
               language={language}
               theme={WCA_THEME}
               options={DIFF_OPTIONS as unknown as Monaco.editor.IDiffEditorConstructionOptions}
+              onMount={(editor) => {
+                window.requestAnimationFrame(() => editor.layout());
+              }}
               loading={
                 <div className="loading-block" style={{ padding: '20px 16px' }}>
                   <span className="spinner" />
@@ -118,7 +136,7 @@ export function PatchModal({ workspaceId, patch, busy, onClose, onApply }: Patch
         <div className="modal-foot">
           <span className="modal-note">
             {patch.summary ? `${patch.summary} · ` : ''}
-            应用后文件会被真的改写；写入前后端会再校验一次能否干净应用。
+            左边是磁盘现状，右边是应用后的结果。不点应用，磁盘不会变。
           </span>
           <button className="btn" onClick={onClose}>
             关闭

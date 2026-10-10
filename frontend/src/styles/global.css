@@ -3080,6 +3080,42 @@ button.risk-chip:hover {
   padding: 14px 16px;
 }
 
+.modal-diff {
+  width: min(1280px, calc(100vw - 32px));
+  height: min(860px, calc(100vh - 48px));
+  max-height: none;
+}
+
+.diff-pane-labels {
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-2);
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.04em;
+}
+
+.diff-pane-labels span:last-child {
+  color: var(--signal-soft);
+}
+
+.modal-body-diff {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-body-diff .monaco-editor,
+.modal-body-diff .monaco-diff-editor {
+  flex: 1;
+  min-height: 0;
+}
+
 .modal-foot {
   flex: none;
   display: flex;
