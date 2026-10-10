@@ -2238,6 +2238,150 @@ a.link:hover,
   color: var(--fg-0);
 }
 
+.review-brief {
+  margin: 8px 12px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.review-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--fg-1);
+}
+
+.review-k {
+  flex: none;
+  width: 2.2em;
+  font-size: 11px;
+  color: var(--fg-3);
+}
+
+.review-line.review-ok .review-v {
+  color: var(--lime);
+}
+
+.review-line.review-warn .review-v {
+  color: var(--signal-soft);
+}
+
+.review-line.review-bad .review-v {
+  color: var(--rose);
+}
+
+.recipe-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 12px 0;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  font-size: 12px;
+  color: var(--fg-2);
+}
+
+.recipe-step {
+  color: var(--fg-3);
+}
+
+.recipe-step.now {
+  color: var(--signal);
+}
+
+.recipe-step.done {
+  color: var(--lime);
+}
+
+.recipe-step.bad {
+  color: var(--rose);
+}
+
+.recipe-arrow {
+  color: var(--fg-3);
+  font-size: 11px;
+}
+
+.recipe-note {
+  margin-left: 4px;
+  color: var(--fg-2);
+}
+
+.test-strip {
+  margin: 8px 12px 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--fg-2);
+}
+
+.test-strip.test-ok {
+  color: var(--lime);
+}
+
+.test-strip.test-fail {
+  color: var(--rose);
+}
+
+.session-film {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-1);
+}
+
+.session-film-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--fg-1);
+}
+
+.session-film-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-3);
+}
+
+.session-film-shots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.session-film-chip {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--bg-2);
+  color: var(--fg-1);
+  font-size: 11.5px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.session-film-chip:hover {
+  border-color: var(--signal-line);
+  color: var(--fg-0);
+}
+
+.session-film-chip.auto {
+  border-style: dashed;
+}
+
 /* --------------------------------------------------------------- 引用 chip */
 /* 设计成「脚注索引」：无边框，只有一条黄铜金底线，悬停整块翻成黄铜金 */
 

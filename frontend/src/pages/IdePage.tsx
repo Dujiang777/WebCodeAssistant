@@ -20,6 +20,7 @@ import type {
   NavigateView,
   PatchRecord,
   PendingGate,
+  SnapshotView,
   TestRunResult,
   Workspace,
 } from '../lib/api';
@@ -27,6 +28,8 @@ import { beginTurn, messageOf, nextToolId, toolPathOf } from '../lib/chat';
 import type { LiveTurn, Selection, ToolItem } from '../lib/chat';
 import { diffLinePrompt } from '../lib/follow';
 import type { DiffLineAsk } from '../lib/follow';
+import type { RecipeView } from '../lib/review';
+import { testSummary } from '../lib/review';
 import { navigate, rememberIde } from '../lib/router';
 import { openChatStream } from '../lib/sse';
 import type { ChatEvent, StreamStatus } from '../lib/sse';
@@ -278,6 +281,9 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const [radii, setRadii] = useState<Record<string, RadiusEntry>>({});
   const [compiles, setCompiles] = useState<Record<string, BuildResult>>({});
   const [compileBusyId, setCompileBusyId] = useState<string | null>(null);
+  const [recipes, setRecipes] = useState<Record<string, RecipeView>>({});
+  const [testResults, setTestResults] = useState<Record<string, TestRunResult>>({});
+  const [film, setFilm] = useState<SnapshotView[]>([]);
 
   // ------------------------------------------------------------ 布局
   const [layout, setLayout] = useState<Layout>(() => loadLayout());
@@ -456,6 +462,19 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .snapshots(workspaceId)
+      .then((list) => {
+        if (!cancelled) setFilm(list);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
 
   // 宪法状态：进页面拉一次，保存后由 ConstitutionModal 回传更新
   useEffect(() => {
@@ -1305,7 +1324,15 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
    * 之所以自动而不是等用户点：改完不验证等于没改完。失败时不会自动改代码，
    * 只是把编译器输出摆出来，由用户决定要不要让 AI 接着修（人在环上，不越权）。
    */
-  const runCompile = async (patch: PatchRecord) => {
+  const refreshFilm = async () => {
+    try {
+      setFilm(await api.snapshots(workspaceId));
+    } catch {
+      // 胶卷读失败不挡主圈
+    }
+  };
+
+  const runCompile = async (patch: PatchRecord): Promise<BuildResult | null> => {
     setCompileBusyId(patch.id);
     try {
       const result = await api.compilePatch(patch.id);
@@ -1317,8 +1344,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       } else {
         toast.info(result.note || '编译未执行');
       }
+      return result;
     } catch (err) {
       toast.error(messageOf(err));
+      return null;
     } finally {
       setCompileBusyId(null);
     }
@@ -1391,7 +1420,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     void send(content);
   };
 
-  const applyPatch = async (patch: PatchRecord) => {
+  const applyCore = async (patch: PatchRecord): Promise<PatchRecord | null> => {
     setPatchBusyId(patch.id);
     try {
       // 改动行为的补丁要带「已确认开关关闭时的旧路径」——前端拦了一层，
@@ -1414,7 +1443,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         }
       }
       await refreshTree();
-      void runCompile(applied);
+      void refreshFilm();
+      return applied;
     } catch (err) {
       if (err instanceof HttpError && err.code === 'FLAG_ACK_REQUIRED') {
         toast.info('这张补丁改动了行为 —— 先在卡片上勾选「已确认开关关闭时的旧路径」，再点应用。');
@@ -1423,8 +1453,76 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       } else {
         toast.error(messageOf(err));
       }
+      return null;
     } finally {
       setPatchBusyId(null);
+    }
+  };
+
+  const applyPatch = async (patch: PatchRecord) => {
+    const applied = await applyCore(patch);
+    if (applied) void runCompile(applied);
+  };
+
+  /** 应用 → 编译 → 测试。任一步失败就把输出喂回 Agent，不再让人自己点三下。 */
+  const applyAndVerify = async (patch: PatchRecord) => {
+    setRecipes((current) => ({ ...current, [patch.id]: { phase: 'apply', compile: null, tests: null } }));
+    const applied = await applyCore(patch);
+    if (!applied) {
+      setRecipes((current) => {
+        const next = { ...current };
+        delete next[patch.id];
+        return next;
+      });
+      return;
+    }
+
+    setRecipes((current) => ({ ...current, [applied.id]: { phase: 'compile', compile: null, tests: null } }));
+    const compile = await runCompile(applied);
+    if (!compile || compile.status === 'failed') {
+      setRecipes((current) => ({
+        ...current,
+        [applied.id]: { phase: 'failed', compile, tests: null },
+      }));
+      if (compile && compile.status === 'failed') fixFromCompile(applied, compile);
+      return;
+    }
+    if (compile.status !== 'ok') {
+      setRecipes((current) => ({
+        ...current,
+        [applied.id]: { phase: 'done', compile, tests: null },
+      }));
+      return;
+    }
+
+    setRecipes((current) => ({ ...current, [applied.id]: { phase: 'test', compile, tests: null } }));
+    try {
+      const tests = await api.runTests(workspaceId);
+      setTestResults((current) => ({ ...current, [applied.id]: tests }));
+      if (tests.status === 'failed') {
+        setRecipes((current) => ({
+          ...current,
+          [applied.id]: { phase: 'failed', compile, tests },
+        }));
+        toast.error(testSummary(tests));
+        fixFromTests(tests);
+        return;
+      }
+      setRecipes((current) => ({
+        ...current,
+        [applied.id]: { phase: 'done', compile, tests },
+      }));
+      if (tests.status === 'ok') {
+        toast.success('验收通过：已应用、编译过、测试过');
+      } else {
+        toast.info(tests.note || '测试未执行');
+      }
+    } catch (err) {
+      setRecipes((current) => ({
+        ...current,
+        [applied.id]: { phase: 'failed', compile, tests: null },
+      }));
+      toast.error(messageOf(err));
     }
   };
 
@@ -1458,6 +1556,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       const applied = await api.listPatches(sid);
       setPatches(applied);
       await refreshTree();
+      void refreshFilm();
       if (selectedPathRef.current) {
         await openFile(selectedPathRef.current);
       }
@@ -2003,6 +2102,9 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               radiusErrorOf={(patchId) => radii[patchId]?.error ?? null}
               compileOf={(patchId) => compiles[patchId] ?? null}
               onApplyPatch={(patch) => void applyPatch(patch)}
+              onVerifyPatch={(patch) => void applyAndVerify(patch)}
+              recipeOf={(patchId) => recipes[patchId] ?? null}
+              testsOf={(patchId) => testResults[patchId] ?? null}
               onRejectPatch={(patch) => void rejectPatch(patch)}
               onViewPatch={setDiffPatch}
               onCompilePatch={(patch) => void runCompile(patch)}
@@ -2031,6 +2133,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               onRecharge={() => navigate('/credits')}
               onLogout={onLogout}
               username={username}
+              snapshots={film}
+              onOpenSnapshots={() => setSnapshotsOpen(true)}
             />
           </div>
         )}
@@ -2115,6 +2219,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           onClose={() => setSnapshotsOpen(false)}
           onRestored={() => {
             void refreshTree();
+            void refreshFilm();
             if (selectedPath) {
               void openFile(selectedPath);
             }
