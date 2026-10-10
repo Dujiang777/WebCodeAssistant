@@ -1476,6 +1476,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         {treeVisible && (
           <div className="pane">
             <div className="pane-head">
+              <span className="pane-kicker">NEG</span>
               <span className="pane-label">文件</span>
               <div className="topbar-spacer" />
               <button

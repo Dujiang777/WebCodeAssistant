@@ -9588,3 +9588,216 @@ body {
 [data-theme='ivory'] .cr-plan.featured {
   box-shadow: var(--panel-edge), 0 14px 28px rgba(80, 60, 20, 0.12);
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   批41：结构大更新 —— 全幅片库 / 电影片头登录 / IDE 场记牌
+   类名不改。不碰工作面纯色、顶栏高度与模糊、片盒脊层数、配额条高度。
+   ═══════════════════════════════════════════════════════════════════ */
+
+.ws-library.centered-page {
+  display: block;
+  padding: 0;
+  overflow: auto;
+}
+
+.ws-library .ws-page.card.wide {
+  width: 100%;
+  max-width: none;
+  min-height: 100%;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  padding: 0 0 72px;
+  box-shadow: none;
+  background:
+    radial-gradient(900px 420px at 12% 0%, var(--signal-dim), transparent 58%),
+    var(--bg-1);
+}
+
+.ws-library .card-head {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  margin: 0;
+  padding: 14px 56px;
+  backdrop-filter: blur(14px) saturate(1.2);
+  background: color-mix(in srgb, var(--bg-1) 82%, transparent);
+  border-bottom: 1px solid var(--signal-line);
+}
+
+.ws-library .ws-hero {
+  padding: 52px 56px 36px;
+}
+
+.ws-slate {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 6px 12px;
+  border: 1px solid var(--signal-line);
+  background: #0c0906;
+  box-shadow: var(--panel-edge), 0 0 24px var(--signal-dim);
+}
+
+.ws-slate span {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--signal);
+}
+
+.ws-library .ws-hero-title {
+  font-size: clamp(42px, 6vw, 76px);
+  line-height: 1.05;
+  text-shadow: 0 0 40px var(--signal-dim);
+}
+
+.ws-library .ws-hero-sub {
+  font-size: 16px;
+  max-width: 46ch;
+}
+
+.ws-stage {
+  padding: 0 56px;
+}
+
+.ws-library .ws-create-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.ws-library .ws-mode-card {
+  min-height: 132px;
+  padding: 18px 18px 16px;
+}
+
+.ws-library .ws-grid {
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 18px;
+}
+
+.ws-library .ws-card {
+  min-height: 118px;
+}
+
+.auth-wrap.auth-wrap-v2 {
+  grid-template-columns: minmax(0, 1.45fr) minmax(400px, 0.72fr);
+  gap: clamp(28px, 6vw, 80px);
+  align-items: center;
+}
+
+.auth-meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--signal-line);
+  background: #0c0906;
+}
+
+.auth-meter span {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--signal);
+}
+
+.auth-meter i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--signal);
+  opacity: 0.55;
+}
+
+.auth-wrap-v2 .auth-title {
+  font-size: clamp(42px, 6.2vw, 72px);
+  line-height: 1.06;
+}
+
+.auth-form-wrap .card.card-print {
+  padding: 26px 26px 22px 34px;
+}
+
+.topbar-rec {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--rose);
+  border: 1px solid color-mix(in srgb, var(--rose) 55%, transparent);
+  background: var(--rose-dim);
+  padding: 2px 6px;
+  border-radius: 2px;
+  animation: rec-blink 1.6s var(--ease-soft) infinite;
+}
+
+@keyframes rec-blink {
+  0%,
+  100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.pane-kicker {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--signal);
+  padding: 2px 5px;
+  border: 1px solid var(--signal-line);
+  background: var(--signal-dim);
+  border-radius: 2px;
+}
+
+.workbench {
+  background: #050402;
+}
+
+.workbench > .pane {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal) 10%, transparent);
+}
+
+.page-wrap {
+  max-width: 1240px;
+  padding-top: 28px;
+}
+
+.page-kicker {
+  font-size: 12px;
+}
+
+.cr-hero {
+  padding: 34px 32px 28px;
+}
+
+.cr-balance-value {
+  font-size: 68px;
+}
+
+[data-theme='ivory'] .ws-slate,
+[data-theme='ivory'] .auth-meter {
+  background: #f3ead4;
+}
+
+[data-theme='ivory'] .ws-library .ws-page.card.wide {
+  background:
+    radial-gradient(900px 420px at 12% 0%, rgba(232, 180, 90, 0.12), transparent 58%),
+    var(--bg-1);
+}
+
+[data-theme='ivory'] .workbench {
+  background: #f4efe4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topbar-rec {
+    animation-duration: 0.01ms;
+  }
+}

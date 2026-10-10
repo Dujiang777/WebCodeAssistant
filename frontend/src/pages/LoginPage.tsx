@@ -232,6 +232,13 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
           </div>
         </div>
         <p className="auth-kicker">DARKROOM · BRASS</p>
+        <div className="auth-meter" aria-hidden="true">
+          <span>ISO 400</span>
+          <i />
+          <span>F/1.4</span>
+          <i />
+          <span>1/125</span>
+        </div>
 
         <h1 className="auth-title">
           把仓库放进浏览器，
