@@ -6,8 +6,9 @@
  * 卡片和完整对比共用，输入框里永远带着路径、状态和原文。
  */
 
-import type { BuildResult, ChatMessage, PatchRecord } from './api';
+import type { BuildResult, ChatMessage, PatchRecord, TestRunResult } from './api';
 import type { LiveTurn } from './chat';
+import { testSummary } from './review';
 
 export type FollowKind = 'revise' | 'narrow' | 'redo';
 
@@ -91,6 +92,7 @@ export function buildChecklist(
   patches: PatchRecord[],
   compileOf: (id: string) => BuildResult | null,
   checked: Set<string>,
+  testOf: (id: string) => TestRunResult | null = () => null,
 ): ChecklistItem[] {
   const livePlan = turn?.plan ?? [];
   const plan = livePlan.length > 0 ? livePlan : lastPlan(messages);
@@ -140,6 +142,21 @@ export function buildChecklist(
         kind: 'fact',
         done: allOk,
       });
+
+      const tested = scoped
+        .filter((patch) => patch.status === 'applied')
+        .map((patch) => testOf(patch.id))
+        .filter((result): result is TestRunResult => result !== null);
+      if (tested.length > 0) {
+        const allPass = tested.every((result) => result.status === 'ok');
+        const failed = tested.some((result) => result.status !== 'ok');
+        items.push({
+          id: 'fact:tests',
+          label: allPass ? '测试已通过' : failed ? testSummary(tested.find((result) => result.status !== 'ok') ?? tested[0]) : '测试已跑',
+          kind: 'fact',
+          done: allPass,
+        });
+      }
     }
   }
 

@@ -11,6 +11,8 @@ import type {
   GatePolicy,
   PatchRecord,
   PendingGate,
+  SnapshotView,
+  TestRunResult,
 } from '../lib/api';
 import { countInvalid } from '../lib/citations';
 import {
@@ -27,6 +29,7 @@ import type { LiveTurn, Selection, ToolItem } from '../lib/chat';
 import { copyText } from '../lib/clipboard';
 import { buildChecklist, checklistKey, followPrompt } from '../lib/follow';
 import type { ChecklistItem, FollowKind } from '../lib/follow';
+import type { RecipeView } from '../lib/review';
 import type { StreamStatus } from '../lib/sse';
 import { CitationText } from './CitationText';
 import { GateCard } from './GateCard';
@@ -78,6 +81,9 @@ interface PatchDeps {
   onAckFlag: (patchId: string, acked: boolean) => void;
   compileOf: (patchId: string) => BuildResult | null;
   onApplyPatch: (patch: PatchRecord) => void;
+  onVerifyPatch?: (patch: PatchRecord) => void;
+  recipeOf?: (patchId: string) => RecipeView | null;
+  testsOf?: (patchId: string) => TestRunResult | null;
   onRejectPatch: (patch: PatchRecord) => void;
   onViewPatch: (patch: PatchRecord) => void;
   onCompilePatch: (patch: PatchRecord) => void;
@@ -148,6 +154,9 @@ interface ChatPaneProps extends PatchDeps {
   onLogout: () => void;
   /** 当前用户名：消息流左侧头像的首字母。 */
   username: string;
+  /** 工作区快照胶卷（应用前自动打点 + 手动）。 */
+  snapshots?: SnapshotView[];
+  onOpenSnapshots?: () => void;
 }
 
 function patchesOfMessage(message: ChatMessage, patches: PatchRecord[]): PatchRecord[] {
@@ -221,6 +230,8 @@ export function ChatPane({
   onRecharge,
   onLogout,
   username,
+  snapshots = [],
+  onOpenSnapshots,
   patchBusyId,
   compileBusyId,
   radiusOf,
@@ -233,6 +244,9 @@ export function ChatPane({
   onAckFlag,
   compileOf,
   onApplyPatch,
+  onVerifyPatch,
+  recipeOf,
+  testsOf,
   onRejectPatch,
   onViewPatch,
   onCompilePatch,
@@ -373,6 +387,9 @@ export function ChatPane({
     onAckFlag,
     compileOf,
     onApplyPatch,
+    onVerifyPatch,
+    recipeOf,
+    testsOf,
     onRejectPatch,
     onViewPatch,
     onCompilePatch,
@@ -405,7 +422,7 @@ export function ChatPane({
     putIntoComposer(followPrompt(kind, patch), true);
   };
 
-  const checklist = buildChecklist(turn, messages, patches, compileOf, checked);
+  const checklist = buildChecklist(turn, messages, patches, compileOf, checked, (id) => testsOf?.(id) ?? null);
 
   const livePatchIds = turn?.patchIds ?? [];
   const livePatches = patches.filter((patch) => livePatchIds.includes(patch.id));
@@ -432,6 +449,9 @@ export function ChatPane({
       compileBusy={compileBusyId === patch.id}
       compile={compileOf(patch.id)}
       onApply={onApplyPatch}
+      onVerify={onVerifyPatch}
+      recipe={recipeOf?.(patch.id) ?? null}
+      tests={testsOf?.(patch.id) ?? null}
       onReject={onRejectPatch}
       onView={onViewPatch}
       onCompile={onCompilePatch}
@@ -501,6 +521,10 @@ export function ChatPane({
           live={Boolean(sending && turn && !turn.stopped)}
           onToggle={toggleCheck}
         />
+      )}
+
+      {snapshots.length > 0 && (
+        <SessionFilm shots={snapshots} onOpen={onOpenSnapshots} />
       )}
 
       {streamStatus === 'reconnecting' && (
@@ -977,6 +1001,9 @@ function MessageBlock({
                 compileBusy={deps.compileBusyId === patch.id}
                 compile={deps.compileOf(patch.id)}
                 onApply={deps.onApplyPatch}
+                onVerify={deps.onVerifyPatch}
+                recipe={deps.recipeOf?.(patch.id) ?? null}
+                tests={deps.testsOf?.(patch.id) ?? null}
                 onReject={deps.onRejectPatch}
                 onView={deps.onViewPatch}
                 onCompile={deps.onCompilePatch}
@@ -1069,6 +1096,39 @@ function TurnReel({
             onClick={() => onOpen(path, null)}
           >
             {path.split('/').pop()}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function filmLabel(shot: SnapshotView): string {
+  const time = new Date(shot.createdAt);
+  const clock = Number.isNaN(time.getTime())
+    ? ''
+    : `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
+  const name = shot.label?.trim() || (shot.kind === 'auto' ? '应用前' : '手动');
+  return clock ? `${clock} ${name}` : name;
+}
+
+/** 会话胶卷：应用前自动打点的快照。点开到快照面板回滚，不在对话里直接恢复。 */
+function SessionFilm({ shots, onOpen }: { shots: SnapshotView[]; onOpen?: () => void }) {
+  const recent = shots.slice(0, 8);
+  return (
+    <div className="session-film">
+      <span className="session-film-label">胶卷</span>
+      <span className="session-film-meta">{shots.length} 张</span>
+      <div className="session-film-shots">
+        {recent.map((shot) => (
+          <button
+            key={shot.id}
+            type="button"
+            className={`session-film-chip${shot.kind === 'auto' ? ' auto' : ''}`}
+            title={`${shot.label || (shot.kind === 'auto' ? '应用前自动打点' : '手动快照')} · ${shot.fileCount} 个文件`}
+            onClick={() => onOpen?.()}
+          >
+            {filmLabel(shot)}
           </button>
         ))}
       </div>

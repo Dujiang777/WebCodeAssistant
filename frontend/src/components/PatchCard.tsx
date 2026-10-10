@@ -1,7 +1,10 @@
 import { useMemo } from 'react';
 
-import type { BlastRadius, BuildResult, CharterAudit, FlagView, PatchRecord } from '../lib/api';
+import type { BlastRadius, BuildResult, CharterAudit, FlagView, PatchRecord, TestRunResult } from '../lib/api';
 import { parseUnifiedDiff } from '../lib/diff';
+import { buildReview } from '../lib/review';
+import type { RecipeView } from '../lib/review';
+import { testSummary } from '../lib/review';
 import { BlastRadiusBar } from './BlastRadiusBar';
 import { CompileStrip } from './CompileStrip';
 import { FeatureFlagCard } from './FeatureFlagCard';
@@ -35,6 +38,10 @@ interface PatchCardProps {
   compileBusy: boolean;
   compile: BuildResult | null;
   onApply: (patch: PatchRecord) => void;
+  /** 应用 → 编译 → 测试；失败自动喂回 Agent。 */
+  onVerify?: (patch: PatchRecord) => void;
+  recipe?: RecipeView | null;
+  tests?: TestRunResult | null;
   onReject: (patch: PatchRecord) => void;
   onView: (patch: PatchRecord) => void;
   onCompile: (patch: PatchRecord) => void;
@@ -90,6 +97,9 @@ export function PatchCard({
   compileBusy,
   compile,
   onApply,
+  onVerify,
+  recipe = null,
+  tests = null,
   onReject,
   onView,
   onCompile,
@@ -101,6 +111,13 @@ export function PatchCard({
 }: PatchCardProps) {
   const parsed = useMemo(() => parseUnifiedDiff(patch.diff), [patch.diff]);
   const preview = useMemo(() => buildPreview(patch.diff), [patch.diff]);
+  const brief = useMemo(
+    () =>
+      patch.status === 'pending'
+        ? buildReview({ radius, radiusLoading, radiusError, charter })
+        : [],
+    [patch.status, radius, radiusLoading, radiusError, charter],
+  );
 
   const fileName = patch.file.split('/').pop() ?? patch.file;
   const dir = patch.file.includes('/') ? patch.file.slice(0, patch.file.lastIndexOf('/')) : '';
@@ -112,6 +129,7 @@ export function PatchCard({
 
   // 改动行为且还没确认「开关关闭时的旧路径」→ 应用按钮锁住。
   // 后端也会独立挡一次（FLAG_ACK_REQUIRED），这里只是不让用户点了才吃一个报错。
+  const recipeBusy = Boolean(recipe && (recipe.phase === 'apply' || recipe.phase === 'compile' || recipe.phase === 'test'));
   const flagBlocksApply = patch.status === 'pending' && Boolean(flag?.required) && !flagAcked;
   const staleBlocksApply = patch.status === 'pending' && Boolean(fit && !fit.fits);
   const charterBlocksApply = patch.status === 'pending' && Boolean(charter?.blocked);
@@ -141,6 +159,17 @@ export function PatchCard({
       {patch.summary && (
         <div className="patch-summary" title={patch.summary}>
           {patch.summary}
+        </div>
+      )}
+
+      {brief.length > 0 && (
+        <div className="review-brief">
+          {brief.map((line) => (
+            <div key={line.key} className={`review-line review-${line.tone}`}>
+              <span className="review-k">{line.label}</span>
+              <span className="review-v">{line.text}</span>
+            </div>
+          ))}
         </div>
       )}
 
@@ -208,6 +237,33 @@ export function PatchCard({
         </>
       )}
 
+      {recipe && (
+        <div className={`recipe-strip recipe-${recipe.phase}`}>
+          <span className={`recipe-step${recipe.phase !== 'apply' ? ' done' : recipe.phase === 'apply' ? ' now' : ''}`}>
+            应用
+          </span>
+          <span className="recipe-arrow">→</span>
+          <span
+            className={`recipe-step${recipe.compile?.status === 'ok' || recipe.phase === 'test' || (recipe.phase === 'done' && recipe.compile?.status === 'ok') ? ' done' : recipe.phase === 'compile' ? ' now' : recipe.compile && recipe.compile.status !== 'ok' ? ' bad' : ''}`}
+          >
+            编译
+          </span>
+          <span className="recipe-arrow">→</span>
+          <span
+            className={`recipe-step${recipe.tests?.status === 'ok' || recipe.phase === 'done' && recipe.tests?.status === 'ok' ? ' done' : recipe.phase === 'test' ? ' now' : recipe.tests && recipe.tests.status !== 'ok' ? ' bad' : ''}`}
+          >
+            测试
+          </span>
+          <span className="recipe-note">
+            {recipe.phase === 'apply' && '正在写盘…'}
+            {recipe.phase === 'compile' && '正在编译…'}
+            {recipe.phase === 'test' && '正在跑测试…'}
+            {recipe.phase === 'done' && recipe.tests && testSummary(recipe.tests)}
+            {recipe.phase === 'failed' && (recipe.tests ? testSummary(recipe.tests) : '编译没过，已交给 Agent')}
+          </span>
+        </div>
+      )}
+
       {patch.status !== 'pending' && (
         <CompileStrip
           busy={compileBusy}
@@ -218,6 +274,12 @@ export function PatchCard({
         />
       )}
 
+      {tests && patch.status !== 'pending' && (
+        <div className={`test-strip test-${tests.status === 'ok' ? 'ok' : tests.status === 'failed' ? 'fail' : 'warn'}`}>
+          {testSummary(tests)}
+        </div>
+      )}
+
       <div className="patch-actions">
         <button className="btn btn-sm" onClick={() => onView(patch)}>
           完整对比
@@ -225,9 +287,28 @@ export function PatchCard({
 
         {patch.status === 'pending' && (
           <>
+            {onVerify && (
+              <button
+                className="btn btn-sm btn-primary"
+                disabled={busy || recipeBusy || flagBlocksApply || staleBlocksApply || charterBlocksApply}
+                title={
+                  charterBlocksApply
+                    ? '宪章禁止这项改动，先改宪法或丢掉补丁'
+                    : staleBlocksApply
+                      ? fit?.reason || '底片已经变了，这张补丁贴不上'
+                      : flagBlocksApply
+                        ? '请先确认特性开关关闭时的旧路径'
+                        : '应用、编译、跑测试；失败会把输出喂回 Agent'
+                }
+                onClick={() => onVerify(patch)}
+              >
+                {busy || recipeBusy ? <span className="spinner" /> : <CheckIcon size={12} />}
+                应用并验收
+              </button>
+            )}
             <button
-              className="btn btn-sm btn-primary"
-              disabled={busy || flagBlocksApply || staleBlocksApply || charterBlocksApply}
+              className="btn btn-sm"
+              disabled={busy || recipeBusy || flagBlocksApply || staleBlocksApply || charterBlocksApply}
               title={
                 charterBlocksApply
                   ? '宪章禁止这项改动，先改宪法或丢掉补丁'
@@ -235,14 +316,13 @@ export function PatchCard({
                     ? fit?.reason || '底片已经变了，这张补丁贴不上'
                     : flagBlocksApply
                       ? '请先确认特性开关关闭时的旧路径'
-                      : '应用补丁并写盘'
+                      : '只写盘，不跑测试'
               }
               onClick={() => onApply(patch)}
             >
-              {busy ? <span className="spinner" /> : <CheckIcon size={12} />}
               应用并写盘
             </button>
-            <button className="btn btn-sm btn-danger" disabled={busy} onClick={() => onReject(patch)}>
+            <button className="btn btn-sm btn-danger" disabled={busy || recipeBusy} onClick={() => onReject(patch)}>
               <CloseIcon size={12} />
               丢弃
             </button>
