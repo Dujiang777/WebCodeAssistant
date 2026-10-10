@@ -9801,3 +9801,148 @@ body {
     animation-duration: 0.01ms;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   批42：登录页重排 —— 去掉堆出来的配件，做成一张干净的暗房片头。
+   标题不再用 72 号硬挤断行；卖点收成 2×2 短句；表单是右边唯一主角。
+   安全灯 / 取景框 / 片边刻度都不动。
+   ═══════════════════════════════════════════════════════════════════ */
+
+.auth-studio.auth-wrap.auth-wrap-v2 {
+  grid-template-columns: minmax(0, 1.2fr) minmax(400px, 448px);
+  align-items: center;
+  gap: clamp(36px, 5vw, 72px);
+  padding: 48px clamp(40px, 7vw, 104px);
+}
+
+.auth-studio .auth-hero {
+  max-width: 680px;
+  border-left: 0;
+  padding-left: 0;
+}
+
+.auth-studio .auth-kicker {
+  margin: 18px 0 8px;
+}
+
+.auth-studio .auth-title {
+  margin: 8px 0 16px;
+  font-size: clamp(30px, 3.6vw, 44px);
+  line-height: 1.28;
+  font-weight: 600;
+  text-shadow: 0 0 28px color-mix(in srgb, var(--signal) 18%, transparent);
+}
+
+.auth-studio .auth-title-line {
+  display: block;
+}
+
+.auth-studio .auth-lead {
+  margin: 0 0 22px;
+  max-width: 42ch;
+  font-size: 14.5px;
+  line-height: 1.75;
+  color: var(--fg-1);
+}
+
+.auth-studio .term-win {
+  width: min(520px, 100%);
+  margin: 0 0 28px;
+  border-color: var(--line-strong);
+  box-shadow: var(--panel-edge), var(--shadow-soft);
+}
+
+.auth-studio .auth-features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 28px;
+}
+
+.auth-studio .auth-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+
+.auth-studio .auth-features li:hover {
+  background: none;
+  border-color: transparent;
+}
+
+.auth-studio .auth-features b::before {
+  content: none;
+}
+
+.auth-studio .auth-features b {
+  margin-bottom: 3px;
+  font-size: 13px;
+}
+
+.auth-studio .auth-features li > div span {
+  display: block;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--fg-2);
+}
+
+.auth-studio .auth-frame-no {
+  width: 22px;
+  padding-top: 1px;
+  font-size: 10px;
+  opacity: 0.85;
+}
+
+.auth-studio .auth-form-wrap {
+  align-self: center;
+}
+
+.auth-studio .auth-form-wrap .card,
+.auth-studio .auth-form-wrap .card.card-print {
+  width: min(448px, 100%);
+  padding: 28px 28px 24px 34px;
+  box-shadow:
+    var(--panel-edge),
+    var(--shadow-lift),
+    0 0 0 1px var(--signal-line);
+}
+
+.auth-studio .auth-form-wrap .card-head {
+  margin-bottom: 6px;
+}
+
+.auth-studio .auth-form-wrap .card-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 0.02em;
+}
+
+.auth-studio .auth-form-wrap .card-desc {
+  margin-bottom: 18px;
+  color: var(--fg-2);
+}
+
+.auth-studio .auth-form-wrap .btn-primary {
+  width: 100%;
+  height: 40px;
+}
+
+.auth-studio .auth-form-wrap .input {
+  min-height: 42px;
+}
+
+@media (max-width: 980px) {
+  .auth-studio.auth-wrap.auth-wrap-v2 {
+    grid-template-columns: 1fr;
+    padding: 28px 22px 40px;
+  }
+
+  .auth-studio .auth-form-wrap .card,
+  .auth-studio .auth-form-wrap .card.card-print {
+    width: 100%;
+  }
+}
