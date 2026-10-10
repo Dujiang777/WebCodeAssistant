@@ -66,6 +66,11 @@ interface EditorPaneProps {
   onOpenLocation: (file: string, line: number) => void;
   /** 诊断计数变化（状态栏显示）。null = 没有可诊断的文件。 */
   onDiagnosticsChange: (counts: DiagnosticCounts | null) => void;
+  /** 最近打开的文件标签。 */
+  tabs?: string[];
+  onSelectTab?: (path: string) => void;
+  onCloseTab?: (path: string) => void;
+  onQuickOpen?: () => void;
 }
 
 export function EditorPane({
@@ -87,6 +92,10 @@ export function EditorPane({
   onCloseNavigate,
   onOpenLocation,
   onDiagnosticsChange,
+  tabs = [],
+  onSelectTab,
+  onCloseTab,
+  onQuickOpen,
 }: EditorPaneProps) {
   const readOnly = !file || file.binary || file.truncated;
 
@@ -189,6 +198,12 @@ export function EditorPane({
 
         <div className="topbar-spacer" />
 
+        {onQuickOpen && (
+          <button className="icon-btn" title="快速打开文件（Ctrl/⌘ + P）" onClick={onQuickOpen}>
+            <SearchIcon size={13} />
+          </button>
+        )}
+
         {file && <span className="chip">{file.language}</span>}
         {file?.binary && (
           <span className="chip" style={{ color: 'var(--rose)' }}>
@@ -206,6 +221,39 @@ export function EditorPane({
           保存
         </button>
       </div>
+
+      {tabs.length > 0 && (
+        <div className="editor-tabs" role="tablist" aria-label="已打开的文件">
+          {tabs.map((path) => {
+            const active = file?.path === path;
+            const name = path.split('/').pop() ?? path;
+            return (
+              <button
+                key={path}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={`editor-tab${active ? ' on' : ''}`}
+                title={path}
+                onClick={() => onSelectTab?.(path)}
+              >
+                <span className="editor-tab-name">{name}</span>
+                {active && dirty && <span className="dirty-mark" />}
+                <span
+                  className="editor-tab-close"
+                  title="关闭"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onCloseTab?.(path);
+                  }}
+                >
+                  <CloseIcon size={9} />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {error && (
         <div className="banner error">
@@ -246,6 +294,8 @@ export function EditorPane({
             <div className="row" style={{ gap: 10, marginTop: 4 }}>
               <span className="key-hint">Ctrl/⌘ + S</span>
               <span style={{ fontSize: 11.5 }}>保存</span>
+              <span className="key-hint">Ctrl/⌘ + P</span>
+              <span style={{ fontSize: 11.5 }}>打开文件</span>
               <span className="key-hint">Ctrl/⌘ + Enter</span>
               <span style={{ fontSize: 11.5 }}>发送给 AI</span>
             </div>

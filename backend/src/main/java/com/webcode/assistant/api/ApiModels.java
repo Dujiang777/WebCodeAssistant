@@ -213,6 +213,11 @@ public final class ApiModels {
     public record SessionView(long id, long workspaceId, String title, String createdAt, String updatedAt) {
     }
 
+    public record RenameSessionRequest(
+            @NotBlank(message = "不能为空") @Size(max = 200, message = "标题过长") String title
+    ) {
+    }
+
     public record MessageView(long id, String role, String content, Object meta, String createdAt) {
     }
 

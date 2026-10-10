@@ -885,6 +885,12 @@ export const api = {
   deleteSession: (sessionId: number) =>
     request<void>(`/api/chat/sessions/${sessionId}`, { method: 'DELETE' }),
 
+  renameSession: (sessionId: number, title: string) =>
+    request<ChatSession>(`/api/chat/sessions/${sessionId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ title }),
+    }),
+
   listMessages: (sessionId: number) => request<ChatMessage[]>(`/api/chat/sessions/${sessionId}/messages`),
 
   listPatches: (sessionId: number) => request<PatchRecord[]>(`/api/chat/sessions/${sessionId}/patches`),

@@ -5,6 +5,7 @@ import type { FileNode } from '../lib/api';
 import { formatBytes } from '../lib/api';
 import {
   ChevronIcon,
+  CopyIcon,
   FileIcon,
   FolderIcon,
   FolderOpenIcon,
@@ -41,6 +42,7 @@ interface FileTreeProps {
   onConfirmCreate: (path: string) => void;
   onCancelCreate: () => void;
   onDelete: (node: FileNode) => void;
+  onCopyPath?: (path: string) => void;
   creating: CreateTarget | null;
   createBusy: boolean;
 }
@@ -89,6 +91,7 @@ export function FileTree({
   onConfirmCreate,
   onCancelCreate,
   onDelete,
+  onCopyPath,
   creating,
   createBusy,
 }: FileTreeProps) {
@@ -147,6 +150,7 @@ export function FileTree({
             onSelect={onSelect}
             onRequestCreate={onRequestCreate}
             onDelete={onDelete}
+            onCopyPath={onCopyPath}
           />
         ))
       )}
@@ -163,6 +167,7 @@ interface TreeRowProps {
   onSelect: (node: FileNode) => void;
   onRequestCreate: (parent: string, type: 'file' | 'dir') => void;
   onDelete: (node: FileNode) => void;
+  onCopyPath?: (path: string) => void;
 }
 
 function TreeRow({
@@ -174,6 +179,7 @@ function TreeRow({
   onSelect,
   onRequestCreate,
   onDelete,
+  onCopyPath,
 }: TreeRowProps) {
   const isDir = node.type === 'dir';
   const open = isDir && expanded.has(node.path);
@@ -276,6 +282,11 @@ function TreeRow({
           <>
             <span className="tree-size">{formatBytes(node.size)}</span>
             <span className="tree-actions" onClick={(event) => event.stopPropagation()}>
+              {onCopyPath && (
+                <button className="icon-btn" title="复制路径" onClick={() => onCopyPath(node.path)}>
+                  <CopyIcon size={12} />
+                </button>
+              )}
               <button className="icon-btn" title="删除文件" onClick={() => onDelete(node)}>
                 <TrashIcon size={12} />
               </button>
@@ -297,6 +308,7 @@ function TreeRow({
             onSelect={onSelect}
             onRequestCreate={onRequestCreate}
             onDelete={onDelete}
+            onCopyPath={onCopyPath}
           />
         ))}
     </>
