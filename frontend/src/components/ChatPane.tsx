@@ -23,6 +23,7 @@ import {
   toolPathOf,
 } from '../lib/chat';
 import type { LiveTurn, Selection, ToolItem } from '../lib/chat';
+import { copyText } from '../lib/clipboard';
 import type { StreamStatus } from '../lib/sse';
 import { CitationText } from './CitationText';
 import { GateCard } from './GateCard';
@@ -794,19 +795,16 @@ function MessageBlock({
   onEditResend: (text: string) => void;
   canRegenerate: boolean;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'idle' | 'ok' | 'fail'>('idle');
 
   /** 复制原文（Markdown 源文，不是渲染后的文本）——用户拿去贴到 issue / 群里都不会丢格式。 */
   const copy = () => {
     const text = message.content ?? '';
     if (!text.trim()) return;
-    void navigator.clipboard?.writeText(text).then(
-      () => {
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1600);
-      },
-      () => setCopied(false),
-    );
+    void copyText(text).then((ok) => {
+      setCopied(ok ? 'ok' : 'fail');
+      window.setTimeout(() => setCopied('idle'), 1600);
+    });
   };
   const isUser = message.role === 'user';
   const model = modelOfMessage(message);
@@ -896,8 +894,8 @@ function MessageBlock({
             而这条窄带只占 20px，不挤占阅读节奏。 */}
         <div className="msg-actions">
           <button className="msg-action" onClick={copy} title="复制这条消息的原文（Markdown 源码）">
-            {copied ? <CheckIcon size={11} /> : <CopyIcon size={11} />}
-            {copied ? '已复制' : '复制'}
+            {copied === 'ok' ? <CheckIcon size={11} /> : <CopyIcon size={11} />}
+            {copied === 'ok' ? '已复制' : copied === 'fail' ? '复制失败' : '复制'}
           </button>
           {isUser ? (
             <button

@@ -27,6 +27,7 @@ import type { LiveTurn, Selection, ToolItem } from '../lib/chat';
 import { navigate, rememberIde } from '../lib/router';
 import { openChatStream } from '../lib/sse';
 import type { ChatEvent, StreamStatus } from '../lib/sse';
+import { copyText } from '../lib/clipboard';
 import { useToast } from '../lib/toast';
 import { ChatPane } from '../components/ChatPane';
 import { AgentDesk } from '../components/AgentDesk';
@@ -1648,6 +1649,13 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     setGatePolicy(policy);
     try {
       await api.setGatePolicy(sid, policy);
+      toast.info(
+        policy === 'off'
+          ? '已切到「放行」：工具不再停下来等人'
+          : policy === 'writes'
+            ? '已切到「拦写」：起草补丁和跑测试会先停下来等你点头'
+            : '已切到「严格」：写操作和大范围检索都会先停下来等你',
+      );
     } catch (err) {
       setGatePolicy(previous);
       toast.error(messageOf(err));
@@ -1819,10 +1827,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
                 onCancelCreate={() => setCreating(null)}
                 onDelete={(node) => void deleteEntry(node)}
                 onCopyPath={(path) => {
-                  void navigator.clipboard?.writeText(path).then(
-                    () => toast.success(`已复制 ${path}`),
-                    () => toast.error('复制失败'),
-                  );
+                  void copyText(path).then((ok) => {
+                    if (ok) toast.success(`已复制 ${path}`);
+                    else toast.error('复制失败');
+                  });
                 }}
                 creating={creating}
                 createBusy={createBusy}
@@ -1894,7 +1902,14 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               currentFile={selectedPath}
               selection={selection}
               mode={mode}
-              onModeChange={setMode}
+              onModeChange={(next) => {
+                setMode(next);
+                toast.info(
+                  next === 'teach'
+                    ? '已切到教学：下一轮会讲动机和取舍，不只给结果'
+                    : '已切到交付：下一轮少说话，直接给补丁和结论',
+                );
+              }}
               onSend={(content) => void send(content)}
               onStop={() => void stopTurn()}
               onRegenerate={() => void regenerate()}

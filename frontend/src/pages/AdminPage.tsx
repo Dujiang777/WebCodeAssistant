@@ -18,6 +18,7 @@ import type {
   AdminUserPage,
   AdminUserRow,
 } from '../lib/api';
+import { copyText } from '../lib/clipboard';
 import { messageOf } from '../lib/chat';
 import { PageBar } from '../components/PageBar';
 import { CloseIcon, SearchIcon, ShieldIcon } from '../components/icons';
@@ -1062,7 +1063,8 @@ export function AdminPage({ initialTab, onBack, onLogout }: {
                 <button
                   className="btn btn-sm"
                   onClick={() => {
-                    void navigator.clipboard?.writeText(tempPassword.password).then(() => {
+                    void copyText(tempPassword.password).then((ok) => {
+                      if (!ok) return;
                       setCopied(true);
                       window.setTimeout(() => setCopied(false), 1600);
                     });
