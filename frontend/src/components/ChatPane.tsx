@@ -265,6 +265,13 @@ export function ChatPane({
   const [now, setNow] = useState(() => Date.now());
   const [checked, setChecked] = useState<Set<string>>(() => new Set());
   const checkSource = checklistKey(turn, messages);
+  const [dockOpen, setDockOpen] = useState(() => {
+    try {
+      return localStorage.getItem('wca.chatDock') !== 'shut';
+    } catch {
+      return true;
+    }
+  });
 
   useEffect(() => {
     if (!sending) return;
@@ -423,6 +430,17 @@ export function ChatPane({
   };
 
   const checklist = buildChecklist(turn, messages, patches, compileOf, checked, (id) => testsOf?.(id) ?? null);
+  const foldDock = () => {
+    setDockOpen((open) => {
+      const next = !open;
+      try {
+        localStorage.setItem('wca.chatDock', next ? 'open' : 'shut');
+      } catch {
+        // 隐私模式记不住收起就算了
+      }
+      return next;
+    });
+  };
 
   const livePatchIds = turn?.patchIds ?? [];
   const livePatches = patches.filter((patch) => livePatchIds.includes(patch.id));
@@ -515,16 +533,44 @@ export function ChatPane({
         </button>
       </div>
 
-      {checklist.length > 0 && (
-        <TurnChecklist
-          items={checklist}
-          live={Boolean(sending && turn && !turn.stopped)}
-          onToggle={toggleCheck}
-        />
-      )}
-
-      {snapshots.length > 0 && (
-        <SessionFilm shots={snapshots} onOpen={onOpenSnapshots} />
+      {(checklist.length > 0 || snapshots.length > 0) && (
+        <div className={`turn-dock${dockOpen ? '' : ' turn-dock-shut'}`}>
+          {dockOpen ? (
+            <>
+              {checklist.length > 0 && (
+                <TurnChecklist
+                  items={checklist}
+                  live={Boolean(sending && turn && !turn.stopped)}
+                  onToggle={toggleCheck}
+                  onFold={foldDock}
+                />
+              )}
+              {snapshots.length > 0 && (
+                <SessionFilm
+                  shots={snapshots}
+                  onOpen={onOpenSnapshots}
+                  onFold={checklist.length === 0 ? foldDock : undefined}
+                />
+              )}
+            </>
+          ) : (
+            <button
+              type="button"
+              className="turn-dock-toggle"
+              title="展开本轮清单和胶卷"
+              onClick={foldDock}
+            >
+              <span className="dot dot-idle" />
+              {checklist.length > 0 && (
+                <span>
+                  本轮 {checklist.filter((item) => item.done).length}/{checklist.length}
+                </span>
+              )}
+              {snapshots.length > 0 && <span>胶卷 {snapshots.length}</span>}
+              <span className="turn-dock-action">展开</span>
+            </button>
+          )}
+        </div>
       )}
 
       {streamStatus === 'reconnecting' && (
@@ -1113,12 +1159,25 @@ function filmLabel(shot: SnapshotView): string {
 }
 
 /** 会话胶卷：应用前自动打点的快照。点开到快照面板回滚，不在对话里直接恢复。 */
-function SessionFilm({ shots, onOpen }: { shots: SnapshotView[]; onOpen?: () => void }) {
+function SessionFilm({
+  shots,
+  onOpen,
+  onFold,
+}: {
+  shots: SnapshotView[];
+  onOpen?: () => void;
+  onFold?: () => void;
+}) {
   const recent = shots.slice(0, 8);
   return (
     <div className="session-film">
       <span className="session-film-label">胶卷</span>
       <span className="session-film-meta">{shots.length} 张</span>
+      {onFold && (
+        <button type="button" className="turn-dock-action" onClick={onFold} title="收起胶卷">
+          收起
+        </button>
+      )}
       <div className="session-film-shots">
         {recent.map((shot) => (
           <button
@@ -1141,10 +1200,12 @@ function TurnChecklist({
   items,
   live,
   onToggle,
+  onFold,
 }: {
   items: ChecklistItem[];
   live: boolean;
   onToggle: (id: string) => void;
+  onFold?: () => void;
 }) {
   const done = items.filter((item) => item.done).length;
   return (
@@ -1155,6 +1216,11 @@ function TurnChecklist({
         <span className="turn-check-count">
           {done}/{items.length}
         </span>
+        {onFold && (
+          <button type="button" className="turn-dock-action" onClick={onFold} title="收起清单和胶卷">
+            收起
+          </button>
+        )}
       </div>
       <ul className="turn-check-list">
         {items.map((item) => (

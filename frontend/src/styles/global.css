@@ -2334,6 +2334,43 @@ a.link:hover,
   color: var(--rose);
 }
 
+.turn-dock {
+  flex: none;
+}
+
+.turn-dock-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-1);
+  color: var(--fg-2);
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.turn-dock-toggle:hover {
+  color: var(--fg-0);
+}
+
+.turn-dock-action {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--signal);
+  font-size: 11.5px;
+  padding: 0 2px;
+  cursor: pointer;
+}
+
+.turn-dock-action:hover {
+  color: var(--fg-0);
+}
+
 .session-film {
   flex: none;
   display: flex;
@@ -10476,6 +10513,10 @@ body {
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--fg-3);
+}
+
+.turn-check-head .turn-dock-action {
+  margin-left: 10px;
 }
 
 .turn-check-list {
