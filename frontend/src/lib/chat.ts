@@ -131,7 +131,7 @@ export function toolLabel(name: string): string {
 }
 
 /** 工具参数里能打开的文件路径；目录 / 纯模式串不返回。 */
-export function toolPathOf(name: string, args: unknown): string | null {
+export function toolPathOf(_name: string, args: unknown): string | null {
   const record = (args ?? {}) as Record<string, unknown>;
   const raw =
     typeof record.path === 'string' && record.path.length > 0
