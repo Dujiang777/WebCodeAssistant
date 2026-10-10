@@ -102,7 +102,6 @@ export function ToolRail({
 }: ToolRailProps) {
   return (
     <nav className="rail" aria-label="工具">
-      <div className="film-sprocket film-sprocket-rail" aria-hidden="true" />
       <div className="rail-mark">
         <TerminalMark size={18} />
       </div>

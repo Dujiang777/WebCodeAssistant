@@ -171,7 +171,6 @@ export function EditorPane({
   return (
     <div className="pane">
       <div className="pane-head">
-        <span className="pane-kicker">STAGE</span>
         <span
           className="mono"
           style={{

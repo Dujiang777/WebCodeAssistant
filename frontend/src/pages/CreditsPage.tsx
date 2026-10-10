@@ -20,7 +20,6 @@ import type {
   ReconcileResult,
 } from '../lib/api';
 import { messageOf } from '../lib/chat';
-import { FilmSprocket } from '../components/FilmSprocket';
 import { PageBar } from '../components/PageBar';
 import { QuotaBar } from '../components/QuotaBar';
 import { CloseIcon, CreditIcon } from '../components/icons';
@@ -206,8 +205,6 @@ export function CreditsPage({ onBack, onLogout }: { onBack: () => void; onLogout
 
       <main className="page-scroll">
         <div className="page-wrap">
-          <FilmSprocket variant="page" />
-          <p className="page-kicker">EXPOSURE · LEDGER</p>
           {error && <div className="form-error">{error}</div>}
           {notice && <div className="form-notice">{notice}</div>}
 
