@@ -7,6 +7,7 @@ import type { PatchRecord } from '../lib/api';
 import { applyDiffToText, parseUnifiedDiff } from '../lib/diff';
 import { DIFF_OPTIONS, WCA_THEME } from '../lib/monaco';
 import { messageOf } from '../lib/chat';
+import type { DiffAskKind } from '../lib/follow';
 import { CheckIcon, CloseIcon } from './icons';
 
 /**
@@ -25,11 +26,26 @@ interface PatchModalProps {
   busy: boolean;
   onClose: () => void;
   onApply: (patch: PatchRecord) => void;
+  /** 点某一行之后：解释 / 改 / 谁在用。 */
+  onAskLine?: (ask: {
+    file: string;
+    line: number;
+    side: 'original' | 'modified';
+    text: string;
+    kind: DiffAskKind;
+  }) => void;
 }
 
-export function PatchModal({ workspaceId, patch, busy, onClose, onApply }: PatchModalProps) {
+interface PickedLine {
+  side: 'original' | 'modified';
+  line: number;
+  text: string;
+}
+
+export function PatchModal({ workspaceId, patch, busy, onClose, onApply, onAskLine }: PatchModalProps) {
   const [original, setOriginal] = useState<string | null>(null);
   const [language, setLanguage] = useState('plaintext');
+  const [picked, setPicked] = useState<PickedLine | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,6 +89,21 @@ export function PatchModal({ workspaceId, patch, busy, onClose, onApply }: Patch
   const parsed = useMemo(() => parseUnifiedDiff(patch.diff), [patch.diff]);
 
   const isNewFile = original === '';
+
+  useEffect(() => {
+    setPicked(null);
+  }, [patch.id]);
+
+  const ask = (kind: DiffAskKind) => {
+    if (!picked || !onAskLine) return;
+    onAskLine({
+      file: patch.file,
+      line: picked.line,
+      side: picked.side,
+      text: picked.text,
+      kind,
+    });
+  };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -122,6 +153,17 @@ export function PatchModal({ workspaceId, patch, busy, onClose, onApply }: Patch
               options={DIFF_OPTIONS as unknown as Monaco.editor.IDiffEditorConstructionOptions}
               onMount={(editor) => {
                 window.requestAnimationFrame(() => editor.layout());
+                if (!onAskLine) return;
+                const bind = (side: PickedLine['side'], pane: Monaco.editor.IStandaloneCodeEditor) => {
+                  pane.onMouseDown((event) => {
+                    const pos = event.target.position;
+                    if (!pos) return;
+                    const text = pane.getModel()?.getLineContent(pos.lineNumber) ?? '';
+                    setPicked({ side, line: pos.lineNumber, text });
+                  });
+                };
+                bind('original', editor.getOriginalEditor());
+                bind('modified', editor.getModifiedEditor());
               }}
               loading={
                 <div className="loading-block" style={{ padding: '20px 16px' }}>
@@ -133,10 +175,28 @@ export function PatchModal({ workspaceId, patch, busy, onClose, onApply }: Patch
           )}
         </div>
 
+        {onAskLine && picked && (
+          <div className="diff-ask">
+            <span className="diff-ask-meta">
+              {picked.side === 'modified' ? '应用之后' : '磁盘上现在'} · 第 {picked.line} 行
+            </span>
+            <code className="diff-ask-line">{picked.text.trim() || '（空行）'}</code>
+            <button type="button" onClick={() => ask('explain')}>
+              解释这行
+            </button>
+            <button type="button" onClick={() => ask('edit')}>
+              改这行
+            </button>
+            <button type="button" onClick={() => ask('usages')}>
+              谁在用
+            </button>
+          </div>
+        )}
+
         <div className="modal-foot">
           <span className="modal-note">
             {patch.summary ? `${patch.summary} · ` : ''}
-            左边是磁盘现状，右边是应用后的结果。不点应用，磁盘不会变。
+            左边是磁盘现状，右边是应用后的结果。点某一行可以接着问。不点应用，磁盘不会变。
           </span>
           <button className="btn" onClick={onClose}>
             关闭
