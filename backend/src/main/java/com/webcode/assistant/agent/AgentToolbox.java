@@ -63,6 +63,7 @@ public class AgentToolbox {
     private final int maxToolSteps;
     /** 用户停止标志：每个工具边界上检查一次（见 guard）。 */
     private final TurnCancellation cancellation;
+    private final long turnGeneration;
 
     /** 本轮已执行的工具调用次数，用于封顶，避免模型在死循环里烧 token。 */
     private final AtomicInteger toolCalls = new AtomicInteger();
@@ -84,7 +85,8 @@ public class AgentToolbox {
                         ToolGateService gateService,
                         long sessionId,
                         int maxToolSteps,
-                        TurnCancellation cancellation) {
+                        TurnCancellation cancellation,
+                        long turnGeneration) {
         this.workspace = workspace;
         this.publisher = publisher;
         this.fileService = fileService;
@@ -100,6 +102,7 @@ public class AgentToolbox {
         this.sessionId = sessionId;
         this.maxToolSteps = maxToolSteps;
         this.cancellation = cancellation;
+        this.turnGeneration = turnGeneration;
     }
 
     public List<UUID> proposedPatches() {
@@ -120,7 +123,7 @@ public class AgentToolbox {
             计划会实时展示给用户 —— 用户先看到「你打算怎么做」，再看每一步的执行，理解成本最低。
             **这不是等待批准的环节**：调用之后立刻开始执行第一步，不要停下来问「按这个计划做吗」。
             执行中有重大变化时可以再次调用，新计划会整体替换旧计划。
-            只读问答、单文件小改动不需要计划，直接回答或直接给补丁即可。
+            只读问答、解释选区、单文件小改动禁止调用本工具，直接回答或直接给补丁。
             """)
     @SuppressWarnings("unchecked")
     public String setPlan(@P("执行计划步骤，按顺序，每步一句短语") java.util.List<String> steps) {
@@ -555,7 +558,7 @@ public class AgentToolbox {
         // 取消检查放在所有副作用之前：停止之后不该再发 tool_call、不该再动工作区。
         // 抛出的 TurnCanceledException 由下面的 catch 原样放行，
         // 穿透 LangChain4j 落进 onError，由编排层按「用户停止」收尾。
-        if (cancellation.isCanceled(sessionId)) {
+        if (cancellation.isCanceled(sessionId, turnGeneration)) {
             throw new TurnCanceledException();
         }
 

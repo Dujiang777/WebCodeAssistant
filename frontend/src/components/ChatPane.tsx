@@ -307,7 +307,7 @@ export function ChatPane({
 
   const submit = () => {
     const content = draft.trim();
-    if (!content || sending) return;
+    if (!content) return;
     onSend(content);
     setDraft('');
   };
@@ -793,11 +793,11 @@ export function ChatPane({
           )}
           <button
             className="composer-send"
-            disabled={sending || draft.trim().length === 0}
+            disabled={draft.trim().length === 0}
             onClick={submit}
-            title={sending ? '生成中…' : '发送（Enter；Shift+Enter 换行）'}
+            title={sending ? '打断本轮并发送新问题' : '发送（Enter；Shift+Enter 换行）'}
           >
-            {sending ? <span className="spinner" /> : <SendIcon size={14} />}
+            <SendIcon size={14} />
           </button>
         </div>
       </div>

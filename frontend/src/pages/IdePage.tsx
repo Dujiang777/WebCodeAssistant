@@ -261,6 +261,11 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const [patches, setPatches] = useState<PatchRecord[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
+  const markSending = (value: boolean) => {
+    sendingRef.current = value;
+    setSending(value);
+  };
   const [streamStatus, setStreamStatus] = useState<StreamStatus>('closed');
   const [turn, setTurn] = useState<LiveTurn | null>(null);
   const [patchBusyId, setPatchBusyId] = useState<string | null>(null);
@@ -680,7 +685,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     const restored = sessionId === null ? null : turnBySession.current.get(sessionId) ?? null;
     turnRef.current = restored;
     setTurn(restored);
-    setSending(restored !== null);
+    markSending(restored !== null);
     setDiffPatch(null);
 
     if (sessionId === null) {
@@ -718,7 +723,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     const finished = turnRef.current;
     turnRef.current = null;
     setTurn(null);
-    setSending(false);
+    markSending(false);
     // 回合落库了，快照就没用了 —— 不清的话下次进这个会话会恢复出一个「幽灵进行中」。
     dropTurnSnapshot();
 
@@ -755,7 +760,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       !turnRef.current &&
       (event.type === 'text' || event.type === 'tool_call' || event.type === 'plan' || event.type === 'patch' || event.type === 'stage')
     ) {
-      setSending(true);
+      markSending(true);
     }
     switch (event.type) {
       case 'text': {
@@ -886,13 +891,13 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           // 这一轮什么都没产出（例如模型没配置），直接以服务端落库的说明为准
           turnRef.current = null;
           setTurn(null);
-          setSending(false);
+          markSending(false);
           dropTurnSnapshot();
           void refetchChat();
         } else {
           turnRef.current = { ...base, error: message };
           setTurn(turnRef.current);
-          setSending(false);
+          markSending(false);
         }
         toast.error(message);
         return;
@@ -988,7 +993,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       if (sid !== null) {
         void api.cancelTurn(sid).catch(() => undefined);
       }
-      setSending(false);
+      markSending(false);
     }, wait);
     return () => window.clearTimeout(timer);
   }, [sending, turn?.startedAt, turn?.text, turn?.tools.length, turn?.stopped]);
@@ -1503,20 +1508,21 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       toast.info('先在编辑器里选一段代码');
       return;
     }
-    if (sending) {
-      toast.info('这一轮还在跑，先等它说完');
-      return;
-    }
     if (kind === 'edit') {
       composerSeedToken.current += 1;
       setComposerSeed({ token: composerSeedToken.current, text: '把选中的这段改成：' });
       return;
     }
-    if (kind === 'explain') {
-      void send('解释一下选中的这段代码：它在做什么、有什么边界情况和风险。');
-      return;
-    }
-    void send('选中的这段还在哪些地方被用到？列出调用方和改它可能波及的地方。');
+    const clip =
+      selection.text.length > 4000 ? `${selection.text.slice(0, 4000)}\n…` : selection.text;
+    const where = selectedPath
+      ? `\`${selectedPath}\` 第 ${selection.startLine}–${selection.endLine} 行`
+      : `第 ${selection.startLine}–${selection.endLine} 行`;
+    const lead =
+      kind === 'explain'
+        ? '解释一下选中的这段代码：它在做什么、有什么边界情况和风险。'
+        : '选中的这段还在哪些地方被用到？列出调用方和改它可能波及的地方。';
+    void send(`${lead}\n\n${where}：\n\`\`\`\n${clip}\n\`\`\``);
   };
 
   const send = async (content: string) => {
@@ -1525,7 +1531,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       toast.error('会话尚未就绪，请稍后再试');
       return;
     }
-    setSending(true);
+    if (sendingRef.current) {
+      void api.cancelTurn(sid).catch(() => undefined);
+    }
+    markSending(true);
     turnRef.current = beginTurn();
     setTurn(turnRef.current);
 
@@ -1566,7 +1575,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       setMessages((list) => list.filter((message) => message.id !== optimisticId));
       turnRef.current = null;
       setTurn(null);
-      setSending(false);
+      markSending(false);
     }
   };
 

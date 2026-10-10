@@ -230,6 +230,11 @@ public class AgentOrchestrator {
         requireVerifiedEmail(request.userId());
         creditService.requireAffordable(request.userId(), model);
 
+        // 先作废上一轮：新问题一来，旧循环在下一个工具边界停，SSE 也静音。
+        // 必须在写本轮用户消息之前，这样历史里不会出现两条连着的用户消息没人收尾。
+        long generation = cancellation.begin(request.sessionId());
+        closeOrphanUserTurn(request.sessionId());
+
         // 先把用户消息落库，保证「已发送」的消息立刻可见（刷新页面也不会丢）
         long userMessageId = messageRepository.insert(request.sessionId(),
                 ChatMessageRecord.ROLE_USER, request.content(), userMessageMeta(request, model));
@@ -247,13 +252,12 @@ public class AgentOrchestrator {
         }
         Charge charge = new Charge(refId, held, model);
 
-        ChatEventPublisher publisher = eventHub.publisher(request.sessionId());
+        ChatEventPublisher publisher = eventHub.publisher(request.sessionId())
+                .boundTo(cancellation, generation);
         publisher.stage("已接到问题，正在排队启动…");
-        // 新回合开始：清掉上一轮可能残留的「已停止」标志（用户在回合间隙点过停止也无妨）
-        cancellation.begin(request.sessionId());
         executors.agent().submit(() -> {
             try {
-                run(request, workspace, publisher, charge);
+                run(request, workspace, publisher, charge, generation);
             } finally {
                 // 兜底退款只覆盖「回合根本没跑起来」的路径（被限额拦下、模型未配置、装配异常）。
                 // 一旦事件流接手（handedOff），退款就只能由结算或 onError 负责 ——
@@ -290,7 +294,8 @@ public class AgentOrchestrator {
         }
     }
 
-    private void run(AgentRequest request, Workspace workspace, ChatEventPublisher publisher, Charge charge) {
+    private void run(AgentRequest request, Workspace workspace, ChatEventPublisher publisher,
+                     Charge charge, long generation) {
         try {
             usageGuard.checkRequestAllowed(request.userId());
         } catch (ApiException ex) {
@@ -315,7 +320,7 @@ public class AgentOrchestrator {
                     workspace, publisher, fileService, grepService, patchService,
                     blastRadiusService, buildService, springMapService, semanticService,
                     appProperties, deskService, gateService, request.sessionId(), llmProperties.maxToolSteps(),
-                    cancellation);
+                    cancellation, generation);
 
             Assistant assistant = AiServices.builder(Assistant.class)
                     .streamingChatModel(modelGateway.require(model))
@@ -343,7 +348,7 @@ public class AgentOrchestrator {
                         // 至少让用户看到错误、把预扣退掉，而不是无声挂死。
                         try {
                             assistantMessageId[0] = finish(request, workspace, answer, response, toolbox,
-                                    publisher, charge);
+                                    publisher, charge, generation);
                         } catch (RuntimeException ex) {
                             log.error("回合收尾异常 session={}", request.sessionId(), ex);
                             persistAssistantError(request.sessionId(), describe(ex));
@@ -354,7 +359,11 @@ public class AgentOrchestrator {
                     .onError(error -> {
                         streamEnded.set(true);
                         log.warn("Agent 回合失败 session={}", request.sessionId(), error);
-                        if (cancellation.isCanceled(request.sessionId())) {
+                        if (cancellation.isCanceled(request.sessionId(), generation)) {
+                            if (cancellation.isStale(request.sessionId(), generation)) {
+                                refundSuperseded(request, charge);
+                                return;
+                            }
                             // 用户停止：半截回答也要保留（不是失败），预扣全额退还
                             finishStopped(request, answer, toolbox, publisher, charge);
                             return;
@@ -370,7 +379,7 @@ public class AgentOrchestrator {
             // start() 是异步的：从这里开始，本轮的收尾（结算或退款）归事件流回调负责
             charge.handOff();
             Thread.startVirtualThread(() ->
-                    watchFirstByte(request.sessionId(), publisher, firstByte, streamEnded));
+                    watchFirstByte(request.sessionId(), publisher, firstByte, streamEnded, generation));
         } catch (RuntimeException ex) {
             log.error("Agent 启动异常 session={}", request.sessionId(), ex);
             String message = describe(ex);
@@ -412,6 +421,19 @@ public class AgentOrchestrator {
         while (history.size() > historyLimit) {
             history.removeFirst();
         }
+        // 上一轮没来得及落 assistant 时，历史里会只剩一条用户要求。
+        // 不标明「不要继续做」，模型会把斐波那契和「解释选区」当成同一轮任务。
+        for (int i = 0; i < history.size(); i++) {
+            if (!(history.get(i) instanceof UserMessage prior)) {
+                continue;
+            }
+            boolean followedByAssistant = i + 1 < history.size() && history.get(i + 1) instanceof AiMessage;
+            if (!followedByAssistant) {
+                history.set(i, UserMessage.from(
+                        "【系统注：这是更早的一条未完成请求，不要执行它，除非当前问题明确说「继续上一轮」。】\n"
+                                + prior.singleText()));
+            }
+        }
         history.forEach(memory::add);
         return memory;
     }
@@ -421,11 +443,11 @@ public class AgentOrchestrator {
      * 不在这里强杀回合 —— 工具先行时可能 60s 内都没有 text。
      */
     private void watchFirstByte(long sessionId, ChatEventPublisher publisher,
-                                AtomicBoolean firstByte, AtomicBoolean streamEnded) {
+                                AtomicBoolean firstByte, AtomicBoolean streamEnded, long generation) {
         try {
             for (int tick = 1; tick <= 15; tick++) {
                 Thread.sleep(8_000);
-                if (streamEnded.get() || firstByte.get() || cancellation.isCanceled(sessionId)) {
+                if (streamEnded.get() || firstByte.get() || cancellation.isCanceled(sessionId, generation)) {
                     return;
                 }
                 int seconds = tick * 8;
@@ -443,11 +465,15 @@ public class AgentOrchestrator {
     /** 回合结束：结算积分、落库回答、挂上补丁、校验引用、记录用量、推送 done。 */
     private long finish(AgentRequest request, Workspace workspace, StringBuilder answer,
                         ChatResponse response, AgentToolbox toolbox, ChatEventPublisher publisher,
-                        Charge charge) {
+                        Charge charge, long generation) {
         // 取消竞态兜底：工具抛出的 TurnCanceledException 会被 LangChain4j 当作
         // 「工具失败结果」喂回模型，回合反而自然完成走进这里 —— 那就不能按正常结算收尾
         //（用户点了停止却还被扣分、消息还没有 stopped 标记）。只要标志在，一律按停止处理。
-        if (cancellation.isCanceled(request.sessionId())) {
+        if (cancellation.isCanceled(request.sessionId(), generation)) {
+            if (cancellation.isStale(request.sessionId(), generation)) {
+                refundSuperseded(request, charge);
+                return -1L;
+            }
             finishStopped(request, answer, toolbox, publisher, charge);
             return -1L;
         }
@@ -541,6 +567,44 @@ public class AgentOrchestrator {
      * {@code CreditService.release} 内部还挂着 {@code RELEASE:{userId}:{refId}} 幂等键，
      * 是第二道保险。
      */
+    /** 被新问题取代：退预扣、不落库、不推 done（新回合已经占用 SSE）。 */
+    private void refundSuperseded(AgentRequest request, Charge charge) {
+        if (charge.settled()) {
+            return;
+        }
+        charge.settleDone();
+        try {
+            creditService.release(request.userId(), charge.refId(), charge.held(),
+                    "被新问题打断，退还预扣");
+        } catch (RuntimeException refundFailure) {
+            log.error("被取代后退款失败 userId={} refId={}", request.userId(), charge.refId(), refundFailure);
+        }
+        log.info("回合被新问题取代 session={} refId={}", request.sessionId(), charge.refId());
+    }
+
+    /**
+     * 上一轮还没写出 assistant 时，补一条停止说明，避免历史变成「两条用户消息连在一起」。
+     * 必须在插入本轮用户消息之前调用。
+     */
+    private void closeOrphanUserTurn(long sessionId) {
+        List<ChatMessageRecord> recent = messageRepository.findRecent(sessionId, 1);
+        if (recent.isEmpty()) {
+            return;
+        }
+        ChatMessageRecord last = recent.getLast();
+        if (!ChatMessageRecord.ROLE_USER.equals(last.role())) {
+            return;
+        }
+        try {
+            messageRepository.insert(sessionId, ChatMessageRecord.ROLE_ASSISTANT,
+                    "⏹ 你提了新问题，上一轮已停止。",
+                    toJson(Map.of("stopped", true, "superseded", true)));
+            sessionRepository.touch(sessionId);
+        } catch (RuntimeException ex) {
+            log.warn("补写上一轮停止说明失败 session={}", sessionId, ex);
+        }
+    }
+
     private void refundFailedTurn(AgentRequest request, Charge charge) {
         if (charge.settled()) {
             return;

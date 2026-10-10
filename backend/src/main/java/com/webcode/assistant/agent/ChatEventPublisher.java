@@ -11,14 +11,36 @@ public class ChatEventPublisher {
 
     private final long sessionId;
     private final ChatEventHub.SessionChannel channel;
+    private TurnCancellation cancellation;
+    private long generation;
+    private boolean gated;
 
     ChatEventPublisher(long sessionId, ChatEventHub.SessionChannel channel) {
         this.sessionId = sessionId;
         this.channel = channel;
     }
 
+    /** 绑到某一轮代次：被新问题取代后，这轮的 SSE 全部静音。 */
+    public ChatEventPublisher boundTo(TurnCancellation cancellation, long generation) {
+        this.cancellation = cancellation;
+        this.generation = generation;
+        this.gated = true;
+        return this;
+    }
+
     public long sessionId() {
         return sessionId;
+    }
+
+    private boolean live() {
+        return !gated || !cancellation.isCanceled(sessionId, generation);
+    }
+
+    private void emit(String type, Map<String, Object> body) {
+        if (!live()) {
+            return;
+        }
+        channel.publish(type, body);
     }
 
     /** 模型输出的一个增量片段。 */
@@ -26,7 +48,7 @@ public class ChatEventPublisher {
         if (delta == null || delta.isEmpty()) {
             return;
         }
-        channel.publish(ChatEvent.TYPE_TEXT, Map.of("delta", delta));
+        emit(ChatEvent.TYPE_TEXT, Map.of("delta", delta));
     }
 
     /** 工具调用开始（在工具方法体开头发出，因此前端能立刻看到「正在读哪个文件」）。 */
@@ -34,7 +56,7 @@ public class ChatEventPublisher {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("name", name);
         body.put("args", args == null ? Map.of() : args);
-        channel.publish(ChatEvent.TYPE_TOOL_CALL, body);
+        emit(ChatEvent.TYPE_TOOL_CALL, body);
     }
 
     /** 工具调用结束。{@code ok=false} 时 {@code summary} 就是失败原因。 */
@@ -43,7 +65,7 @@ public class ChatEventPublisher {
         body.put("name", name);
         body.put("ok", ok);
         body.put("summary", summary == null ? "" : summary);
-        channel.publish(ChatEvent.TYPE_TOOL_RESULT, body);
+        emit(ChatEvent.TYPE_TOOL_RESULT, body);
     }
 
     /**
@@ -57,16 +79,16 @@ public class ChatEventPublisher {
         body.put("file", file);
         body.put("diff", diff);
         body.put("summary", summary == null ? "" : summary);
-        channel.publish(ChatEvent.TYPE_PATCH, body);
+        emit(ChatEvent.TYPE_PATCH, body);
     }
 
     public void error(String message) {
-        channel.publish(ChatEvent.TYPE_ERROR, Map.of("message", message == null ? "未知错误" : message));
+        emit(ChatEvent.TYPE_ERROR, Map.of("message", message == null ? "未知错误" : message));
     }
 
     /** 用户停止了本轮：前端立刻把运行中的工具卡片标成「已停止」。 */
     public void canceled() {
-        channel.publish(ChatEvent.TYPE_CANCELED, Map.of());
+        emit(ChatEvent.TYPE_CANCELED, Map.of());
     }
 
     /**
@@ -75,12 +97,12 @@ public class ChatEventPublisher {
      * @param citations 每条包含 file / line / endLine / valid / reason
      */
     public void citations(java.util.List<com.webcode.assistant.context.Citation> citations) {
-        channel.publish(ChatEvent.TYPE_CITATIONS,
+        emit(ChatEvent.TYPE_CITATIONS,
                 Map.of("items", citations == null ? java.util.List.of() : citations));
     }
 
     public void done(long messageId) {
-        channel.publish(ChatEvent.TYPE_DONE, Map.of("messageId", String.valueOf(messageId)));
+        emit(ChatEvent.TYPE_DONE, Map.of("messageId", String.valueOf(messageId)));
     }
 
     /**
@@ -90,7 +112,7 @@ public class ChatEventPublisher {
      * 增量会让前端不得不在本地重演一遍状态机，多一处能算错的地方。
      */
     public void desk(Map<String, Object> snapshot) {
-        channel.publish(ChatEvent.TYPE_DESK, snapshot == null ? Map.of() : snapshot);
+        emit(ChatEvent.TYPE_DESK, snapshot == null ? Map.of() : snapshot);
     }
 
     /**
@@ -114,7 +136,7 @@ public class ChatEventPublisher {
         body.put("editable", editable);
         body.put("reason", reason == null ? "" : reason);
         body.put("expiresAt", expiresAt);
-        channel.publish(ChatEvent.TYPE_TOOL_GATE, body);
+        emit(ChatEvent.TYPE_TOOL_GATE, body);
     }
 
     /** 闸门处理结果：前端收起等待卡片，工具在服务端继续执行。 */
@@ -123,7 +145,7 @@ public class ChatEventPublisher {
         body.put("gateId", gateId);
         body.put("decision", decision == null ? "approved" : decision);
         body.put("note", note == null ? "" : note);
-        channel.publish(ChatEvent.TYPE_GATE_RESOLVED, body);
+        emit(ChatEvent.TYPE_GATE_RESOLVED, body);
     }
 
     /**
@@ -132,7 +154,7 @@ public class ChatEventPublisher {
      * @param steps 有序步骤短语，已去空去重，最多 8 条
      */
     public void plan(java.util.List<String> steps) {
-        channel.publish(ChatEvent.TYPE_PLAN, Map.of("steps", steps == null ? java.util.List.of() : steps));
+        emit(ChatEvent.TYPE_PLAN, Map.of("steps", steps == null ? java.util.List.of() : steps));
     }
 
     /** 回合阶段：首字未到时让前端显示具体在等什么。 */
@@ -140,6 +162,6 @@ public class ChatEventPublisher {
         if (message == null || message.isBlank()) {
             return;
         }
-        channel.publish(ChatEvent.TYPE_STAGE, Map.of("message", message));
+        emit(ChatEvent.TYPE_STAGE, Map.of("message", message));
     }
 }

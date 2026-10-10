@@ -169,8 +169,20 @@ public class ContextAssembler {
             return;
         }
 
-        int budget = llmProperties.contextFileChars();
         String text = content.content() == null ? "" : content.content();
+        AgentRequest.Selection selection = request.selection();
+        boolean focused = selection != null && !selection.isEmpty() && selection.startLine() != null;
+        if (focused) {
+            int start = selection.startLine();
+            int end = selection.endLine() == null ? start : selection.endLine();
+            prompt.append("当前文件摘录（选区前后约 40 行，不是全文）。解释/问答请直接看下面的选区，")
+                    .append("不要再 read_file 整份文件。\n");
+            prompt.append("```").append(content.language()).append('\n')
+                    .append(windowAround(text, start, end, 40)).append("\n```\n");
+            return;
+        }
+
+        int budget = llmProperties.contextFileChars();
         boolean clipped = text.length() > budget;
         if (clipped) {
             text = text.substring(0, budget);
@@ -181,6 +193,20 @@ public class ContextAssembler {
                     .append(" 字节）。如需查看后面的部分，请用 read_file 分次读取，"
                             + "不要基于截断内容假设文件只有这么长。\n");
         }
+    }
+
+    private static String windowAround(String text, int startLine, int endLine, int pad) {
+        String[] lines = text.split("\n", -1);
+        int from = Math.max(1, startLine - pad);
+        int to = Math.min(lines.length, Math.max(startLine, endLine) + pad);
+        StringBuilder out = new StringBuilder();
+        for (int i = from; i <= to; i++) {
+            if (i > from) {
+                out.append('\n');
+            }
+            out.append(lines[i - 1]);
+        }
+        return out.toString();
     }
 
     private void appendSelectionSection(StringBuilder prompt, AgentRequest request) {
@@ -204,5 +230,9 @@ public class ContextAssembler {
             text = text.substring(0, llmProperties.contextSelectionChars()) + "\n…（已截断）";
         }
         prompt.append("```\n").append(text).append("\n```\n");
+        prompt.append("选区全文已在上面。本轮若用户是在问这段代码（解释、风险、谁在用），")
+                .append("**直接回答**：禁止 set_plan，禁止再 read_file 整文件，")
+                .append("禁止 propose_patch 去顺手完成上一轮没做完的事。")
+                .append("只有用户明确要求改这段时才出补丁。\n");
     }
 }
