@@ -163,6 +163,21 @@ public class WorkspaceService {
         workspaceRepository.updateSize(workspace.id(), fileService.computeSize(rootOf(workspace)));
     }
 
+    /**
+     * 删除工作区：先删库（会话 / 快照 / 索引走 cascade），再清磁盘。
+     * 磁盘清不干净只记日志，不把已经删掉的行找回来。
+     */
+    @Transactional
+    public void delete(long userId, long workspaceId) {
+        Workspace workspace = require(userId, workspaceId);
+        Path directory = rootOf(workspace);
+        if (!workspaceRepository.deleteOwned(workspaceId, userId)) {
+            throw new ApiException(ErrorCode.NOT_FOUND, "工作区不存在或无权访问");
+        }
+        deleteRecursively(directory);
+        log.info("工作区已删除(#{}) userId={} name={}", workspaceId, userId, workspace.name());
+    }
+
     // ------------------------------------------------------------ 内部工具
 
     private Path allocateDirectory(long userId, String name) {

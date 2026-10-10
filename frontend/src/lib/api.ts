@@ -829,6 +829,9 @@ export const api = {
 
   workspace: (workspaceId: number) => request<Workspace>(`/api/workspaces/${workspaceId}`),
 
+  deleteWorkspace: (workspaceId: number) =>
+    request<void>(`/api/workspaces/${workspaceId}`, { method: 'DELETE' }),
+
   createWorkspaceFromGit: (name: string, gitUrl: string) =>
     request<Workspace>('/api/workspaces', {
       method: 'POST',
@@ -878,6 +881,9 @@ export const api = {
 
   listSessions: (workspaceId: number) =>
     request<ChatSession[]>(`/api/chat/sessions?workspaceId=${workspaceId}`),
+
+  deleteSession: (sessionId: number) =>
+    request<void>(`/api/chat/sessions/${sessionId}`, { method: 'DELETE' }),
 
   listMessages: (sessionId: number) => request<ChatMessage[]>(`/api/chat/sessions/${sessionId}/messages`),
 

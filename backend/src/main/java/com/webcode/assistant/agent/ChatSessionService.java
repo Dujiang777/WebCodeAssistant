@@ -90,6 +90,39 @@ public class ChatSessionService {
         log.info("会话 {} 已删除（用户 {}）", sessionId, userId);
     }
 
+    /**
+     * 删工作区之前先把该工作区下会话的 SSE 缓冲拆掉。
+     * 行记录本身会随 workspaces 外键 cascade 清掉，这里只负责进程内资源。
+     */
+    public void disposeForWorkspace(long userId, long workspaceId) {
+        for (ChatSession session : sessionRepository.findAllByWorkspace(workspaceId, userId)) {
+            eventHub.dispose(session.id());
+        }
+    }
+
+    /**
+     * 第一条用户消息落库后，把默认「与「仓库」的对话」换成问题摘要，
+     * 会话下拉里才分得清哪条是哪条。已经有标题或不是首条则不动。
+     */
+    public void adoptTitleFromFirstMessage(long sessionId, String content) {
+        if (messageRepository.countBySession(sessionId) != 1) {
+            return;
+        }
+        String title = summarizeTitle(content);
+        if (title.isBlank()) {
+            return;
+        }
+        sessionRepository.updateTitle(sessionId, title);
+    }
+
+    static String summarizeTitle(String content) {
+        String oneLine = content == null ? "" : content.replaceAll("\\s+", " ").trim();
+        if (oneLine.isEmpty()) {
+            return "";
+        }
+        return oneLine.length() > 36 ? oneLine.substring(0, 36) + "…" : oneLine;
+    }
+
     /** 把 meta 的 JSON 原文字符串解析成 JSON 树；解析失败时降级为 null，不影响消息正文展示。 */
     public JsonNode parseMeta(String metaJson) {
         if (metaJson == null || metaJson.isBlank()) {

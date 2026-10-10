@@ -5,7 +5,7 @@ import type { AuthUser, HealthInfo, Workspace } from '../lib/api';
 import { messageOf } from '../lib/chat';
 import { lastIdeWorkspaceId, navigate } from '../lib/router';
 import { AvatarMenu } from '../components/AvatarMenu';
-import { TerminalMark, FolderOpenIcon, PlusIcon, RefreshIcon } from '../components/icons';
+import { TerminalMark, FolderOpenIcon, PlusIcon, RefreshIcon, TrashIcon } from '../components/icons';
 
 /**
  * 工作区列表 + 创建工作区。
@@ -35,6 +35,7 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -88,6 +89,33 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
     } finally {
       setBusy(false);
       setProgress(null);
+    }
+  };
+
+  const removeWorkspace = async (workspace: Workspace) => {
+    if (busy || deletingId !== null) return;
+    const confirmed = window.confirm(
+      `确定删除工作区「${workspace.name}」？磁盘上的文件、会话和补丁都会被清掉，不可恢复。`,
+    );
+    if (!confirmed) return;
+    setDeletingId(workspace.id);
+    setError(null);
+    try {
+      await api.deleteWorkspace(workspace.id);
+      setWorkspaces((list) => list.filter((item) => item.id !== workspace.id));
+      try {
+        localStorage.removeItem(`wca.lastFile.${workspace.id}`);
+        localStorage.removeItem(`wca.lastSession.${workspace.id}`);
+        if (lastIdeWorkspaceId() === workspace.id) {
+          localStorage.removeItem('wca.last.ide');
+        }
+      } catch {
+        // 本地标记清不掉不影响删除
+      }
+    } catch (err) {
+      setError(messageOf(err));
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -306,6 +334,7 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
                 style={{ animationDelay: `${Math.min(index * 45, 320)}ms` }}
                 onClick={() => navigate(`/ide/${workspace.id}`)}
                 onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
                     navigate(`/ide/${workspace.id}`);
@@ -330,6 +359,18 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
                   </div>
                   <div className="ws-card-time">创建于 {new Date(workspace.createdAt).toLocaleString()}</div>
                 </div>
+                <button
+                  type="button"
+                  className="icon-btn ws-card-delete"
+                  title="删除这个工作区"
+                  disabled={deletingId === workspace.id}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void removeWorkspace(workspace);
+                  }}
+                >
+                  {deletingId === workspace.id ? <span className="spinner" /> : <TrashIcon size={13} />}
+                </button>
                 <span className="ws-card-go">打开 →</span>
               </div>
             ))}
