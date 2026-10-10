@@ -102,9 +102,10 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
   ];
 
   return (
-    <div className="centered-page centered-page-v2" style={{ alignItems: 'flex-start' }}>
-      <div className="card wide ws-page" style={{ marginTop: 12 }}>
-        <FilmSprocket variant="page" />
+    <div className="centered-page centered-page-v2 ws-library">
+      <FilmSprocket variant="left" />
+      <FilmSprocket variant="right" />
+      <div className="card wide ws-page">
         <div className="card-head">
           <TerminalMark size={32} />
           <div>
@@ -159,6 +160,11 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
         )}
 
         <div className="ws-hero">
+          <div className="ws-slate" aria-hidden="true">
+            <span>SCENE 01</span>
+            <span>TAKE 01</span>
+            <span>ISO 400</span>
+          </div>
           <p className="page-kicker">FILM LIBRARY</p>
           <div className="ws-hero-title">
             欢迎回来，<b>{username}</b>
@@ -177,6 +183,7 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
           </div>
         </div>
 
+        <div className="ws-stage">
         <div className="section-divider">新建工作区</div>
 
         <div className="ws-create-grid">
@@ -314,6 +321,7 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
             ))}
           </div>
         )}
+        </div>
       </div>
     </div>
   );
