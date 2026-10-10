@@ -73,6 +73,11 @@ public class ContextAssembler {
         appendRulesSection(prompt, summary);
         appendOpenFileSection(prompt, workspace, request);
         appendSelectionSection(prompt, request);
+        if (request.directAnswer()) {
+            prompt.append("\n## 本轮：直接作答\n\n");
+            prompt.append("本轮没有绑定任何工具。当前文件 / 选区已经在上面。");
+            prompt.append("不要说你要去读文件，不要列计划，直接回答用户这一条。\n");
+        }
 
         return prompt.toString();
     }
