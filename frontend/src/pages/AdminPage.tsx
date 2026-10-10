@@ -1002,6 +1002,7 @@ export function AdminPage({ initialTab, onBack, onLogout }: {
 
       <main className="page-scroll">
         <div className="page-wrap">
+          <p className="page-kicker">DARKROOM · ADMIN</p>
           {error && <div className="form-error">{error}</div>}
           {notice && <div className="form-notice">{notice}</div>}
 

@@ -403,6 +403,7 @@ export function ModelsPage({ onBack, onLogout, onModelChanged }: {
 
       <main className="page-scroll">
         <div className="page-wrap">
+          <p className="page-kicker">OPTICS · MODELS</p>
           {error && <div className="form-error">{error}</div>}
           {notice && <div className="form-notice">{notice}</div>}
 

@@ -228,6 +228,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
             <span className="brand-sub">网页版编码助手</span>
           </div>
         </div>
+        <p className="auth-kicker">DARKROOM · BRASS</p>
 
         <h1 className="auth-title">
           把仓库放进浏览器，
