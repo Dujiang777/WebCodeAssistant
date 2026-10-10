@@ -941,6 +941,20 @@ export const api = {
   // -------------------------------------------------- 功能 5-8 接口
 
   /** 读取仓库宪法。exists=false 表示未配置。 */
+  redzone: (workspaceId: number) =>
+    request<{ paths: string[] }>(`/api/workspaces/${workspaceId}/redzone`),
+
+  toggleRedzone: (workspaceId: number, path: string) =>
+    request<{ paths: string[] }>(`/api/workspaces/${workspaceId}/redzone/toggle`, {
+      method: 'POST',
+      body: JSON.stringify({ path }),
+    }),
+
+  patchFit: (patchId: string) =>
+    request<{ patchId: string; file: string; fits: boolean; redzone: boolean; reason: string | null }>(
+      `/api/patches/${patchId}/fit`,
+    ),
+
   constitution: (workspaceId: number) =>
     request<ConstitutionView>(`/api/workspaces/${workspaceId}/constitution`),
 

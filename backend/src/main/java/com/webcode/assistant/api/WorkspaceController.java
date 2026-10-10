@@ -14,6 +14,7 @@ import com.webcode.assistant.workspace.NavigateService;
 import com.webcode.assistant.workspace.FileContent;
 import com.webcode.assistant.workspace.FileNode;
 import com.webcode.assistant.workspace.Workspace;
+import com.webcode.assistant.workspace.RedzoneService;
 import com.webcode.assistant.workspace.WorkspaceFileService;
 import com.webcode.assistant.workspace.WorkspaceService;
 import jakarta.validation.Valid;
@@ -54,6 +55,7 @@ public class WorkspaceController {
     private final LintService lintService;
     private final CompletionService completionService;
     private final ChatSessionService sessionService;
+    private final RedzoneService redzoneService;
 
     public WorkspaceController(WorkspaceService workspaceService,
                                WorkspaceFileService fileService,
@@ -64,7 +66,8 @@ public class WorkspaceController {
                                NavigateService navigateService,
                                LintService lintService,
                                CompletionService completionService,
-                               ChatSessionService sessionService) {
+                               ChatSessionService sessionService,
+                               RedzoneService redzoneService) {
         this.workspaceService = workspaceService;
         this.fileService = fileService;
         this.constitutionService = constitutionService;
@@ -75,6 +78,7 @@ public class WorkspaceController {
         this.lintService = lintService;
         this.completionService = completionService;
         this.sessionService = sessionService;
+        this.redzoneService = redzoneService;
     }
 
     // ------------------------------------------------------------- 工作区
@@ -158,6 +162,34 @@ public class WorkspaceController {
 
     /** 保存宪法请求体。 */
     public record ConstitutionSaveRequest(String content) {
+    }
+
+    public record RedzoneView(List<String> paths) {
+    }
+
+    public record RedzoneSaveRequest(List<String> paths) {
+    }
+
+    public record RedzoneToggleRequest(String path) {
+    }
+
+    @GetMapping("/{id}/redzone")
+    public RedzoneView redzone(@PathVariable long id) {
+        return new RedzoneView(redzoneService.list(requireWorkspace(id)));
+    }
+
+    @PutMapping("/{id}/redzone")
+    public RedzoneView saveRedzone(@PathVariable long id, @RequestBody RedzoneSaveRequest request) {
+        return new RedzoneView(redzoneService.save(requireWorkspace(id),
+                request == null ? List.of() : request.paths()));
+    }
+
+    @PostMapping("/{id}/redzone/toggle")
+    public RedzoneView toggleRedzone(@PathVariable long id, @RequestBody RedzoneToggleRequest request) {
+        if (request == null || request.path() == null) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "缺少路径");
+        }
+        return new RedzoneView(redzoneService.toggle(requireWorkspace(id), request.path()));
     }
 
     // ------------------------------------------------------------ Spring 地图

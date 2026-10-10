@@ -2,6 +2,7 @@ package com.webcode.assistant.agent;
 
 import com.webcode.assistant.common.ApiException;
 import com.webcode.assistant.common.ErrorCode;
+import com.webcode.assistant.workspace.RedzoneService;
 import com.webcode.assistant.workspace.Workspace;
 import com.webcode.assistant.workspace.WorkspaceFileService;
 import com.webcode.assistant.workspace.WorkspacePathResolver;
@@ -58,6 +59,7 @@ public class PatchService {
     private final WorkspaceService workspaceService;
     private final SnapshotService snapshotService;
     private final FeatureFlagService featureFlagService;
+    private final RedzoneService redzoneService;
 
     public PatchService(PatchRepository patchRepository,
                         ChatSessionRepository sessionRepository,
@@ -65,7 +67,8 @@ public class PatchService {
                         WorkspacePathResolver pathResolver,
                         WorkspaceService workspaceService,
                         SnapshotService snapshotService,
-                        FeatureFlagService featureFlagService) {
+                        FeatureFlagService featureFlagService,
+                        RedzoneService redzoneService) {
         this.patchRepository = patchRepository;
         this.sessionRepository = sessionRepository;
         this.fileService = fileService;
@@ -73,6 +76,7 @@ public class PatchService {
         this.workspaceService = workspaceService;
         this.snapshotService = snapshotService;
         this.featureFlagService = featureFlagService;
+        this.redzoneService = redzoneService;
     }
 
     /**
@@ -117,6 +121,7 @@ public class PatchService {
         // 第一遍：全部校验。任何一个失败整批拒绝，不让半套补丁落库。
         for (FilePatch filePatch : parsed) {
             String diffPath = normalizeDeclaredPath(filePatch.targetPath());
+            assertNotRedzoned(workspace, diffPath);
             Path target = resolveTarget(workspace, diffPath);
             String current = readCurrentContent(workspace, diffPath, target);
             try {
@@ -203,6 +208,7 @@ public class PatchService {
         }
         assertFlagAcknowledged(userId, patchId, flagAcknowledged);
         Workspace workspace = workspaceOf(userId, patchId);
+        assertNotRedzoned(workspace, patch.filePath());
 
         // 应用前自动打快照 —— 打点失败就终止应用：没有安全网的写入不值得发生。
         // 快照失败时补丁保持 pending，用户重试即可。
@@ -291,6 +297,7 @@ public class PatchService {
         }
 
         try {
+            assertNotRedzoned(workspace, patch.filePath());
             FilePatch filePatch = UnifiedDiffParser.parse(patch.diffText(), patch.filePath()).get(0);
             Path target = resolveTarget(workspace, patch.filePath());
             String current = readCurrentContent(workspace, patch.filePath(), target);
@@ -340,6 +347,39 @@ public class PatchService {
         return workspaceService.require(userId, session.workspaceId());
     }
 
+    /**
+     * 这张补丁现在还贴不贴得上。
+     * 底片（磁盘文件）在出卡之后被改过，上下文对不上就会 {@code fits=false}。
+     */
+    public PatchFit inspectFit(long userId, UUID patchId) {
+        Patch patch = requireOwned(userId, patchId);
+        Workspace workspace = workspaceOf(userId, patchId);
+        if (redzoneService.blocks(workspace, patch.filePath())) {
+            String rule = redzoneService.blockingRule(workspace, patch.filePath());
+            return new PatchFit(patch.id().toString(), patch.filePath(), false, true,
+                    "文件在禁区（" + rule + "），不能应用");
+        }
+        if (!Patch.STATUS_PENDING.equals(patch.status())) {
+            return new PatchFit(patch.id().toString(), patch.filePath(), true, false, null);
+        }
+        try {
+            FilePatch filePatch = UnifiedDiffParser.parse(patch.diffText(), patch.filePath()).getFirst();
+            Path target = resolveTarget(workspace, patch.filePath());
+            String current = readCurrentContent(workspace, patch.filePath(), target);
+            UnifiedDiffApplier.apply(current, filePatch);
+            return new PatchFit(patch.id().toString(), patch.filePath(), true, false, null);
+        } catch (RuntimeException ex) {
+            String message = ex instanceof ApiException apiException
+                    ? apiException.getMessage()
+                    : "补丁无法应用到当前文件";
+            return new PatchFit(patch.id().toString(), patch.filePath(), false, false,
+                    "底片已经变了：" + message);
+        }
+    }
+
+    public record PatchFit(String patchId, String file, boolean fits, boolean redzone, String reason) {
+    }
+
     public List<Patch> listBySession(long userId, long sessionId) {
         requireSession(userId, sessionId);
         return patchRepository.findBySession(sessionId);
@@ -370,6 +410,16 @@ public class PatchService {
                     "这个补丁改动了运行行为（开关 " + flag.flagKey() + "，" + flag.reason()
                             + "）。请先确认「关闭开关时跑旧路径」，并在应用请求里带上 acknowledgeFlag=true。");
         }
+    }
+
+    private void assertNotRedzoned(Workspace workspace, String path) {
+        if (!redzoneService.blocks(workspace, path)) {
+            return;
+        }
+        String rule = redzoneService.blockingRule(workspace, path);
+        throw new ApiException(ErrorCode.FORBIDDEN,
+                "文件 " + path + " 在禁区（" + rule + "）。系统不会为禁区出补丁，也不会写盘。"
+                        + "请改其他文件，或让用户在文件树解开禁区。");
     }
 
     private void requireSession(long userId, long sessionId) {

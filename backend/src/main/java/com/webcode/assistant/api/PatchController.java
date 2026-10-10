@@ -107,6 +107,15 @@ public class PatchController {
      * 变更预演 PR：把「假如这是一次真实团队协作」的标题 / 正文 / 审查清单预演出来。
      * 纯只读、随时可看；它不做新分析，只是把影响面与宪法的既有事实组织成审查者视角。
      */
+    /**
+     * 补丁还贴不贴得上：出卡之后磁盘被改过，或文件进了禁区。
+     * 纯只读，给卡片上的「底片已变」标用。
+     */
+    @GetMapping("/{patchId}/fit")
+    public PatchService.PatchFit fit(@PathVariable UUID patchId) {
+        return patchService.inspectFit(currentUser.requireId(), patchId);
+    }
+
     @GetMapping("/{patchId}/pr-preview")
     public ApiModels.PrPreviewView prPreview(@PathVariable UUID patchId) {
         long userId = currentUser.requireId();

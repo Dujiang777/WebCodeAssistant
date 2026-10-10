@@ -4,12 +4,14 @@ import com.webcode.assistant.agent.AgentRequest;
 import com.webcode.assistant.constitution.ConstitutionService;
 import com.webcode.assistant.llm.LlmProperties;
 import com.webcode.assistant.workspace.FileContent;
+import com.webcode.assistant.workspace.RedzoneService;
 import com.webcode.assistant.workspace.Workspace;
 import com.webcode.assistant.workspace.WorkspaceFileService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.StringJoiner;
 
 /**
@@ -41,15 +43,18 @@ public class ContextAssembler {
     private final WorkspaceFileService fileService;
     private final ProjectProbe projectProbe;
     private final ConstitutionService constitutionService;
+    private final RedzoneService redzoneService;
     private final LlmProperties llmProperties;
 
     public ContextAssembler(WorkspaceFileService fileService,
                             ProjectProbe projectProbe,
                             ConstitutionService constitutionService,
+                            RedzoneService redzoneService,
                             LlmProperties llmProperties) {
         this.fileService = fileService;
         this.projectProbe = projectProbe;
         this.constitutionService = constitutionService;
+        this.redzoneService = redzoneService;
         this.llmProperties = llmProperties;
     }
 
@@ -64,6 +69,7 @@ public class ContextAssembler {
 
         appendProjectSection(prompt, summary);
         appendConstitutionSection(prompt, workspace);
+        appendRedzoneSection(prompt, workspace);
         appendRulesSection(prompt, summary);
         appendOpenFileSection(prompt, workspace, request);
         appendSelectionSection(prompt, request);
@@ -113,6 +119,21 @@ public class ContextAssembler {
             prompt.append("\n> 注意：宪法已超过 ").append(CONSTITUTION_BUDGET)
                     .append(" 字符被截断。请提醒用户精简宪法（截断的条款你无法遵守）。\n");
         }
+    }
+
+    private void appendRedzoneSection(StringBuilder prompt, Workspace workspace) {
+        List<String> paths = redzoneService.list(workspace);
+        prompt.append("\n## 禁区（硬拒绝，不是建议）\n\n");
+        prompt.append("propose_patch 命中下列路径会被系统直接拒绝，不会生成补丁卡：\n");
+        prompt.append("- `.wca/CONSTITUTION.md`、`.wca/REDZONE`（系统内置）\n");
+        if (paths.isEmpty()) {
+            prompt.append("用户还没有额外划禁区。不要建议用户去改上述系统文件。\n");
+            return;
+        }
+        for (String path : paths) {
+            prompt.append("- `").append(path).append("`\n");
+        }
+        prompt.append("不要尝试改这些文件，也不要让用户「先把禁区解开」。绕开禁区用其他文件完成需求。\n");
     }
 
     private void appendRulesSection(StringBuilder prompt, ProjectSummary summary) {
