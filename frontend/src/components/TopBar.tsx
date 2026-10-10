@@ -136,7 +136,13 @@ export function TopBar({
           }
         >
           {creditLow && <span className="dot dot-err" />}
-          积分 {credits}
+          积分{' '}
+          {/* 批35：机械翻页计数 —— key 绑余额，数值一变整颗数字重新挂载，
+              CSS 翻页动画重播一次（数字卡在机械计数器上被拨动的样子）。
+              key 不绑会让同一个 DOM 复用，动画只在首次挂载时放。 */}
+          <span className="credit-flip" key={credits}>
+            {credits}
+          </span>
         </button>
       )}
 

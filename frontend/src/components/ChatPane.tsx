@@ -12,7 +12,7 @@ import type {
   PendingGate,
 } from '../lib/api';
 import { countInvalid } from '../lib/citations';
-import { MODE_META, streamLabel, summarizeToolArgs, toolLabel } from '../lib/chat';
+import { MODE_META, streamLabel, summarizeToolArgs, toolArgsPeek, toolLabel } from '../lib/chat';
 import type { LiveTurn, Selection, ToolItem } from '../lib/chat';
 import type { StreamStatus } from '../lib/sse';
 import { CitationText } from './CitationText';
@@ -835,6 +835,9 @@ function MessageBlock({
 function PlanCard({ steps, live }: { steps: string[]; live: boolean }) {
   return (
     <div className={`plan-card${live ? ' plan-card-live' : ''}`}>
+      {/* 批35：显影进度条 —— 计划推进中时卡底有一条循环推进的金线。
+          卡片两个伪元素都被批26 的齿孔条占着，这条进度用真实元素承载。 */}
+      {live && <span className="plan-develop" aria-hidden="true" />}
       <div className="plan-head">
         <span className={`dot ${live ? 'dot-warn' : 'dot-idle'}`} />
         <span>执行计划</span>
@@ -854,6 +857,9 @@ function ToolCard({ tool, now }: { tool: ToolItem; now: number }) {
   const tone = tool.status === 'failed' ? 'failed' : tool.status === 'running' ? 'pending' : '';
   const elapsed =
     tool.status === 'running' ? Math.max(0, Math.round((now - tool.startedAt) / 1000)) : null;
+  // 批35：参数铭牌 —— hover 时从右侧抽出「键 值」铭牌，像仪器上翻出来的说明牌。
+  // 只取前两个标量参数（长文本走 title 与点击展开的 JSON，不在这里堆版面）。
+  const peek = toolArgsPeek(tool.args);
 
   return (
     <div className={`tool-card ${tone}`}>
@@ -873,6 +879,17 @@ function ToolCard({ tool, now }: { tool: ToolItem; now: number }) {
             : tool.summary || (tool.status === 'done' ? '完成' : '失败')}
         </span>
       </div>
+
+      {peek.length > 0 && (
+        <div className="tool-args-peek" aria-hidden="true">
+          {peek.map((entry) => (
+            <span className="tool-peek-row" key={entry.key}>
+              <em className="tool-peek-key">{entry.key}</em>
+              <span className="tool-peek-value">{entry.value}</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       {open && <pre className="tool-args">{JSON.stringify(tool.args ?? {}, null, 2)}</pre>}
     </div>

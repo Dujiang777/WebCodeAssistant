@@ -113,6 +113,42 @@ export function summarizeToolArgs(name: string, args: unknown): string {
   }
 }
 
+export interface ToolArgPeek {
+  key: string;
+  value: string;
+}
+
+/**
+ * 工具参数铭牌（批35）：给工具卡 hover 用的一行「键 值」摘要。
+ *
+ * 规则：
+ *   - 只取标量（string/number/boolean），数组与对象不进铭牌 —— 它们属于点击展开的 JSON；
+ *   - 键名按工具语义排序：先 path/file 这类「定位参数」，再 pattern/query 这类「内容参数」，
+ *     这样 hover 出来第一行永远是用户最想确认的那个（读了哪个文件、搜了什么）；
+ *   - 单值超长截断（长 diff / 长代码进铭牌没有意义）。
+ */
+export function toolArgsPeek(args: unknown): ToolArgPeek[] {
+  const record = (args ?? {}) as Record<string, unknown>;
+  const rank = (key: string): number => {
+    if (key === 'path' || key === 'file') return 0;
+    if (key === 'pattern' || key === 'query' || key === 'glob') return 1;
+    if (key === 'summary' || key === 'mode' || key === 'name') return 2;
+    return 3;
+  };
+
+  const out: ToolArgPeek[] = [];
+  for (const [key, value] of Object.entries(record)) {
+    if (out.length >= 2) break;
+    if (typeof value === 'string') {
+      if (value.length === 0) continue;
+      out.push({ key, value: value.length > 28 ? `${value.slice(0, 28)}…` : value });
+    } else if (typeof value === 'number' || typeof value === 'boolean') {
+      out.push({ key, value: String(value) });
+    }
+  }
+  return out.sort((a, b) => rank(a.key) - rank(b.key));
+}
+
 export function messageOf(error: unknown): string {
   if (error instanceof HttpError) return error.message;
   if (error instanceof Error) return error.message;

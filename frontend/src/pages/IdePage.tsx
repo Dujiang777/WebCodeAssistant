@@ -338,11 +338,37 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
 
   // ------------------------------------------------------------ 可变引用
   const turnRef = useRef<LiveTurn | null>(null);
+  /**
+   * 每个会话的「进行中回合」快照（批35.1 修：切走再回来进度就没了）。
+   *
+   * 起因：切会话的 effect 原本无条件 setTurn(null)，于是「在 A 跑回合 → 点 + 建新会话 →
+   * 切回 A」时 A 的进度被抹掉；而 SSE 续流只回放 lastSeq 之后的帧，之前那段流式文本
+   * 与工具卡不会重播，于是看起来像「任务白跑了」。
+   *
+   * 现在：离开会话时把当前 turn 快照存进来，切回来先恢复快照，再由 SSE 续流把
+   * 断连期间的事件接上（lastSeqBySession 仍记着 seq，回放是补差，不是重跑）。
+   * 只存内存 —— 整页刷新仍然恢复不了（要彻底修得后端暴露「进行中回合」快照接口）。
+   */
+  const turnBySession = useRef<Map<number, LiveTurn>>(new Map());
+  /**
+   * 上一次「会话切换 effect」执行时的 sessionId。
+   *
+   * 为什么不能直接用 sessionIdRef：有个更早的 effect 会在每次渲染后把
+   * sessionIdRef.current 同步成新值，等切换 effect 跑到时它已经是「新会话」了 ——
+   * 拿它当旧会话会把 A 的回合存到 B 名下，切回 A 时反而恢复不出来。
+   */
+  const lastSwitchedSid = useRef<number | null>(null);
   const sessionIdRef = useRef<number | null>(null);
   const selectedPathRef = useRef<string | null>(null);
   const dirtyRef = useRef(false);
   /** 已经为哪些补丁发过影响面请求 —— 防止 patches 每次变化都重发一遍。 */
   const radiusRequested = useRef<Set<string>>(new Set());
+
+  /** 丢掉当前会话的回合快照 —— 回合落库或彻底失败后调用，否则切回会恢复出「幽灵进行中」。 */
+  const dropTurnSnapshot = () => {
+    const sid = sessionIdRef.current;
+    if (sid !== null) turnBySession.current.delete(sid);
+  };
   /** 同理，特性开关分析每个补丁只算一次。 */
   const flagRequested = useRef<Set<string>>(new Set());
   const handlersRef = useRef({
@@ -523,9 +549,19 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   };
 
   useEffect(() => {
-    turnRef.current = null;
-    setTurn(null);
-    setSending(false);
+    // 离开旧会话：把「正在跑的回合」存进快照表，别让它随切会话蒸发。
+    const prevSid = lastSwitchedSid.current;
+    lastSwitchedSid.current = sessionId;
+    const prevTurn = turnRef.current;
+    if (prevSid !== null && prevSid !== sessionId && prevTurn) {
+      turnBySession.current.set(prevSid, prevTurn);
+    }
+
+    // 进入新会话：有快照就恢复（进行中态 + sending），没有才清空。
+    const restored = sessionId === null ? null : turnBySession.current.get(sessionId) ?? null;
+    turnRef.current = restored;
+    setTurn(restored);
+    setSending(restored !== null);
     setDiffPatch(null);
 
     if (sessionId === null) {
@@ -564,6 +600,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     turnRef.current = null;
     setTurn(null);
     setSending(false);
+    // 回合落库了，快照就没用了 —— 不清的话下次进这个会话会恢复出一个「幽灵进行中」。
+    dropTurnSnapshot();
 
     if (finished && Number.isFinite(assistantMessageId)) {
       setMessages((list) => {
@@ -730,6 +768,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           turnRef.current = null;
           setTurn(null);
           setSending(false);
+          dropTurnSnapshot();
           void refetchChat();
         } else {
           turnRef.current = { ...base, error: message };
@@ -752,6 +791,12 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         );
         turnRef.current = { ...base, tools, stopped: true };
         setTurn(turnRef.current);
+        // 同步快照：若这个会话之前切走过（快照表里有旧副本），一并标记为已停止，
+        // 否则切回来会看到工具卡还在转。
+        const stopSid = sessionIdRef.current;
+        if (stopSid !== null && turnBySession.current.has(stopSid)) {
+          turnBySession.current.set(stopSid, { ...base, tools, stopped: true });
+        }
         return;
       }
 

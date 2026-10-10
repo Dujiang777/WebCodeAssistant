@@ -8650,3 +8650,127 @@ body {
     padding: 2px 7px 3px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   批35「显影三镜」：把「正在发生」这件事画出来
+   ① 计划卡 live = 卡底显影进度条（循环推进的金线）
+   ② 工具卡 hover = 参数铭牌（键值对从右侧抽出）
+   ③ 顶栏积分变化 = 机械翻页计数（数字被拨动一次）
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── ① 计划卡显影进度条 ──
+   模型正在按计划推进时，卡底一条 2px 金线从左循环推到右再从头开始 ——
+   「相纸在显影液里走一程」。用独立 scaleX 属性做，不用 width（触发布局）。
+   末端留一颗更亮的头，像显影前沿。 */
+.plan-develop {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: color-mix(in srgb, var(--signal) 12%, transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 推进中的亮段：宽 38%，走完 2.4s 一轮 */
+.plan-develop::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 38%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--signal) 75%, transparent) 45%,
+    var(--signal) 92%,
+    transparent 100%
+  );
+  animation: develop-run 2.4s var(--ease-soft) infinite;
+}
+
+@keyframes develop-run {
+  from { translate: -100% 0; }
+  to { translate: 365% 0; }
+}
+
+/* ── ② 工具卡参数铭牌 ──
+   hover 时从右侧抽出一块「键 值」铭牌：像仪器侧面翻出来的说明牌。
+   默认只留 1px 的边（clipped），hover 展开 —— 不占常态版面。 */
+.tool-args-peek {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding: 0 12px;
+  border-top: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  transition:
+    max-height var(--dur-2) var(--ease-out),
+    opacity var(--dur-1) var(--ease-soft),
+    padding var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
+}
+
+.tool-card:hover .tool-args-peek {
+  max-height: 44px;
+  opacity: 1;
+  padding: 6px 12px 7px;
+  border-top-color: var(--line);
+}
+
+.tool-peek-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tool-peek-key {
+  flex: none;
+  color: var(--signal-soft);
+  font-style: normal;
+  letter-spacing: 0.02em;
+}
+
+.tool-peek-key::after {
+  content: ':';
+  color: var(--fg-3);
+}
+
+.tool-peek-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-2);
+}
+
+/* 聚焦也要能读到（键盘用户没有 hover）：focus-within 走同一套展开 */
+.tool-card:focus-within .tool-args-peek {
+  max-height: 44px;
+  opacity: 1;
+  padding: 6px 12px 7px;
+  border-top-color: var(--line);
+}
+
+/* ── ③ 顶栏积分机械翻页 ──
+   余额变了就重播一次翻页：数字从上一格翻到下一格（Y 轴滚一格 + 轻微透视）。
+   JSX 用 key={credits} 强制重挂载，动画才会重放。
+   to 帧显式写 translate: none —— 否则 fill:both 会留下永久合成层。 */
+.credit-flip {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  animation: credit-flip 480ms var(--ease-out) both;
+}
+
+@keyframes credit-flip {
+  0% { opacity: 0; translate: 0 -0.62em; scale: 1 0.72; }
+  55% { opacity: 1; }
+  100% { opacity: 1; translate: none; scale: 1 1; }
+}
