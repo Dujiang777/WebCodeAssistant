@@ -6,6 +6,7 @@ import com.webcode.assistant.common.ApiException;
 import com.webcode.assistant.common.ErrorCode;
 import com.webcode.assistant.constitution.ConstitutionService;
 import com.webcode.assistant.map.SpringMapService;
+import com.webcode.assistant.agent.ChatSessionService;
 import com.webcode.assistant.security.CurrentUser;
 import com.webcode.assistant.workspace.CompletionService;
 import com.webcode.assistant.workspace.LintService;
@@ -52,6 +53,7 @@ public class WorkspaceController {
     private final NavigateService navigateService;
     private final LintService lintService;
     private final CompletionService completionService;
+    private final ChatSessionService sessionService;
 
     public WorkspaceController(WorkspaceService workspaceService,
                                WorkspaceFileService fileService,
@@ -61,7 +63,8 @@ public class WorkspaceController {
                                CurrentUser currentUser,
                                NavigateService navigateService,
                                LintService lintService,
-                               CompletionService completionService) {
+                               CompletionService completionService,
+                               ChatSessionService sessionService) {
         this.workspaceService = workspaceService;
         this.fileService = fileService;
         this.constitutionService = constitutionService;
@@ -71,6 +74,7 @@ public class WorkspaceController {
         this.navigateService = navigateService;
         this.lintService = lintService;
         this.completionService = completionService;
+        this.sessionService = sessionService;
     }
 
     // ------------------------------------------------------------- 工作区
@@ -114,6 +118,14 @@ public class WorkspaceController {
     @GetMapping("/{id}")
     public ApiModels.WorkspaceView detail(@PathVariable long id) {
         return ApiModels.WorkspaceView.of(workspaceService.require(currentUser.requireId(), id));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable long id) {
+        long userId = currentUser.requireId();
+        sessionService.disposeForWorkspace(userId, id);
+        workspaceService.delete(userId, id);
+        return ResponseEntity.noContent().build();
     }
 
     // ----------------------------------------------------------- 仓库宪法

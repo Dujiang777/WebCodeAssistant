@@ -44,6 +44,7 @@ import {
   ShieldIcon,
   StopIcon,
   TerminalMark,
+  TrashIcon,
 } from './icons';
 
 /**
@@ -105,6 +106,8 @@ interface ChatPaneProps extends PatchDeps {
   /** 正在跑回合的会话，下拉里标「运行中」。 */
   liveSessionIds?: number[];
   onNewSession: () => void;
+  /** 删除当前会话（后端已有接口，这里只是补上入口）。 */
+  onDeleteSession: () => void;
   onClearSelection: () => void;
   onApplyAll: () => void;
   applyAllBusy: boolean;
@@ -184,6 +187,7 @@ export function ChatPane({
   onSelectSession,
   liveSessionIds = [],
   onNewSession,
+  onDeleteSession,
   onClearSelection,
   onApplyAll,
   applyAllBusy,
@@ -225,6 +229,8 @@ export function ChatPane({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const stickToBottom = useRef(true);
+  /** 当前草稿归属的会话：切会话时先对齐再写回，避免把 A 的半句话写进 B。 */
+  const draftSid = useRef<number | null>(null);
   // 回合进行中每秒走一次的时钟：running 工具卡显示「已执行 Ns」
   const [now, setNow] = useState(() => Date.now());
 
@@ -234,6 +240,32 @@ export function ChatPane({
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [sending]);
+
+  useEffect(() => {
+    if (sessionId === null) {
+      draftSid.current = null;
+      setDraft('');
+      return;
+    }
+    let stored = '';
+    try {
+      stored = localStorage.getItem(`wca.draft.${sessionId}`) ?? '';
+    } catch {
+      stored = '';
+    }
+    draftSid.current = sessionId;
+    setDraft(stored);
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (sessionId === null || draftSid.current !== sessionId) return;
+    try {
+      if (draft.trim()) localStorage.setItem(`wca.draft.${sessionId}`, draft);
+      else localStorage.removeItem(`wca.draft.${sessionId}`);
+    } catch {
+      // 隐私模式记不住草稿就算了
+    }
+  }, [draft, sessionId]);
 
   // 自动滚到底，但用户手动往上翻时不打断他 —— 这是聊天界面的基本礼貌
   useEffect(() => {
@@ -363,6 +395,14 @@ export function ChatPane({
 
         <button className="icon-btn" title="新建会话" onClick={onNewSession}>
           <PlusIcon size={13} />
+        </button>
+        <button
+          className="icon-btn"
+          title={sending ? '请先停止当前回合，再删除会话' : '删除当前会话'}
+          onClick={onDeleteSession}
+          disabled={sessionId === null || sending}
+        >
+          <TrashIcon size={13} />
         </button>
       </div>
 
@@ -600,9 +640,22 @@ export function ChatPane({
           )}
 
           {currentFile ? (
-            <span className="chip" title={currentFile}>
+            <button
+              type="button"
+              className="chip chip-btn"
+              title={`${currentFile} · 点一下把路径放进输入框`}
+              onClick={() => {
+                const mention = `\`${currentFile}\``;
+                setDraft((current) => {
+                  if (!current.trim()) return `${mention} `;
+                  if (current.includes(currentFile)) return current;
+                  return `${current.replace(/\s+$/, '')} ${mention} `;
+                });
+                window.setTimeout(() => textareaRef.current?.focus(), 0);
+              }}
+            >
               当前文件 · {currentFile.split('/').pop()}
-            </span>
+            </button>
           ) : (
             <span className="chip" style={{ color: 'var(--fg-3)' }}>
               未打开文件 · 可从项目结构提问

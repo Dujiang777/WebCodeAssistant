@@ -406,6 +406,25 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     localStorage.setItem(MODE_KEY, mode);
   }, [mode]);
 
+  useEffect(() => {
+    if (sessionId === null) return;
+    try {
+      localStorage.setItem(`wca.lastSession.${workspaceId}`, String(sessionId));
+    } catch {
+      // 隐私模式记不住就算了
+    }
+  }, [sessionId, workspaceId]);
+
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!dirtyRef.current) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
+
   // 宪法状态：进页面拉一次，保存后由 ConstitutionModal 回传更新
   useEffect(() => {
     let cancelled = false;
@@ -526,7 +545,16 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
 
         if (sessionList.length > 0) {
           setSessions(sessionList);
-          setSessionId(sessionList[0].id);
+          let rememberedSid: number | null = null;
+          try {
+            const raw = localStorage.getItem(`wca.lastSession.${workspaceId}`);
+            const id = Number(raw);
+            if (Number.isInteger(id) && id > 0) rememberedSid = id;
+          } catch {
+            rememberedSid = null;
+          }
+          const pick = sessionList.find((session) => session.id === rememberedSid) ?? sessionList[0];
+          setSessionId(pick.id);
         } else {
           // 没有任何会话就先建一个：这样用户打开页面就能直接提问，
           // 不必先理解「会话」这个概念。
@@ -928,6 +956,13 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   // ------------------------------------------------------------ 文件操作
 
   const openFile = async (path: string, announce = false) => {
+    if (dirtyRef.current && selectedPathRef.current && selectedPathRef.current !== path) {
+      const stay = selectedPathRef.current;
+      const confirmed = window.confirm(
+        `「${stay}」有未保存的修改。切换文件会丢掉这些改动，确定继续？`,
+      );
+      if (!confirmed) return;
+    }
     setSelectedPath(path);
     setFileLoading(true);
     setFileError(null);
@@ -1324,6 +1359,11 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       setMessages((list) =>
         list.map((message) => (message.id === optimisticId ? { ...message, id: response.messageId } : message)),
       );
+      try {
+        setSessions(await api.listSessions(workspaceId));
+      } catch {
+        // 标题刷新失败不影响本轮对话
+      }
     } catch (err) {
       if (err instanceof HttpError && err.code === 'INSUFFICIENT_CREDITS') {
         // 402 的语义不是「没权限」而是「免费额度用完了」。横幅常驻 + 弹出引导：
@@ -1364,6 +1404,41 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       const session = await api.createSession(workspaceId);
       setSessions((list) => [session, ...list]);
       setSessionId(session.id);
+    } catch (err) {
+      toast.error(messageOf(err));
+    }
+  };
+
+  const deleteSession = async () => {
+    const sid = sessionId;
+    if (sid === null) return;
+    if (sending && turn && !turn.stopped) {
+      toast.info('请先停止当前回合，再删除会话');
+      return;
+    }
+    const current = sessions.find((session) => session.id === sid);
+    const label = current?.title ? `「${current.title}」` : `#${sid}`;
+    const confirmed = window.confirm(`确定删除会话 ${label}？消息和待确认补丁都会消失，不可恢复。`);
+    if (!confirmed) return;
+    try {
+      await api.deleteSession(sid);
+      lastSeqBySession.delete(sid);
+      turnBySession.current.delete(sid);
+      try {
+        localStorage.removeItem(`wca.draft.${sid}`);
+      } catch {
+        // 清不掉草稿不影响删除
+      }
+      const remaining = sessions.filter((session) => session.id !== sid);
+      if (remaining.length > 0) {
+        setSessions(remaining);
+        setSessionId(remaining[0].id);
+      } else {
+        const created = await api.createSession(workspaceId);
+        setSessions([created]);
+        setSessionId(created.id);
+      }
+      toast.success('会话已删除');
     } catch (err) {
       toast.error(messageOf(err));
     }
@@ -1632,6 +1707,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
                   .map(([id]) => id),
               ]}
               onNewSession={() => void createSession()}
+              onDeleteSession={() => void deleteSession()}
               onClearSelection={() => setSelection(null)}
               onApplyAll={() => void applyAll()}
               applyAllBusy={applyAllBusy}

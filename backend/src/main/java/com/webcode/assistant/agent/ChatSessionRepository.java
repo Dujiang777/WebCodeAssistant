@@ -78,6 +78,13 @@ public class ChatSessionRepository {
                 .update();
     }
 
+    public void updateTitle(long sessionId, String title) {
+        jdbc.sql("update chat_sessions set title = :title, updated_at = current_timestamp(6) where id = :id")
+                .param("title", title)
+                .param("id", sessionId)
+                .update();
+    }
+
     public boolean deleteOwned(long sessionId, long userId) {
         return jdbc.sql("delete from chat_sessions where id = :id and user_id = :userId")
                 .param("id", sessionId)

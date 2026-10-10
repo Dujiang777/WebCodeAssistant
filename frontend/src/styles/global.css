@@ -10015,3 +10015,21 @@ body {
     width: 100%;
   }
 }
+
+/* 批44：工作区卡片删除键 —— 默认隐着，hover / 聚焦才露出来，避免误触 */
+.ws-card-delete {
+  flex: none;
+  align-self: center;
+  opacity: 0;
+  color: var(--fg-3);
+}
+
+.ws-card:hover .ws-card-delete,
+.ws-card:focus-within .ws-card-delete,
+.ws-card-delete:focus-visible {
+  opacity: 1;
+}
+
+.ws-card-delete:hover {
+  color: var(--rose);
+}

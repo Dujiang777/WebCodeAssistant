@@ -100,6 +100,7 @@ public class ChatController {
                 request.model());
 
         long messageId = orchestrator.start(agentRequest);
+        sessionService.adoptTitleFromFirstMessage(sid, request.content());
         return ResponseEntity.accepted().body(new ApiModels.SendMessageResponse(messageId, sid));
     }
 
