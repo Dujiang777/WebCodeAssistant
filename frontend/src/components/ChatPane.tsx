@@ -641,7 +641,7 @@ export function ChatPane({
             className="mode-toggle gate-policy"
             role="group"
             aria-label="工具闸门策略"
-            title="工具级冻结：在写盘 / 跑测试之前先停下来等你放行（功能 14）"
+            title="生成中途可切：拦写/严格会卡住下一步工具；放行会立刻放掉正在等的闸门"
           >
             {(
               [
