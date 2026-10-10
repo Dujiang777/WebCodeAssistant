@@ -12,6 +12,7 @@ import dev.langchain4j.service.tool.ToolExecutor;
 import java.lang.reflect.Method;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 工具执行安全壳：把「参数 JSON 解析失败」从致命异常降级为可恢复的工具结果。
@@ -39,11 +40,24 @@ final class SafeToolExecutors {
 
     /** 扫描工具对象上的全部 {@code @Tool} 方法，产出带坏 JSON 兜底的执行器表。 */
     static Map<ToolSpecification, ToolExecutor> of(Object toolbox) {
+        return of(toolbox, null);
+    }
+
+    /**
+     * @param allow 非空时只注册这些工具名。解释/单文件改/查引用不该把 set_plan 全部塞给模型。
+     */
+    static Map<ToolSpecification, ToolExecutor> of(Object toolbox, Set<String> allow) {
         Map<ToolSpecification, ToolExecutor> map = new LinkedHashMap<>();
         for (Class<?> type = toolbox.getClass(); type != null && type != Object.class;
                 type = type.getSuperclass()) {
             for (Method method : type.getDeclaredMethods()) {
                 if (method.isSynthetic() || !method.isAnnotationPresent(Tool.class)) {
+                    continue;
+                }
+                Tool specAnno = method.getAnnotation(Tool.class);
+                String name = specAnno.name() == null || specAnno.name().isBlank()
+                        ? method.getName() : specAnno.name();
+                if (allow != null && !allow.contains(name)) {
                     continue;
                 }
                 ToolSpecification spec = ToolSpecifications.toolSpecificationFrom(method);

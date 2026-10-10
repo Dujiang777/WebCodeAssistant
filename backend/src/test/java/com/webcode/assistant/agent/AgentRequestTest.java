@@ -16,18 +16,26 @@ class AgentRequestTest {
     }
 
     @Test
-    void rewriteStillUsesTools() {
+    void rewriteUsesEditProfile() {
         AgentRequest request = request("把这个类改成构造器注入", "src/UserService.java", null);
         assertThat(request.directAnswer()).isFalse();
+        assertThat(request.toolProfile()).isEqualTo(AgentRequest.ToolProfile.EDIT);
     }
 
     @Test
-    void findUsagesStillUsesTools() {
+    void findUsagesUsesSearchProfile() {
         AgentRequest request = request(
                 "选中的这段还在哪些地方被用到？列出调用方。",
                 "src/UserController.java",
                 new AgentRequest.Selection(10, 12, "save();"));
         assertThat(request.directAnswer()).isFalse();
+        assertThat(request.toolProfile()).isEqualTo(AgentRequest.ToolProfile.SEARCH);
+    }
+
+    @Test
+    void noOpenFileUsesFullProfile() {
+        AgentRequest request = request("这个项目用了什么构建方式？", null, null);
+        assertThat(request.toolProfile()).isEqualTo(AgentRequest.ToolProfile.FULL);
     }
 
     private static AgentRequest request(String content, String file, AgentRequest.Selection selection) {
