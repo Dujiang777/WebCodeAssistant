@@ -74,7 +74,24 @@ public class ToolGateService {
     public String setPolicy(long sessionId, String policy) {
         String normalized = normalizePolicy(policy);
         policies.put(sessionId, normalized);
+        // 生成中途切到放行：正在等的闸门立刻通过，否则用户会以为「切了但还在卡」。
+        if (POLICY_OFF.equals(normalized)) {
+            releasePending(sessionId, "策略已切到放行，本闸门自动通过");
+        }
         return normalized;
+    }
+
+    private void releasePending(long sessionId, String note) {
+        for (Pending pending : List.copyOf(gates.values())) {
+            if (pending.sessionId != sessionId) {
+                continue;
+            }
+            try {
+                resolve(sessionId, pending.gateId, true, null, note);
+            } catch (RuntimeException ex) {
+                log.debug("自动放行闸门失败 {}: {}", pending.gateId, ex.getMessage());
+            }
+        }
     }
 
     public static String normalizePolicy(String policy) {

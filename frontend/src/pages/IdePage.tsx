@@ -1705,10 +1705,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       await api.setGatePolicy(sid, policy);
       toast.info(
         policy === 'off'
-          ? '已切到「放行」：工具不再停下来等人'
+          ? '已切到「放行」：本轮下一个工具起不再等人；若正卡在闸门上，会立刻放掉'
           : policy === 'writes'
-            ? '已切到「拦写」：起草补丁和跑测试会先停下来等你点头'
-            : '已切到「严格」：写操作和大范围检索都会先停下来等你',
+            ? '已切到「拦写」：本轮再起草补丁或跑测试会先停下来等你'
+            : '已切到「严格」：本轮再写操作或大范围检索都会先停下来等你',
       );
     } catch (err) {
       setGatePolicy(previous);
