@@ -22,7 +22,7 @@ import type {
   TestRunResult,
   Workspace,
 } from '../lib/api';
-import { beginTurn, messageOf, nextToolId } from '../lib/chat';
+import { beginTurn, messageOf, nextToolId, toolPathOf } from '../lib/chat';
 import type { LiveTurn, Selection, ToolItem } from '../lib/chat';
 import { navigate, rememberIde } from '../lib/router';
 import { openChatStream } from '../lib/sse';
@@ -307,6 +307,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   // ------------------------------------------------- 功能 16：特性开关
   const [flags, setFlags] = useState<Record<string, FlagEntry>>({});
   const [flagAcks, setFlagAcks] = useState<Set<string>>(() => new Set<string>());
+  const [redzone, setRedzone] = useState<string[]>([]);
+  const [fits, setFits] = useState<Record<string, { fits: boolean; redzone: boolean; reason: string | null }>>({});
 
   // ------------------------------------------------- 商业级账号：积分
   /** 顶栏徽标用的轻量概览。完整账单在积分中心页，这里只要余额与告警位。 */
@@ -401,6 +403,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   };
   /** 同理，特性开关分析每个补丁只算一次。 */
   const flagRequested = useRef<Set<string>>(new Set());
+  const fitRequested = useRef<Set<string>>(new Set());
   const handlersRef = useRef({
     onEvent: (_event: ChatEvent) => {},
     onStatus: (_status: StreamStatus) => {},
@@ -450,6 +453,21 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         if (!cancelled) setConstitution(view);
       } catch {
         // 宪法是增强能力，拉取失败不打断主流程
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const view = await api.redzone(workspaceId);
+        if (!cancelled) setRedzone(view.paths ?? []);
+      } catch {
+        // 禁区拉不到当没有
       }
     })();
     return () => {
@@ -514,6 +532,21 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
             ...current,
             [patch.id]: { loading: false, error: messageOf(err), data: null },
           }));
+        }
+      })();
+    }
+  }, [patches]);
+
+  useEffect(() => {
+    for (const patch of patches) {
+      if (patch.status !== 'pending' || fitRequested.current.has(patch.id)) continue;
+      fitRequested.current.add(patch.id);
+      void (async () => {
+        try {
+          const fit = await api.patchFit(patch.id);
+          setFits((current) => ({ ...current, [patch.id]: fit }));
+        } catch {
+          // 贴合检查失败不挡主流程
         }
       })();
     }
@@ -1188,6 +1221,23 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     }
   };
 
+  const toggleRedzone = async (path: string) => {
+    try {
+      const view = await api.toggleRedzone(workspaceId, path);
+      setRedzone(view.paths ?? []);
+      const on = (view.paths ?? []).some((rule) => {
+        const n = path.replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase();
+        const r = rule.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '').toLowerCase();
+        return n === r || n.startsWith(`${r}/`);
+      });
+      toast.info(on ? `已划入禁区：${path}` : `已解开禁区：${path}`);
+      fitRequested.current.clear();
+      setFits({});
+    } catch (err) {
+      toast.error(messageOf(err));
+    }
+  };
+
   const deleteEntry = async (node: FileNode) => {
     const label = node.type === 'dir' ? '目录' : '文件';
     const confirmed = window.confirm(`确定删除${label} “${node.path}” 吗？此操作不可撤销。`);
@@ -1632,6 +1682,21 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     return parts.join(' ');
   }, [treeVisible, chatVisible, deskVisible, layout.left, layout.right, layout.desk]);
 
+  const tracedPaths = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of desk?.openFiles ?? []) set.add(item.path);
+    for (const tool of turn?.tools ?? []) {
+      const path = toolPathOf(tool.name, tool.args);
+      if (path) set.add(path);
+    }
+    return set;
+  }, [desk, turn]);
+
+  const patchedPaths = useMemo(
+    () => new Set(patches.filter((patch) => patch.status === 'pending').map((patch) => patch.file)),
+    [patches],
+  );
+
   const selectionLines = selection ? selection.endLine - selection.startLine + 1 : 0;
   const saveState: 'clean' | 'dirty' | 'saving' | 'no-file' = !file
     ? 'no-file'
@@ -1705,6 +1770,11 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           <div className="pane">
             <div className="pane-head">
               <span className="pane-label">文件</span>
+              {redzone.length > 0 && (
+                <span className="chip" title="这些路径 Agent 不能出补丁">
+                  禁区 {redzone.length}
+                </span>
+              )}
               <div className="topbar-spacer" />
               <button
                 className="icon-btn"
@@ -1756,6 +1826,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
                 }}
                 creating={creating}
                 createBusy={createBusy}
+                redzone={redzone}
+                traced={tracedPaths}
+                patched={patchedPaths}
+                onToggleRedzone={(path) => void toggleRedzone(path)}
               />
             </div>
           </div>
@@ -1849,6 +1923,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               onCompilePatch={(patch) => void runCompile(patch)}
               onFixFromCompile={(patch, result) => fixFromCompile(patch, result)}
               onOpenCitation={(path, line) => void openCitation(path, line)}
+              fitOf={(patchId) => fits[patchId] ?? null}
               gates={gates}
               gateBusyId={gateBusyId}
               gatePolicy={gatePolicy}

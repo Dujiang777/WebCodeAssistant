@@ -40,6 +40,8 @@ interface PatchCardProps {
   onCompile: (patch: PatchRecord) => void;
   onFixFromCompile: (patch: PatchRecord, result: BuildResult) => void;
   onOpenRef: (file: string, line: number | null) => void;
+  /** 底片还贴不贴得上。pending 时才有。 */
+  fit?: { fits: boolean; redzone: boolean; reason: string | null } | null;
 }
 
 const PREVIEW_LINE_LIMIT = 26;
@@ -90,6 +92,7 @@ export function PatchCard({
   onCompile,
   onFixFromCompile,
   onOpenRef,
+  fit = null,
 }: PatchCardProps) {
   const parsed = useMemo(() => parseUnifiedDiff(patch.diff), [patch.diff]);
   const preview = useMemo(() => buildPreview(patch.diff), [patch.diff]);
@@ -105,6 +108,7 @@ export function PatchCard({
   // 改动行为且还没确认「开关关闭时的旧路径」→ 应用按钮锁住。
   // 后端也会独立挡一次（FLAG_ACK_REQUIRED），这里只是不让用户点了才吃一个报错。
   const flagBlocksApply = patch.status === 'pending' && Boolean(flag?.required) && !flagAcked;
+  const staleBlocksApply = patch.status === 'pending' && Boolean(fit && !fit.fits);
 
   return (
     /* 批34：已应用态盖一枚「已冲印」印章（.patch-stamp），pending/已拒绝不带这个类。
@@ -155,6 +159,13 @@ export function PatchCard({
         )}
       </div>
 
+      {patch.status === 'pending' && fit && !fit.fits && (
+        <div className={`banner${fit.redzone ? ' error' : ''}`}>
+          <span className={`dot ${fit.redzone ? 'dot-err' : 'dot-warn'}`} />
+          {fit.reason || '这张补丁已经贴不上当前文件'}
+        </div>
+      )}
+
       {patch.status === 'pending' && (
         <>
           <FeatureFlagCard
@@ -193,8 +204,14 @@ export function PatchCard({
           <>
             <button
               className="btn btn-sm btn-primary"
-              disabled={busy || flagBlocksApply}
-              title={flagBlocksApply ? '请先确认特性开关关闭时的旧路径' : '应用补丁并写盘'}
+              disabled={busy || flagBlocksApply || staleBlocksApply}
+              title={
+                staleBlocksApply
+                  ? fit?.reason || '底片已经变了，这张补丁贴不上'
+                  : flagBlocksApply
+                    ? '请先确认特性开关关闭时的旧路径'
+                    : '应用补丁并写盘'
+              }
               onClick={() => onApply(patch)}
             >
               {busy ? <span className="spinner" /> : <CheckIcon size={12} />}

@@ -10,6 +10,7 @@ import {
   FolderIcon,
   FolderOpenIcon,
   PlusIcon,
+  ShieldIcon,
   TrashIcon,
   languageBadge,
 } from './icons';
@@ -43,6 +44,10 @@ interface FileTreeProps {
   onCancelCreate: () => void;
   onDelete: (node: FileNode) => void;
   onCopyPath?: (path: string) => void;
+  redzone?: string[];
+  traced?: Set<string>;
+  patched?: Set<string>;
+  onToggleRedzone?: (path: string) => void;
   creating: CreateTarget | null;
   createBusy: boolean;
 }
@@ -62,6 +67,14 @@ function filterNodes(nodes: FileNode[], query: string): FileNode[] {
     return next;
   };
   return walk(nodes);
+}
+
+export function pathInRedzone(path: string, rules: string[]): boolean {
+  const n = path.replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase();
+  return rules.some((rule) => {
+    const r = rule.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '').toLowerCase();
+    return n === r || n.startsWith(`${r}/`);
+  });
 }
 
 function dirsOf(nodes: FileNode[]): string[] {
@@ -92,6 +105,10 @@ export function FileTree({
   onCancelCreate,
   onDelete,
   onCopyPath,
+  redzone = [],
+  traced,
+  patched,
+  onToggleRedzone,
   creating,
   createBusy,
 }: FileTreeProps) {
@@ -151,6 +168,10 @@ export function FileTree({
             onRequestCreate={onRequestCreate}
             onDelete={onDelete}
             onCopyPath={onCopyPath}
+            redzone={redzone}
+            traced={traced}
+            patched={patched}
+            onToggleRedzone={onToggleRedzone}
           />
         ))
       )}
@@ -168,6 +189,10 @@ interface TreeRowProps {
   onRequestCreate: (parent: string, type: 'file' | 'dir') => void;
   onDelete: (node: FileNode) => void;
   onCopyPath?: (path: string) => void;
+  redzone: string[];
+  traced?: Set<string>;
+  patched?: Set<string>;
+  onToggleRedzone?: (path: string) => void;
 }
 
 function TreeRow({
@@ -180,10 +205,17 @@ function TreeRow({
   onRequestCreate,
   onDelete,
   onCopyPath,
+  redzone,
+  traced,
+  patched,
+  onToggleRedzone,
 }: TreeRowProps) {
   const isDir = node.type === 'dir';
   const open = isDir && expanded.has(node.path);
   const selected = !isDir && node.path === selectedPath;
+  const locked = pathInRedzone(node.path, redzone);
+  const seen = traced?.has(node.path) ?? false;
+  const hasPatch = patched?.has(node.path) ?? false;
   const badge = isDir ? null : languageBadge(node.path);
 
   const indent = 8 + depth * 13;
@@ -220,7 +252,7 @@ function TreeRow({
   return (
     <>
       <div
-        className={`tree-row${selected ? ' selected' : ''}`}
+        className={`tree-row${selected ? ' selected' : ''}${locked ? ' tree-row-redzone' : ''}${seen ? ' tree-row-traced' : ''}${hasPatch ? ' tree-row-patched' : ''}`}
         style={{ paddingLeft: indent }}
         onClick={() => (isDir ? onToggle(node.path) : onSelect(node))}
         onKeyDown={handleRowKeyDown}
@@ -260,6 +292,15 @@ function TreeRow({
 
         {isDir ? (
           <span className="tree-actions" onClick={(event) => event.stopPropagation()}>
+            {onToggleRedzone && (
+              <button
+                className={`icon-btn${locked ? ' on' : ''}`}
+                title={locked ? '解开禁区（允许 Agent 出补丁）' : '划入禁区（Agent 不能给这里出补丁）'}
+                onClick={() => onToggleRedzone(node.path)}
+              >
+                <ShieldIcon size={12} />
+              </button>
+            )}
             <button
               className="icon-btn"
               title={`在 ${node.path} 下新建文件`}
@@ -282,6 +323,15 @@ function TreeRow({
           <>
             <span className="tree-size">{formatBytes(node.size)}</span>
             <span className="tree-actions" onClick={(event) => event.stopPropagation()}>
+              {onToggleRedzone && (
+                <button
+                  className={`icon-btn${locked ? ' on' : ''}`}
+                  title={locked ? '解开禁区（允许 Agent 出补丁）' : '划入禁区（Agent 不能给这里出补丁）'}
+                  onClick={() => onToggleRedzone(node.path)}
+                >
+                  <ShieldIcon size={12} />
+                </button>
+              )}
               {onCopyPath && (
                 <button className="icon-btn" title="复制路径" onClick={() => onCopyPath(node.path)}>
                   <CopyIcon size={12} />
@@ -309,6 +359,10 @@ function TreeRow({
             onRequestCreate={onRequestCreate}
             onDelete={onDelete}
             onCopyPath={onCopyPath}
+            redzone={redzone}
+            traced={traced}
+            patched={patched}
+            onToggleRedzone={onToggleRedzone}
           />
         ))}
     </>

@@ -79,6 +79,7 @@ interface PatchDeps {
   onCompilePatch: (patch: PatchRecord) => void;
   onFixFromCompile: (patch: PatchRecord, result: BuildResult) => void;
   onOpenCitation: (file: string, line: number | null) => void;
+  fitOf?: (patchId: string) => { fits: boolean; redzone: boolean; reason: string | null } | null;
 }
 
 interface ChatPaneProps extends PatchDeps {
@@ -227,6 +228,7 @@ export function ChatPane({
   onCompilePatch,
   onFixFromCompile,
   onOpenCitation,
+  fitOf,
 }: ChatPaneProps) {
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -330,6 +332,7 @@ export function ChatPane({
     onCompilePatch,
     onFixFromCompile,
     onOpenCitation,
+    fitOf,
   };
 
   const livePatchIds = turn?.patchIds ?? [];
@@ -362,6 +365,7 @@ export function ChatPane({
       onCompile={onCompilePatch}
       onFixFromCompile={onFixFromCompile}
       onOpenRef={onOpenCitation}
+      fit={fitOf?.(patch.id) ?? null}
     />
   );
 
@@ -518,6 +522,10 @@ export function ChatPane({
                         <ToolCard key={tool.id} tool={tool} now={now} onOpenPath={onOpenCitation} />
                       ))}
                     </div>
+                  )}
+
+                  {(turn.tools.length > 0 || livePatches.length > 0) && (
+                    <TurnReel turn={turn} patches={livePatches} onOpen={onOpenCitation} />
                   )}
 
                   {!turn.text && sending && stage && (
@@ -923,6 +931,48 @@ function MessageBlock({
             </>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** 本轮胶卷：走过哪些文件、出了几张补丁。外面的助手没有这张「场记条」。 */
+function TurnReel({
+  turn,
+  patches,
+  onOpen,
+}: {
+  turn: LiveTurn;
+  patches: PatchRecord[];
+  onOpen: (file: string, line: number | null) => void;
+}) {
+  const files: string[] = [];
+  for (const tool of turn.tools) {
+    const path = toolPathOf(tool.name, tool.args);
+    if (path && !files.includes(path)) files.push(path);
+  }
+  for (const patch of patches) {
+    if (patch.file && !files.includes(patch.file)) files.push(patch.file);
+  }
+  if (files.length === 0 && patches.length === 0) return null;
+  return (
+    <div className="turn-reel">
+      <span className="turn-reel-label">本轮胶卷</span>
+      <span className="turn-reel-meta">
+        读 {turn.tools.filter((tool) => tool.name === 'read_file').length} · 补丁 {patches.length}
+      </span>
+      <div className="turn-reel-files">
+        {files.map((path) => (
+          <button
+            key={path}
+            type="button"
+            className="turn-reel-chip"
+            title={path}
+            onClick={() => onOpen(path, null)}
+          >
+            {path.split('/').pop()}
+          </button>
+        ))}
       </div>
     </div>
   );
