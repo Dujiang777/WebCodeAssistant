@@ -10033,3 +10033,147 @@ body {
 .ws-card-delete:hover {
   color: var(--rose);
 }
+
+/* 批45：编辑器标签 + Ctrl+P 快速打开 */
+.editor-tabs {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  padding: 0 6px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-2);
+}
+
+.editor-tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 180px;
+  height: 28px;
+  padding: 0 8px 0 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--fg-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.editor-tab:hover {
+  color: var(--fg-0);
+  background: color-mix(in srgb, var(--signal) 7%, transparent);
+}
+
+.editor-tab.on {
+  color: var(--fg-0);
+  border-bottom-color: var(--signal);
+}
+
+.editor-tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  color: var(--fg-3);
+}
+
+.editor-tab-close:hover {
+  color: var(--fg-0);
+  background: var(--bg-3);
+}
+
+.quick-open-backdrop {
+  align-items: flex-start;
+  padding-top: 12vh;
+}
+
+.quick-open {
+  width: min(560px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  box-shadow: var(--panel-edge), var(--shadow-lift);
+  overflow: hidden;
+}
+
+.quick-open-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--fg-2);
+}
+
+.quick-open-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-0);
+  font-size: 14px;
+  outline: none;
+}
+
+.quick-open-list {
+  max-height: min(52vh, 420px);
+  overflow: auto;
+  padding: 6px;
+}
+
+.quick-open-empty {
+  padding: 22px 12px;
+  text-align: center;
+  color: var(--fg-3);
+  font-size: 13px;
+}
+
+.quick-open-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.quick-open-row.on,
+.quick-open-row:hover {
+  background: var(--signal-dim);
+}
+
+.quick-open-name {
+  font-size: 13px;
+  color: var(--fg-0);
+}
+
+.quick-open-path {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+}
+
+.quick-open-hint {
+  padding: 6px 12px 8px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--fg-3);
+}

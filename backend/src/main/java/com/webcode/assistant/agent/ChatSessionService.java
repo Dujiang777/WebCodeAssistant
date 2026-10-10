@@ -82,6 +82,20 @@ public class ChatSessionService {
     }
 
     @Transactional
+    public ChatSession rename(long userId, long sessionId, String title) {
+        require(userId, sessionId);
+        String finalTitle = title == null ? "" : title.trim();
+        if (finalTitle.isBlank()) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "会话名称不能为空");
+        }
+        if (finalTitle.length() > DEFAULT_TITLE_MAX) {
+            finalTitle = finalTitle.substring(0, DEFAULT_TITLE_MAX);
+        }
+        sessionRepository.updateTitle(sessionId, finalTitle);
+        return require(userId, sessionId);
+    }
+
+    @Transactional
     public void delete(long userId, long sessionId) {
         require(userId, sessionId);
         sessionRepository.deleteOwned(sessionId, userId);

@@ -108,6 +108,8 @@ interface ChatPaneProps extends PatchDeps {
   onNewSession: () => void;
   /** 删除当前会话（后端已有接口，这里只是补上入口）。 */
   onDeleteSession: () => void;
+  /** 改当前会话的显示名。 */
+  onRenameSession: () => void;
   onClearSelection: () => void;
   onApplyAll: () => void;
   applyAllBusy: boolean;
@@ -188,6 +190,7 @@ export function ChatPane({
   liveSessionIds = [],
   onNewSession,
   onDeleteSession,
+  onRenameSession,
   onClearSelection,
   onApplyAll,
   applyAllBusy,
@@ -395,6 +398,14 @@ export function ChatPane({
 
         <button className="icon-btn" title="新建会话" onClick={onNewSession}>
           <PlusIcon size={13} />
+        </button>
+        <button
+          className="icon-btn"
+          title="重命名当前会话"
+          onClick={onRenameSession}
+          disabled={sessionId === null}
+        >
+          <EditIcon size={13} />
         </button>
         <button
           className="icon-btn"

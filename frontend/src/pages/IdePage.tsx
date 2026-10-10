@@ -47,7 +47,8 @@ import { TerminalModal } from '../components/TerminalModal';
 import { ToolRail } from '../components/ToolRail';
 import { TopBar } from '../components/TopBar';
 import { WhatIfPanel } from '../components/WhatIfPanel';
-import { TerminalMark, FolderIcon, PlusIcon, RefreshIcon } from '../components/icons';
+import { QuickOpen, flattenFiles } from '../components/QuickOpen';
+import { TerminalMark, FolderIcon, PlusIcon, RefreshIcon, SearchIcon } from '../components/icons';
 
 /**
  * IDE 主页面：把「文件 + 编辑器 + 对话」三块拼起来，并持有它们共享的状态。
@@ -107,6 +108,19 @@ function loadLayout(): Layout {
     };
   } catch {
     return { ...DEFAULT_LAYOUT };
+  }
+}
+
+const TABS_MAX = 8;
+
+function loadOpenTabs(workspaceId: number): string[] {
+  try {
+    const raw = localStorage.getItem(`wca.openTabs.${workspaceId}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+  } catch {
+    return [];
   }
 }
 
@@ -221,6 +235,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set<string>());
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [treeQuery, setTreeQuery] = useState('');
+  const [openTabs, setOpenTabs] = useState<string[]>(() => loadOpenTabs(workspaceId));
+  const [quickOpen, setQuickOpen] = useState(false);
   const [file, setFile] = useState<FileContent | null>(null);
   const [docText, setDocText] = useState('');
   const [savedText, setSavedText] = useState('');
@@ -578,6 +594,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   useEffect(() => {
     didAutopen.current = false;
     setTreeQuery('');
+    setOpenTabs(loadOpenTabs(workspaceId));
+    setQuickOpen(false);
   }, [workspaceId]);
 
   // ------------------------------------------------------------ 会话切换
@@ -955,6 +973,38 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
 
   // ------------------------------------------------------------ 文件操作
 
+  const persistTabs = (tabs: string[]) => {
+    try {
+      localStorage.setItem(`wca.openTabs.${workspaceId}`, JSON.stringify(tabs));
+    } catch {
+      // 隐私模式记不住标签
+    }
+  };
+
+  const rememberTab = (path: string) => {
+    setOpenTabs((current) => {
+      if (current.includes(path)) return current;
+      const next = [...current, path];
+      const clipped = next.length > TABS_MAX ? next.slice(next.length - TABS_MAX) : next;
+      persistTabs(clipped);
+      return clipped;
+    });
+    const parts = path.split('/');
+    let prefix = '';
+    const dirs: string[] = [];
+    for (let i = 0; i < parts.length - 1; i += 1) {
+      prefix = prefix ? `${prefix}/${parts[i]}` : parts[i];
+      dirs.push(prefix);
+    }
+    if (dirs.length > 0) {
+      setExpanded((current) => {
+        const next = new Set(current);
+        dirs.forEach((dir) => next.add(dir));
+        return next;
+      });
+    }
+  };
+
   const openFile = async (path: string, announce = false) => {
     if (dirtyRef.current && selectedPathRef.current && selectedPathRef.current !== path) {
       const stay = selectedPathRef.current;
@@ -977,6 +1027,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       } catch {
         // 隐私模式记不住就算了
       }
+      rememberTab(path);
     } catch (err) {
       setFile(null);
       setDocText('');
@@ -989,6 +1040,38 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       setFileLoading(false);
     }
   };
+
+  const closeTab = async (path: string) => {
+    if (selectedPathRef.current === path && dirtyRef.current) {
+      const confirmed = window.confirm(`「${path}」有未保存的修改。关闭标签会丢掉这些改动，确定继续？`);
+      if (!confirmed) return;
+      dirtyRef.current = false;
+    }
+    const remaining = openTabs.filter((item) => item !== path);
+    persistTabs(remaining);
+    setOpenTabs(remaining);
+    if (selectedPathRef.current !== path) return;
+    if (remaining.length > 0) {
+      await openFile(remaining[0]);
+      return;
+    }
+    setSelectedPath(null);
+    setFile(null);
+    setDocText('');
+    setSavedText('');
+    setFileError(null);
+    setSelection(null);
+    setCursor(null);
+  };
+
+  useEffect(() => {
+    if (treeLoading || !tree) return;
+    setOpenTabs((current) => {
+      const next = current.filter((path) => treeHasPath(tree, path));
+      if (next.length !== current.length) persistTabs(next);
+      return next;
+    });
+  }, [treeLoading, tree]);
 
   useEffect(() => {
     if (didAutopen.current || treeLoading || !tree) return;
@@ -1073,6 +1156,11 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
         event.preventDefault();
         void saveFileRef.current();
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'p') {
+        event.preventDefault();
+        setQuickOpen(true);
       }
     };
     window.addEventListener('keydown', onKey, true);
@@ -1107,6 +1195,11 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     try {
       await api.deleteEntry(workspaceId, node.path);
       toast.success(`已删除 ${node.path}`);
+      setOpenTabs((current) => {
+        const next = current.filter((path) => path !== node.path && !path.startsWith(`${node.path}/`));
+        persistTabs(next);
+        return next;
+      });
       const current = selectedPathRef.current;
       if (current && (current === node.path || current.startsWith(`${node.path}/`))) {
         setSelectedPath(null);
@@ -1409,6 +1502,25 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     }
   };
 
+  const renameSession = async () => {
+    const sid = sessionId;
+    if (sid === null) return;
+    const current = sessions.find((session) => session.id === sid);
+    const next = window.prompt('会话名称', current?.title ?? '');
+    if (next === null) return;
+    const title = next.trim();
+    if (!title) {
+      toast.info('名称不能为空');
+      return;
+    }
+    try {
+      const updated = await api.renameSession(sid, title);
+      setSessions((list) => list.map((session) => (session.id === sid ? updated : session)));
+    } catch (err) {
+      toast.error(messageOf(err));
+    }
+  };
+
   const deleteSession = async () => {
     const sid = sessionId;
     if (sid === null) return;
@@ -1608,6 +1720,9 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               >
                 <FolderIcon size={13} />
               </button>
+              <button className="icon-btn" title="快速打开文件（Ctrl/⌘ + P）" onClick={() => setQuickOpen(true)}>
+                <SearchIcon size={13} />
+              </button>
               <button className="icon-btn" title="刷新文件树" onClick={() => void refreshTree()}>
                 <RefreshIcon size={13} />
               </button>
@@ -1633,6 +1748,12 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
                 onConfirmCreate={(path) => void createEntry(path)}
                 onCancelCreate={() => setCreating(null)}
                 onDelete={(node) => void deleteEntry(node)}
+                onCopyPath={(path) => {
+                  void navigator.clipboard?.writeText(path).then(
+                    () => toast.success(`已复制 ${path}`),
+                    () => toast.error('复制失败'),
+                  );
+                }}
                 creating={creating}
                 createBusy={createBusy}
               />
@@ -1669,6 +1790,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           onCloseNavigate={() => setNavResult(null)}
           onOpenLocation={(path, line) => void openCitation(path, line)}
           onDiagnosticsChange={setDiagnostics}
+          tabs={openTabs}
+          onSelectTab={(path) => void openFile(path)}
+          onCloseTab={(path) => void closeTab(path)}
+          onQuickOpen={() => setQuickOpen(true)}
         />
 
         {chatVisible && (
@@ -1708,6 +1833,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               ]}
               onNewSession={() => void createSession()}
               onDeleteSession={() => void deleteSession()}
+              onRenameSession={() => void renameSession()}
               onClearSelection={() => setSelection(null)}
               onApplyAll={() => void applyAll()}
               applyAllBusy={applyAllBusy}
@@ -1860,6 +1986,14 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
             setWhatIfOpen(false);
             void openCitation(path, line);
           }}
+        />
+      )}
+
+      {quickOpen && (
+        <QuickOpen
+          files={flattenFiles(tree?.children ?? [])}
+          onPick={(path) => void openFile(path)}
+          onClose={() => setQuickOpen(false)}
         />
       )}
 

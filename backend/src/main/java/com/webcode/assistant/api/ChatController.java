@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -153,6 +154,13 @@ public class ChatController {
                                                   @RequestBody(required = false) ApiModels.FlagAckRequest request) {
         boolean acknowledged = request != null && request.acknowledgeFlag();
         return patchService.applyAll(currentUser.requireId(), sid, acknowledged);
+    }
+
+    @PutMapping("/{sid}")
+    public ApiModels.SessionView rename(@PathVariable long sid,
+                                        @Valid @RequestBody ApiModels.RenameSessionRequest request) {
+        ChatSession session = sessionService.rename(currentUser.requireId(), sid, request.title());
+        return toView(session);
     }
 
     @DeleteMapping("/{sid}")
