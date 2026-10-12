@@ -146,27 +146,103 @@ body:has(.gate)::after {
   gap: 8px;
 }
 
-.gate-switch {
-  display: flex;
-  border: 1px solid var(--gate-line);
-  border-radius: 999px;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--gate-paper) 70%, transparent);
+.gate-lang {
+  position: relative;
 }
 
-.gate-switch button {
+.gate-lang-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   border: 0;
   background: none;
-  color: var(--gate-mute);
-  padding: 5px 10px;
-  font-size: 12px;
-  letter-spacing: 0.04em;
+  color: var(--gate-ink);
+  padding: 4px 6px;
+  border-radius: 8px;
   cursor: pointer;
 }
 
-.gate-switch button.on {
-  background: var(--gate-dark);
-  color: #f3efe6;
+.gate-lang-btn:hover,
+.gate-lang-btn.on {
+  background: color-mix(in srgb, var(--gate-line) 45%, transparent);
+}
+
+.gate-lang-mark {
+  display: block;
+}
+
+.gate-lang-caret {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  opacity: 0.7;
+}
+
+.gate-lang-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 132px;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--gate-paper);
+  border: 1px solid var(--gate-line);
+  box-shadow: 0 16px 36px -20px #1a140c;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gate-lang-menu button {
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--gate-ink);
+  font-size: 13px;
+}
+
+.gate-lang-menu button:hover,
+.gate-lang-menu button.on {
+  background: color-mix(in srgb, var(--gate-brass) 18%, var(--gate-paper));
+}
+
+.gate-nav-rule {
+  width: 1px;
+  height: 18px;
+  background: var(--gate-line);
+  margin: 0 4px;
+}
+
+.gate-theme {
+  position: relative;
+  width: 52px;
+  height: 28px;
+  border: 0;
+  padding: 0;
+  border-radius: 999px;
+  background: #e6e1d6;
+  cursor: pointer;
+}
+
+.gate-theme-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 99px;
+  background: #fff;
+  color: #5c5648;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 1px 4px rgba(26, 20, 12, 0.18);
+  transition: transform 0.22s ease, background 0.22s ease, color 0.22s ease;
 }
 
 .gate-who {
@@ -1095,9 +1171,20 @@ body:has(.gate[data-theme="night"])::after {
   background: color-mix(in srgb, #0c0b09 78%, transparent);
 }
 
-.gate[data-theme="night"] .gate-switch button.on {
-  background: #f3efe6;
-  color: #1a140c;
+.gate[data-theme="night"] .gate-lang-menu {
+  background: #16130e;
+  border-color: #3a352c;
+  box-shadow: 0 16px 36px -16px #000;
+}
+
+.gate[data-theme="night"] .gate-theme {
+  background: #2a261e;
+}
+
+.gate[data-theme="night"] .gate-theme-knob {
+  transform: translateX(24px);
+  background: #0c0b09;
+  color: #f3efe6;
 }
 
 .gate[data-theme="night"] .gate-ghost:hover,

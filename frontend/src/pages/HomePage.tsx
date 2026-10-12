@@ -291,9 +291,11 @@ export function HomePage({ user, onLogout }: HomePageProps) {
   const [copied, setCopied] = useState<'gitee' | 'github' | null>(null);
   const [lang, setLang] = useState<Lang>(readLang);
   const [theme, setTheme] = useState<Theme>(readTheme);
+  const [langOpen, setLangOpen] = useState(false);
   const holdRef = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const orbitRef = useRef<HTMLDivElement>(null);
+  const langRef = useRef<HTMLDivElement>(null);
   const desk = lastIdePath();
   const enter = user ? '/workspaces' : '/login';
   const t = I18N[lang];
@@ -358,6 +360,15 @@ export function HomePage({ user, onLogout }: HomePageProps) {
       /* ignore quota */
     }
   }, [theme]);
+
+  useEffect(() => {
+    if (!langOpen) return;
+    const close = (event: Event) => {
+      if (!langRef.current?.contains(event.target as Node)) setLangOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [langOpen]);
 
   const copy = async (which: 'gitee' | 'github') => {
     const ok = await copyText(which === 'gitee' ? GITEE : GITHUB);
@@ -448,22 +459,57 @@ export function HomePage({ user, onLogout }: HomePageProps) {
           ))}
         </nav>
         <div className="gate-nav-actions">
-          <div className="gate-switch" role="group" aria-label="Language">
-            <button type="button" className={lang === 'zh' ? 'on' : ''} onClick={() => setLang('zh')}>
-              中
+          <div className="gate-lang" ref={langRef}>
+            <button
+              type="button"
+              className={`gate-lang-btn${langOpen ? ' on' : ''}`}
+              aria-expanded={langOpen}
+              aria-haspopup="listbox"
+              aria-label={lang === 'en' ? 'Language' : '语言'}
+              onClick={() => setLangOpen((open) => !open)}
+            >
+              <LangMark />
+              <i className="gate-lang-caret" />
             </button>
-            <button type="button" className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>
-              EN
-            </button>
+            {langOpen && (
+              <div className="gate-lang-menu" role="listbox">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={lang === 'zh'}
+                  className={lang === 'zh' ? 'on' : ''}
+                  onClick={() => {
+                    setLang('zh');
+                    setLangOpen(false);
+                  }}
+                >
+                  中文
+                </button>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={lang === 'en'}
+                  className={lang === 'en' ? 'on' : ''}
+                  onClick={() => {
+                    setLang('en');
+                    setLangOpen(false);
+                  }}
+                >
+                  English
+                </button>
+              </div>
+            )}
           </div>
-          <div className="gate-switch" role="group" aria-label="Theme">
-            <button type="button" className={theme === 'day' ? 'on' : ''} onClick={() => setTheme('day')}>
-              {t.day}
-            </button>
-            <button type="button" className={theme === 'night' ? 'on' : ''} onClick={() => setTheme('night')}>
-              {t.night}
-            </button>
-          </div>
+          <span className="gate-nav-rule" aria-hidden="true" />
+          <button
+            type="button"
+            className="gate-theme"
+            aria-pressed={theme === 'night'}
+            aria-label={theme === 'night' ? t.day : t.night}
+            onClick={() => setTheme(theme === 'day' ? 'night' : 'day')}
+          >
+            <span className="gate-theme-knob">{theme === 'day' ? <SunMark /> : <MoonMark />}</span>
+          </button>
           {user ? (
             <>
               <span className="gate-who">{user.username}</span>
@@ -795,6 +841,46 @@ export function HomePage({ user, onLogout }: HomePageProps) {
 
 function scrollTo(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function LangMark() {
+  return (
+    <svg className="gate-lang-mark" width="22" height="18" viewBox="0 0 22 18" aria-hidden="true">
+      <text x="0" y="14" fontSize="13" fontWeight="700" fill="currentColor">
+        文
+      </text>
+      <text x="12" y="15" fontSize="12" fontWeight="700" fill="currentColor">
+        A
+      </text>
+    </svg>
+  );
+}
+
+function SunMark() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="2.4" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M8 1.6v1.6M8 12.8v1.6M1.6 8h1.6M12.8 8h1.6M3.3 3.3l1.1 1.1M11.6 11.6l1.1 1.1M12.7 3.3l-1.1 1.1M4.4 11.6l-1.1 1.1"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function MoonMark() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M10.2 2.2A5.6 5.6 0 105.2 13a4.6 4.6 0 105-10.8z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 }
 
 /** 同一站点的 hash 路由，新标签打开，首页自己留着。 */
