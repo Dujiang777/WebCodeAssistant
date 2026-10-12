@@ -107,6 +107,15 @@ export function AvatarMenu({ direction, onLogout }: {
             </div>
           </div>
 
+          <div className="avatar-group-label">产品</div>
+          <button className="avatar-item" onClick={() => go('/home')}>
+            <TerminalMark size={13} />
+            <span className="avatar-item-text">
+              <b>产品首页</b>
+              <i>能力、流程、入口一页看完</i>
+            </span>
+          </button>
+
           <div className="avatar-group-label">AI 与模型</div>
           <button className="avatar-item" onClick={() => go('/models')}>
             <KeyIcon size={13} />

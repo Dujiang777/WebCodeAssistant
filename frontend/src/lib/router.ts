@@ -13,6 +13,8 @@
 import { useEffect, useState } from 'react';
 
 export type Route =
+  | { name: 'home' }
+  | { name: 'root' }
   | { name: 'login' }
   | { name: 'workspaces' }
   | { name: 'credits' }
@@ -34,7 +36,8 @@ export function parseRoute(hash: string): Route {
   const segments = pathPart.split('/').filter(Boolean);
   const query = queryOf(clean);
 
-  if (segments.length === 0) return { name: 'workspaces' };
+  if (segments.length === 0) return { name: 'root' };
+  if (segments[0] === 'home') return { name: 'home' };
   if (segments[0] === 'login') return { name: 'login' };
   if (segments[0] === 'workspaces') return { name: 'workspaces' };
   if (segments[0] === 'credits') return { name: 'credits' };
@@ -62,6 +65,10 @@ export function navigate(path: string): void {
 /** 把 Route 还原成 hash 路径（previousPath 跟踪与测试都要用）。 */
 export function pathOf(route: Route): string {
   switch (route.name) {
+    case 'home':
+      return '/home';
+    case 'root':
+      return '/';
     case 'login':
       return '/login';
     case 'workspaces':

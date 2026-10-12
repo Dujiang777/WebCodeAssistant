@@ -5,6 +5,7 @@ import { adoptAuth, api } from '../lib/api';
 import { HttpError } from '../lib/api';
 import type { AuthResult, AuthUser, CaptchaChallenge, Dispatch } from '../lib/api';
 import { messageOf } from '../lib/chat';
+import { navigate } from '../lib/router';
 import { RefreshIcon, TerminalMark } from '../components/icons';
 import { TypingTerminal } from '../components/TypingTerminal';
 
@@ -283,7 +284,14 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
           </div>
 
           <p className="card-desc">
-            {mode === 'login' && '用用户名或邮箱登录。连续输错 5 次会锁定账号 15 分钟。'}
+            {mode === 'login' && (
+              <>
+                用用户名或邮箱登录。连续输错 5 次会锁定账号 15 分钟。
+                <button type="button" className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => navigate('/home')}>
+                  先看看产品首页
+                </button>
+              </>
+            )}
             {mode === 'register' &&
               '用户名 3–64 位（字母、数字、下划线、点、短横线）；密码 8–128 位且需同时含字母与数字。'}
             {mode === 'forgot' && '填注册时用的邮箱，我们会发一封重置邮件。出于安全考虑，无论该邮箱是否已注册都会显示发送成功。'}

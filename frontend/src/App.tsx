@@ -11,10 +11,11 @@ import { CreditsPage } from './pages/CreditsPage';
 import { IdePage } from './pages/IdePage';
 import { LoginPage } from './pages/LoginPage';
 import { ModelsPage } from './pages/ModelsPage';
+import { HomePage } from './pages/HomePage';
 import { WorkspaceListPage } from './pages/WorkspaceListPage';
 
-/** 不需要登录态就能打开的页面（邮件链接落点、登录页）。 */
-const ANONYMOUS_ROUTES = new Set(['login', 'verify-email', 'reset-password']);
+/** 不需要登录态就能打开的页面（产品首页、邮件链接落点、登录页）。 */
+const ANONYMOUS_ROUTES = new Set(['home', 'root', 'login', 'verify-email', 'reset-password']);
 
 // 模块加载即落主题：在任何组件渲染之前把 <html data-theme> 写好，
 // 避免浅色主题用户首屏闪一帧深色。initTheme 幂等，重复调用无害。
@@ -80,6 +81,10 @@ export function App() {
     clearSession();
     navigate('/login');
   };
+
+  if (route.name === 'home' || (route.name === 'root' && !user)) {
+    return <HomePage user={user} onLogout={handleLogout} />;
+  }
 
   // 邮件链接落点：这两个页面在未登录状态下也要能打开
   if (route.name === 'verify-email') {
