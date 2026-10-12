@@ -6824,6 +6824,74 @@ button.risk-chip:hover {
 
 /* ------------------------------------------------------------ 顶栏模型选择器 */
 
+.pending-inbox {
+  position: relative;
+}
+
+.pending-inbox-menu {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  min-width: 280px;
+  max-width: min(380px, calc(100vw - 24px));
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  z-index: 120;
+}
+
+.pending-inbox-head {
+  padding: 6px 10px 8px;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--fg-2);
+  border-bottom: 1px solid var(--line-soft);
+  margin-bottom: 5px;
+}
+
+.pending-inbox-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-s);
+  text-align: left;
+  color: var(--fg-0);
+}
+
+.pending-inbox-item:hover { background: var(--bg-4); }
+
+.pending-inbox-item.on {
+  background: var(--violet-dim);
+}
+
+.pending-inbox-file {
+  font-size: 12.5px;
+  font-weight: 550;
+}
+
+.pending-inbox-meta {
+  font-size: 10.5px;
+  color: var(--fg-2);
+}
+
+.pending-inbox-sum {
+  font-size: 11.5px;
+  color: var(--fg-1);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .md-picker {
   position: relative;
 }

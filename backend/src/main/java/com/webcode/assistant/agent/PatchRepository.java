@@ -78,6 +78,33 @@ public class PatchRepository {
      * 那里的 {@code order by id} 本来就是「随机顺序」；换成 char(36) 之后字符串序
      * 同样没有时间含义。既然要排，就按时间排。
      */
+    /**
+     * 这个工作区、这个用户名下所有还没处理的补丁，新的在前。
+     * 不带 diff 正文：收件箱只用来跳回那张卡。
+     */
+    public List<PendingInboxItem> findPendingInbox(long workspaceId, long userId) {
+        return jdbc.sql("""
+                        select p.id, p.session_id, s.title as session_title,
+                               p.file_path, p.summary, p.created_at
+                          from patches p
+                          join chat_sessions s on s.id = p.session_id
+                         where s.workspace_id = :workspaceId
+                           and s.user_id = :userId
+                           and p.status = 'pending'
+                         order by p.created_at desc, p.id desc
+                        """)
+                .param("workspaceId", workspaceId)
+                .param("userId", userId)
+                .query((rs, rowNum) -> new PendingInboxItem(
+                        Uuids.fromRaw(rs.getString("id")),
+                        rs.getLong("session_id"),
+                        rs.getString("session_title"),
+                        rs.getString("file_path"),
+                        rs.getString("summary"),
+                        rs.getTimestamp("created_at").toInstant()))
+                .list();
+    }
+
     public List<Patch> findBySession(long sessionId) {
         return jdbc.sql("select " + COLUMNS
                         + " from patches where session_id = :sessionId order by created_at asc, id asc")

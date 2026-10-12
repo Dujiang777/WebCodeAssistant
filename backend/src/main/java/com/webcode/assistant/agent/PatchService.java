@@ -426,6 +426,11 @@ public class PatchService {
         return patchRepository.findBySession(sessionId);
     }
 
+    /** 工作区收件箱：跨会话的待确认补丁。调用方先校验工作区归属。 */
+    public List<PendingInboxItem> listPendingInbox(long userId, long workspaceId) {
+        return patchRepository.findPendingInbox(workspaceId, userId);
+    }
+
     public void attachMessage(UUID patchId, long messageId) {
         patchRepository.attachMessage(patchId, messageId);
     }

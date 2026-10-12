@@ -1,6 +1,7 @@
 package com.webcode.assistant.api;
 
 import com.webcode.assistant.agent.AgentRequest;
+import com.webcode.assistant.agent.PendingInboxItem;
 import com.webcode.assistant.workspace.Workspace;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -258,6 +259,21 @@ public final class ApiModels {
 
     public record PatchView(String id, long sessionId, Long messageId, String file, String diff,
                             String summary, String status, String createdAt, String appliedAt) {
+    }
+
+    /** 工作区待确认收件箱一行。不带 diff，点开再跳回那张卡。 */
+    public record PendingInboxView(String id, long sessionId, String sessionTitle, String file,
+                                   String summary, String createdAt) {
+        public static PendingInboxView of(PendingInboxItem item) {
+            String title = item.sessionTitle();
+            return new PendingInboxView(
+                    item.id().toString(),
+                    item.sessionId(),
+                    title == null || title.isBlank() ? "未命名会话" : title,
+                    item.filePath(),
+                    item.summary(),
+                    item.createdAt() == null ? null : item.createdAt().toString());
+        }
     }
 
     // ------------------------------------------------- 补丁风险条（Blast radius）

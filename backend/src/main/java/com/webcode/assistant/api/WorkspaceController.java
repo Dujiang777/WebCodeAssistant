@@ -7,6 +7,7 @@ import com.webcode.assistant.common.ErrorCode;
 import com.webcode.assistant.constitution.ConstitutionService;
 import com.webcode.assistant.map.SpringMapService;
 import com.webcode.assistant.agent.ChatSessionService;
+import com.webcode.assistant.agent.PatchService;
 import com.webcode.assistant.security.CurrentUser;
 import com.webcode.assistant.workspace.CompletionService;
 import com.webcode.assistant.workspace.LintService;
@@ -56,6 +57,7 @@ public class WorkspaceController {
     private final CompletionService completionService;
     private final ChatSessionService sessionService;
     private final RedzoneService redzoneService;
+    private final PatchService patchService;
 
     public WorkspaceController(WorkspaceService workspaceService,
                                WorkspaceFileService fileService,
@@ -67,7 +69,8 @@ public class WorkspaceController {
                                LintService lintService,
                                CompletionService completionService,
                                ChatSessionService sessionService,
-                               RedzoneService redzoneService) {
+                               RedzoneService redzoneService,
+                               PatchService patchService) {
         this.workspaceService = workspaceService;
         this.fileService = fileService;
         this.constitutionService = constitutionService;
@@ -78,6 +81,7 @@ public class WorkspaceController {
         this.lintService = lintService;
         this.completionService = completionService;
         this.sessionService = sessionService;
+        this.patchService = patchService;
         this.redzoneService = redzoneService;
     }
 
@@ -122,6 +126,15 @@ public class WorkspaceController {
     @GetMapping("/{id}")
     public ApiModels.WorkspaceView detail(@PathVariable long id) {
         return ApiModels.WorkspaceView.of(workspaceService.require(currentUser.requireId(), id));
+    }
+
+    /** 这个工作区所有会话里还没处理的补丁，点开再跳回那张卡。 */
+    @GetMapping("/{id}/pending-patches")
+    public List<ApiModels.PendingInboxView> pendingPatches(@PathVariable long id) {
+        requireWorkspace(id);
+        return patchService.listPendingInbox(currentUser.requireId(), id).stream()
+                .map(ApiModels.PendingInboxView::of)
+                .toList();
     }
 
     @DeleteMapping("/{id}")

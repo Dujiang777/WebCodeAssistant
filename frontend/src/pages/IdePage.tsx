@@ -20,6 +20,7 @@ import type {
   ModelCatalog,
   NavigateView,
   PatchRecord,
+  PendingInboxItem,
   PendingGate,
   SnapshotView,
   TestRunResult,
@@ -267,6 +268,15 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [patches, setPatches] = useState<PatchRecord[]>([]);
+  const [inbox, setInbox] = useState<PendingInboxItem[]>([]);
+  const pendingRevealId = useRef<string | null>(null);
+  const refreshInbox = useCallback(async () => {
+    try {
+      setInbox(await api.listPendingInbox(workspaceId));
+    } catch {
+      // 收件箱失败不挡主路径
+    }
+  }, [workspaceId]);
   const [chatLoading, setChatLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
@@ -761,6 +771,18 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
+  useEffect(() => {
+    void refreshInbox();
+  }, [refreshInbox]);
+
+  useEffect(() => {
+    const id = pendingRevealId.current;
+    if (!id || chatLoading) return;
+    if (!patches.some((item) => item.id === id)) return;
+    pendingRevealId.current = null;
+    revealPatchById(id);
+  }, [chatLoading, patches]);
+
   // ------------------------------------------------------------ 事件处理
 
   const finishTurn = (assistantMessageId: number) => {
@@ -885,6 +907,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           patchIds: base.patchIds.includes(id) ? base.patchIds : [...base.patchIds, id],
         };
         setTurn(turnRef.current);
+        void refreshInbox();
         return;
       }
 
@@ -1491,6 +1514,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         return next;
       });
       toast.success(`补丁已应用：${applied.file}`);
+      void refreshInbox();
 
       if (selectedPathRef.current === applied.file) {
         if (dirtyRef.current) {
@@ -1590,6 +1614,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       const rejected = await api.rejectPatch(patch.id);
       setPatches((list) => list.map((item) => (item.id === rejected.id ? rejected : item)));
       toast.info(`已丢弃补丁：${rejected.file}`);
+      void refreshInbox();
     } catch (err) {
       toast.error(messageOf(err));
     } finally {
@@ -1613,6 +1638,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       const result = await api.applyAllPatches(sid, allFlaggedAcked);
       const applied = await api.listPatches(sid);
       setPatches(applied);
+      void refreshInbox();
       await refreshTree();
       void refreshFilm();
       void refreshGit();
@@ -1664,6 +1690,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       }
       const applied = await api.listPatches(sid);
       setPatches(applied);
+      void refreshInbox();
       await refreshTree();
       void refreshFilm();
       void refreshGit();
@@ -1741,6 +1768,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         pending.map((patch) => patch.id),
       );
       setPatches(await api.listPatches(sid));
+      void refreshInbox();
       toast.info(`已丢掉这一组 ${pending.length} 张卡`);
     } catch (err) {
       toast.error(messageOf(err));
@@ -1822,16 +1850,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     setComposerSeed({ token: composerSeedToken.current, text });
   };
 
-  const revealPatch = (path?: string) => {
+  const revealPatchById = (id: string) => {
     setChatVisible(true);
-    const patch = path
-      ? patches.find((item) => item.file === path && item.status === 'pending')
-        ?? patches.find((item) => item.file === path)
-      : patches.find((item) => item.status === 'pending');
     window.setTimeout(() => {
-      const el = patch
-        ? document.querySelector(`[data-patch-id="${patch.id}"]`)
-        : document.querySelector('.patch-card');
+      const el = document.querySelector(`[data-patch-id="${id}"]`);
       if (!(el instanceof HTMLElement)) return;
       const scroller = el.closest('.chat-scroll');
       if (scroller instanceof HTMLElement) {
@@ -1842,7 +1864,28 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       }
       el.classList.add('patch-card-flash');
       window.setTimeout(() => el.classList.remove('patch-card-flash'), 1600);
-    }, 40);
+    }, 80);
+  };
+
+  const revealPatch = (path?: string) => {
+    const patch = path
+      ? patches.find((item) => item.file === path && item.status === 'pending')
+        ?? patches.find((item) => item.file === path)
+      : patches.find((item) => item.status === 'pending');
+    if (patch) {
+      revealPatchById(patch.id);
+      return;
+    }
+    setChatVisible(true);
+  };
+
+  const openInboxItem = (item: PendingInboxItem) => {
+    if (item.sessionId !== sessionId) {
+      pendingRevealId.current = item.id;
+      setSessionId(item.sessionId);
+      return;
+    }
+    revealPatchById(item.id);
   };
 
   const askTreeFile = (path: string, kind: 'explain' | 'edit') => {
@@ -2147,8 +2190,9 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         username={username}
         onBack={() => navigate('/workspaces')}
         onLogout={onLogout}
-        pendingPatches={patches.filter((patch) => patch.status === 'pending').length}
-        onOpenPending={() => revealPatch()}
+        pendingInbox={inbox}
+        currentSessionId={sessionId}
+        onOpenInboxItem={openInboxItem}
         credits={credits?.balance ?? null}
         creditLow={credits?.lowBalance ?? false}
         onOpenCredits={() => navigate('/credits')}

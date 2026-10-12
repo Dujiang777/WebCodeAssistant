@@ -425,6 +425,16 @@ export interface PatchRecord {
   appliedAt: string | null;
 }
 
+/** 工作区待确认收件箱一行。不带 diff。 */
+export interface PendingInboxItem {
+  id: string;
+  sessionId: number;
+  sessionTitle: string;
+  file: string;
+  summary: string | null;
+  createdAt: string;
+}
+
 export interface HealthInfo {
   status: string;
   modelConfigured: boolean;
@@ -917,6 +927,9 @@ export const api = {
   listMessages: (sessionId: number) => request<ChatMessage[]>(`/api/chat/sessions/${sessionId}/messages`),
 
   listPatches: (sessionId: number) => request<PatchRecord[]>(`/api/chat/sessions/${sessionId}/patches`),
+
+  listPendingInbox: (workspaceId: number) =>
+    request<PendingInboxItem[]>(`/api/workspaces/${workspaceId}/pending-patches`),
 
   sendMessage: (
     sessionId: number,

@@ -1,7 +1,8 @@
 import { TerminalMark, ChevronIcon } from './icons';
 import { AvatarMenu } from './AvatarMenu';
 import { ModelPicker } from './ModelPicker';
-import type { HealthInfo, ModelOption } from '../lib/api';
+import { PendingInbox } from './PendingInbox';
+import type { HealthInfo, ModelOption, PendingInboxItem } from '../lib/api';
 
 /**
  * 顶栏。左侧是品牌与面包屑，右侧是「模型连接状态 + 积分 + 当前用户」。
@@ -27,9 +28,10 @@ interface TopBarProps {
   username: string;
   onBack: () => void;
   onLogout: () => void;
-  pendingPatches: number;
-  /** 点顶栏「待确认」跳到对话里第一张待确认卡。 */
-  onOpenPending?: () => void;
+  pendingInbox: PendingInboxItem[];
+  currentSessionId: number | null;
+  /** 点收件箱一行：必要时换会话，再跳到那张卡。 */
+  onOpenInboxItem?: (item: PendingInboxItem) => void;
   /** 剩余积分；null 表示还没拉到（这时不显示徽标，而不是显示 0）。 */
   credits: number | null;
   creditLow: boolean;
@@ -55,8 +57,9 @@ export function TopBar({
   username,
   onBack,
   onLogout,
-  pendingPatches,
-  onOpenPending,
+  pendingInbox,
+  currentSessionId,
+  onOpenInboxItem,
   credits,
   creditLow,
   onOpenCredits,
@@ -109,15 +112,12 @@ export function TopBar({
 
       <div className="topbar-spacer" />
 
-      {pendingPatches > 0 && (
-        <button
-          className="chip chip-btn"
-          style={{ color: 'var(--violet)', borderColor: 'var(--violet-dim)' }}
-          onClick={onOpenPending}
-          title="跳到对话里第一张待确认补丁"
-        >
-          待确认补丁 {pendingPatches}
-        </button>
+      {onOpenInboxItem && (
+        <PendingInbox
+          items={pendingInbox}
+          currentSessionId={currentSessionId}
+          onOpen={onOpenInboxItem}
+        />
       )}
 
       {models === null ? (
