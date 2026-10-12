@@ -20,6 +20,9 @@ type Theme = 'day' | 'night';
 
 const GITEE = 'https://gitee.com/du-jiangjiang/web-code-assistant.git';
 const GITHUB = 'https://github.com/Dujiang777/WebCodeAssistant.git';
+const GITEE_PAGE = 'https://gitee.com/du-jiangjiang/web-code-assistant';
+const GITHUB_PAGE = 'https://github.com/Dujiang777/WebCodeAssistant';
+const CREATOR = 'Dujiang777';
 const LANG_KEY = 'wca.gateLang';
 const THEME_KEY = 'wca.gateTheme';
 
@@ -121,6 +124,11 @@ const I18N = {
     models: '模型',
     day: '日',
     night: '夜',
+    madeKicker: '创作者',
+    creatorRole: '独立开发 · Web Code Assistant',
+    giteeLabel: 'Gitee 仓库',
+    githubLabel: 'GitHub 仓库',
+    cloneLabel: '克隆地址',
   },
   en: {
     brandSub: 'In-browser coding assistant',
@@ -219,6 +227,11 @@ disk: rewritten only on Apply`,
     models: 'Models',
     day: 'Day',
     night: 'Night',
+    madeKicker: 'Creator',
+    creatorRole: 'Independent · Web Code Assistant',
+    giteeLabel: 'Gitee repo',
+    githubLabel: 'GitHub repo',
+    cloneLabel: 'Clone URL',
   },
 } as const;
 
@@ -235,7 +248,7 @@ const FLOW = [
     no: '02',
     screen: 'card',
     zh: { title: '它出补丁卡', body: '模型只能 propose_patch。卡片上是 diff、影响面、宪章，磁盘还没动。' },
-    en: { title: 'It proposes a card', body: 'The model can only propose_patch. Diff, impact, constitution — disk is still still.' },
+    en: { title: 'It proposes a card', body: 'The model can only propose_patch. Diff, impact, constitution — disk has not moved.' },
   },
   {
     id: 2,
@@ -292,6 +305,7 @@ export function HomePage({ user, onLogout }: HomePageProps) {
   const [lang, setLang] = useState<Lang>(readLang);
   const [theme, setTheme] = useState<Theme>(readTheme);
   const [langOpen, setLangOpen] = useState(false);
+  const [now, setNow] = useState(() => new Date());
   const holdRef = useRef(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const orbitRef = useRef<HTMLDivElement>(null);
@@ -300,6 +314,13 @@ export function HomePage({ user, onLogout }: HomePageProps) {
   const enter = user ? '/workspaces' : '/login';
   const t = I18N[lang];
   const tape = useMemo(() => [...t.tape, ...t.tape], [t]);
+  const creditTape = useMemo(() => {
+    const items =
+      lang === 'en'
+        ? [CREATOR, 'Gitee', 'GitHub', 'HITL', 'propose_patch']
+        : [CREATOR, 'Gitee 仓库', 'GitHub 仓库', '人在环上', 'propose_patch'];
+    return [...items, ...items];
+  }, [lang]);
 
   useEffect(() => {
     const nodes = ['hero', 'how', 'flow', 'doors', 'next']
@@ -362,6 +383,11 @@ export function HomePage({ user, onLogout }: HomePageProps) {
   }, [theme]);
 
   useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 20000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
     if (!langOpen) return;
     const close = (event: Event) => {
       if (!langRef.current?.contains(event.target as Node)) setLangOpen(false);
@@ -412,13 +438,10 @@ export function HomePage({ user, onLogout }: HomePageProps) {
     orbit.style.setProperty('--ry', `${(x * 10).toFixed(2)}deg`);
   };
 
-  const clock = useMemo(() => {
-    const now = new Date();
-    return now.toLocaleTimeString(lang === 'en' ? 'en-GB' : 'zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  }, [lang]);
+  const clock = now.toLocaleTimeString(lang === 'en' ? 'en-GB' : 'zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   const nav = [
     { id: 'how', label: t.navHow },
@@ -436,6 +459,11 @@ export function HomePage({ user, onLogout }: HomePageProps) {
       onPointerMove={onSpot}
     >
       <div className="gate-spot" aria-hidden="true" />
+      <div className="gate-orbs" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </div>
       <header className="gate-nav">
         <button type="button" className="gate-brand" onClick={() => scrollTo('hero')}>
           <span className="gate-mark">
@@ -564,6 +592,10 @@ export function HomePage({ user, onLogout }: HomePageProps) {
           onMouseEnter={pauseLoop}
           onMouseLeave={resumeLoop}
         >
+          <span className="gate-live-pill">
+            <i />
+            {FLOW[play][lang].title}
+          </span>
           <div className={`gate-desk is-beat-${play}`}>
             <div className="gate-desk-bar">
               <i />
@@ -813,6 +845,38 @@ export function HomePage({ user, onLogout }: HomePageProps) {
             </a>
           </div>
         </div>
+      </section>
+
+      <div className="gate-tape gate-tape-end" aria-hidden="true">
+        <div className="gate-tape-track">
+          {creditTape.map((item, index) => (
+            <span key={`${item}-${index}`}>{item}</span>
+          ))}
+        </div>
+      </div>
+
+      <section className="gate-colophon" id="made">
+        <p className="gate-kicker">{t.madeKicker}</p>
+        <h2 className="gate-creator">{CREATOR}</h2>
+        <p className="gate-creator-role">{t.creatorRole}</p>
+        <ul className="gate-repos">
+          <li>
+            <span>{t.giteeLabel}</span>
+            <a href={GITEE_PAGE} target="_blank" rel="noopener noreferrer">
+              gitee.com/du-jiangjiang/web-code-assistant
+            </a>
+          </li>
+          <li>
+            <span>{t.githubLabel}</span>
+            <a href={GITHUB_PAGE} target="_blank" rel="noopener noreferrer">
+              github.com/Dujiang777/WebCodeAssistant
+            </a>
+          </li>
+          <li>
+            <span>{t.cloneLabel}</span>
+            <code>{GITEE}</code>
+          </li>
+        </ul>
       </section>
 
       <footer className="gate-foot">
