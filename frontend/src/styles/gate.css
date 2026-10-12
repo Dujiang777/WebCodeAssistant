@@ -1472,8 +1472,8 @@ body:has(.gate)::after {
 }
 
 @keyframes gate-stage-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: none; }
+  from { transform: translateY(8px); }
+  to { transform: none; }
 }
 
 @keyframes gate-pulse {
