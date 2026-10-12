@@ -1318,8 +1318,8 @@ body:has(.gate)::after {
 }
 
 @keyframes gate-rise {
-  from { opacity: 0; transform: translateY(18px); }
-  to { opacity: 1; transform: none; }
+  from { transform: translateY(14px); }
+  to { transform: none; }
 }
 
 @keyframes gate-scan {
