@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { AuthUser } from '../lib/api';
 import { copyText } from '../lib/clipboard';
@@ -7,8 +7,8 @@ import { TerminalMark } from '../components/icons';
 import '../styles/gate.css';
 
 /**
- * 产品入口长页。浅底、分节、锚点导航；进产品的门都开新标签，这一页自己留着。
- * 视觉参考 Ink 那种纸面 + 装置，但不改应用里的 Darkroom Brass。
+ * 产品入口长页。进产品的门都开新标签，这一页自己留着。
+ * 配色跟 Darkroom Brass 是一家：象牙纸面 + 黄铜，不走别人的浅绿杂志风。
  */
 interface HomePageProps {
   user: AuthUser | null;
@@ -57,10 +57,27 @@ const FLOW = [
   },
 ] as const;
 
+const BEFORE = `public class UserService {
+  private UserRepository repo;
+
+  public User getById(Long id) {
+    return repo.find(id).orElseThrow();
+  }
+}`;
+
+const AFTER = `public class UserService {
+  private final UserRepository repo;
+
+  public UserService(UserRepository repo) {
+    this.repo = repo;
+  }
+}`;
+
 export function HomePage({ user, onLogout }: HomePageProps) {
   const [active, setActive] = useState('hero');
-  const [step, setStep] = useState(0);
+  const [play, setPlay] = useState(0);
   const [copied, setCopied] = useState<'gitee' | 'github' | null>(null);
+  const holdRef = useRef(0);
   const desk = lastIdePath();
   const enter = user ? '/workspaces' : '/login';
 
@@ -81,11 +98,50 @@ export function HomePage({ user, onLogout }: HomePageProps) {
     return () => io.disconnect();
   }, []);
 
+  useEffect(() => {
+    const reveals = document.querySelectorAll('.gate-reveal');
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) entry.target.classList.add('in');
+        });
+      },
+      { threshold: 0.14, rootMargin: '0px 0px -8% 0px' },
+    );
+    reveals.forEach((node) => io.observe(node));
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setPlay(2);
+      return;
+    }
+    const id = window.setInterval(() => {
+      if (Date.now() < holdRef.current) return;
+      setPlay((n) => (n + 1) % FLOW.length);
+    }, 2800);
+    return () => window.clearInterval(id);
+  }, []);
+
   const copy = async (which: 'gitee' | 'github') => {
     const ok = await copyText(which === 'gitee' ? GITEE : GITHUB);
     if (!ok) return;
     setCopied(which);
     window.setTimeout(() => setCopied(null), 1600);
+  };
+
+  const pick = (n: number) => {
+    setPlay(n);
+    holdRef.current = Date.now() + 10000;
+  };
+
+  const pauseLoop = () => {
+    holdRef.current = Number.MAX_SAFE_INTEGER;
+  };
+
+  const resumeLoop = () => {
+    holdRef.current = Date.now() + 600;
   };
 
   const clock = useMemo(() => {
@@ -142,37 +198,38 @@ export function HomePage({ user, onLogout }: HomePageProps) {
       </header>
 
       <section className="gate-hero" id="hero">
-        <p className="gate-kicker">WCA / 001 ✳</p>
-        <h1>
-          AI 不止于答。
-          <br />
-          <em>补丁跃然眼前。</em>
-        </h1>
-        <p className="gate-lead">
-          从一句提问，到一张可确认的补丁。左边文件树、中间真编辑器、右边对话。
-          模型没有任何写盘权限 —— 你没点应用，磁盘不会动。
-        </p>
-        <div className="gate-hero-cta">
-          <a className="gate-solid gate-lg" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
-            {user ? '打开工作区' : '登录后开始'}
-          </a>
-          <button type="button" className="gate-ghost gate-lg" onClick={() => scrollTo('flow')}>
-            看它怎么改代码 ↗
-          </button>
+        <div className="gate-hero-copy">
+          <p className="gate-kicker">暗房里的编码助手</p>
+          <h1>
+            模型会写。
+            <br />
+            你来拍板。
+          </h1>
+          <p className="gate-lead">
+            左边真实文件树，中间 Monaco，右边对话。它只能出补丁卡；
+            你没点应用，磁盘不会动。下面这张工作台正在把这一轮演一遍。
+          </p>
+          <div className="gate-hero-cta">
+            <a className="gate-solid gate-lg" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
+              {user ? '打开工作区' : '登录后开始'}
+            </a>
+            <button type="button" className="gate-ghost gate-lg" onClick={() => scrollTo('flow')}>
+              看四步主循环
+            </button>
+          </div>
         </div>
-        <p className="gate-meta">
-          页面自有证据<span />补丁先预演<span />写盘由你点
-        </p>
-      </section>
-
-      <section className="gate-field">
-        <div className="gate-desk">
+        <div
+          className={`gate-desk is-beat-${play}`}
+          onMouseEnter={pauseLoop}
+          onMouseLeave={resumeLoop}
+        >
           <div className="gate-desk-bar">
             <i />
             <i />
             <i />
             <em>demo-java / UserService.java</em>
-            <small>DeepSeek · {clock}</small>
+            <small>{FLOW[play].title} · {clock}</small>
+            <b className="gate-desk-progress" style={{ width: `${((play + 1) / FLOW.length) * 100}%` }} />
           </div>
           <div className="gate-desk-body">
             <aside className="gate-pane gate-pane-tree">
@@ -185,18 +242,19 @@ export function HomePage({ user, onLogout }: HomePageProps) {
               </ul>
             </aside>
             <div className="gate-pane gate-pane-code">
-              <header>编辑器 · 预览未写盘</header>
-              <pre>
-                <span className="k">public class</span> <span className="n">UserService</span> {'{\n'}
-                {'  '}<span className="k">private final</span> UserRepository repo;{'\n\n'}
-                {'  '}<span className="k">public</span> UserService(UserRepository repo) {'{\n'}
-                {'    '}<span className="n">this</span>.repo = repo;{'\n'}
-                {'  }\n}'}
-              </pre>
+              <header>{play >= 2 ? '编辑器 · 预览未写盘' : '编辑器'}</header>
+              <div className="gate-code-stack">
+                <pre className="is-before">{BEFORE}</pre>
+                <pre className="is-after">{AFTER}</pre>
+                <span className="gate-scan" />
+              </div>
             </div>
             <aside className="gate-pane gate-pane-chat">
               <header>对话</header>
-              <div className="gate-bubble">把这个改成构造器注入</div>
+              <div className={`gate-bubble${play === 0 ? ' is-typing' : ''}`}>
+                把这个改成构造器注入
+                {play === 0 && <i className="gate-caret" />}
+              </div>
               <div className="gate-patch">
                 <b>待确认 · UserService.java</b>
                 <code>+ private final UserRepository repo;</code>
@@ -205,68 +263,78 @@ export function HomePage({ user, onLogout }: HomePageProps) {
                   应用并写盘
                 </a>
               </div>
+              <div className="gate-done">补丁已应用 · 正在编译</div>
             </aside>
           </div>
         </div>
-        <p className="gate-device-cap">一句提问 → 一张可确认的补丁 · 入口都会开新标签</p>
+        <ol className="gate-beats">
+          {FLOW.map((item) => (
+            <li key={item.id}>
+              <button
+                type="button"
+                className={play === item.id ? 'on' : ''}
+                onClick={() => pick(item.id)}
+              >
+                <em>{item.no}</em>
+                {item.title}
+              </button>
+            </li>
+          ))}
+        </ol>
       </section>
 
-      <section className="gate-band" id="how">
+      <section className="gate-band gate-reveal" id="how">
         <div className="gate-band-head">
-          <p className="gate-kicker">人在环上 · 会跑的界面</p>
-          <h2>
-            会改代码的助手，
-            <br />
-            需要人在环上。
-          </h2>
+          <p className="gate-kicker">人在环上</p>
+          <h2>会改代码，不等于能写盘。</h2>
           <p>
-            静态 diff 只需展示；能核对引用、算出影响面、在编辑器里一段段预演的补丁，则需要运行。
-            Web Code Assistant 把提问、证据和写盘各安其位。
+            静态 diff 只是展示。能核对引用、算出影响面、在编辑器里一段段预演的补丁，才是这一轮的工作量。
+            提问、证据、写盘，各安其位。
           </p>
         </div>
-        <div className="gate-trio">
+        <div className="gate-spine">
           <article>
-            <span>01 ✳</span>
+            <span>证据</span>
             <h3>每个结论都能点开</h3>
-            <p>回答里的路径:行号是可点的证据。编造的引用会被标红。</p>
+            <p>回答里的路径:行号是可点的。编造的引用会被标红，不会混进正文。</p>
             <a href={appHref(enter)} target="_blank" rel="noopener noreferrer">
-              打开工作台 ↗
-            </a>
-          </article>
-          <article className="is-ink">
-            <span>02 ✳</span>
-            <h3>改之前先看影响面</h3>
-            <p>补丁卡算出改了谁、谁在调用、有没有踩鉴权或宪法。</p>
-            <a href={appHref(user ? '/workspaces' : '/login')} target="_blank" rel="noopener noreferrer">
-              去工作区 ↗
+              打开工作台
             </a>
           </article>
           <article>
-            <span>03 ✳</span>
+            <span>审查</span>
+            <h3>改之前先看影响面</h3>
+            <p>补丁卡算出改了谁、谁在调用、有没有踩鉴权或宪法。磁盘这时还是原样。</p>
+            <a href={appHref(user ? '/workspaces' : '/login')} target="_blank" rel="noopener noreferrer">
+              去工作区
+            </a>
+          </article>
+          <article>
+            <span>落盘</span>
             <h3>写盘只有一个按钮</h3>
-            <p>工具集里没有写文件。应用才落盘，预览明确写着未写盘。</p>
+            <p>工具集里没有写文件。应用才落盘，预览条明确写着未写盘。</p>
             <button type="button" onClick={() => scrollTo('flow')}>
-              看四步流程 ↗
+              看四步流程
             </button>
           </article>
         </div>
       </section>
 
-      <section className="gate-embed">
+      <section className="gate-embed gate-reveal">
         <div>
-          <p className="gate-kicker">三栏 / 同一运行时</p>
-          <h2>工作台融入浏览器，外壳仍是你的仓库。</h2>
+          <p className="gate-kicker">三栏同一运行时</p>
+          <h2>工作台就是浏览器里的仓库。</h2>
           <ol>
             <li>
-              <b>01 / 文件树</b>
+              <b>文件树</b>
               真实磁盘目录。禁区硬拒绝，问 / 改 / 补丁一悬停就在。
             </li>
             <li>
-              <b>02 / 编辑器</b>
+              <b>编辑器</b>
               Monaco 标签页。补丁来了会从原文一段段放到改后。
             </li>
             <li>
-              <b>03 / 对话</b>
+              <b>对话</b>
               交付或教学两种口吻。补丁卡、引用、停止，都在这一栏。
             </li>
           </ol>
@@ -275,7 +343,7 @@ export function HomePage({ user, onLogout }: HomePageProps) {
           <header>
             <span>HITL · propose_patch</span>
             <a href={appHref(enter)} target="_blank" rel="noopener noreferrer">
-              去试一次 ↗
+              去试一次
             </a>
           </header>
           <pre>{`模型：读文件、搜代码、出 unified diff
@@ -284,121 +352,107 @@ export function HomePage({ user, onLogout }: HomePageProps) {
         </div>
       </section>
 
-      <section className="gate-flow" id="flow">
+      <section className="gate-flow gate-reveal" id="flow">
         <div className="gate-band-head">
-          <p className="gate-kicker">一眼知晓，一步可达</p>
-          <h2>看一张补丁，如何真正落地。</h2>
-          <p>下面四步是产品主循环。点序号，下方装置会跟着切画面。</p>
+          <p className="gate-kicker">主循环</p>
+          <h2>一张补丁，怎么落到磁盘上。</h2>
+          <p>它会自己往前走。点某一步，循环会停在那一幕。</p>
         </div>
-        <ol className="gate-steps">
-          {FLOW.map((item) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                className={step === item.id ? 'on' : ''}
-                onClick={() => setStep(item.id)}
-              >
-                <em>{item.no}</em>
-                <b>{item.title}</b>
-                <span>{item.body}</span>
-              </button>
-            </li>
-          ))}
-        </ol>
-        <div className={`gate-stage stage-${FLOW[step].screen}`}>
-          <p className="gate-stage-kicker">{FLOW[step].no} / {FLOW[step].title}</p>
-          {step === 0 && (
-            <div className="gate-stage-ask">
-              <span>你</span>
-              <p>把 UserService 改成构造器注入</p>
-            </div>
-          )}
-          {step === 1 && (
-            <div className="gate-stage-card">
-              <b>待确认 · UserService.java</b>
-              <code>+ private final UserRepository repo;</code>
-              <small>影响面 中 · 0 处引用 · 未写盘</small>
-            </div>
-          )}
-          {step === 2 && (
-            <div className="gate-stage-live">
-              <i /> 预览 · 未写盘 · 2 / 2
-              <pre>{`  public UserService(UserRepository repo) {\n      this.repo = repo;\n  }`}</pre>
-            </div>
-          )}
-          {step === 3 && (
-            <div className="gate-stage-apply">
-              <p>补丁已应用。正在编译…</p>
-              <a className="gate-solid" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
-                去真实工作台
-              </a>
-            </div>
-          )}
+        <div className="gate-flow-grid">
+          <ol>
+            {FLOW.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  className={play === item.id ? 'on' : ''}
+                  onClick={() => pick(item.id)}
+                >
+                  <em>{item.no}</em>
+                  <span>
+                    <b>{item.title}</b>
+                    {item.body}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
+          <div className={`gate-stage stage-${FLOW[play].screen}`} key={play}>
+            <p className="gate-stage-kicker">{FLOW[play].no} / {FLOW[play].title}</p>
+            {play === 0 && (
+              <div className="gate-stage-ask">
+                <span>你</span>
+                <p>把 UserService 改成构造器注入</p>
+              </div>
+            )}
+            {play === 1 && (
+              <div className="gate-stage-card">
+                <b>待确认 · UserService.java</b>
+                <code>+ private final UserRepository repo;</code>
+                <small>影响面 中 · 0 处引用 · 未写盘</small>
+              </div>
+            )}
+            {play === 2 && (
+              <div className="gate-stage-live">
+                <i /> 预览 · 未写盘 · 2 / 2
+                <pre>{`  public UserService(UserRepository repo) {\n      this.repo = repo;\n  }`}</pre>
+              </div>
+            )}
+            {play === 3 && (
+              <div className="gate-stage-apply">
+                <p>补丁已应用。正在编译…</p>
+                <a className="gate-solid" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
+                  去真实工作台
+                </a>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
-      <section className="gate-doors" id="doors">
+      <section className="gate-doors gate-reveal" id="doors">
         <div className="gate-band-head">
-          <p className="gate-kicker">所需能力，皆有入口</p>
-          <h2>通过这一页，跳进产品里的每一扇门。</h2>
+          <p className="gate-kicker">入口</p>
+          <h2>从这一页进产品，首页留在原标签。</h2>
         </div>
-        <div className="gate-door-grid">
+        <div className="gate-door-list">
           <a href={appHref(user ? '/workspaces' : '/login')} target="_blank" rel="noopener noreferrer">
-            <em>01</em>
-            <div>
-              <b>工作区</b>
-              <p>克隆仓库、上传 zip、或开内置示例。代码在服务器磁盘上。</p>
-            </div>
-            <span>新标签打开 ↗</span>
+            <em>工作区</em>
+            <p>克隆仓库、上传 zip、或开内置示例。代码在服务器磁盘上。</p>
+            <span>新标签打开</span>
           </a>
           <a href={appHref(desk ?? enter)} target="_blank" rel="noopener noreferrer">
-            <em>02</em>
-            <div>
-              <b>工作台</b>
-              <p>三栏 IDE。提问、出卡、看着改、应用。</p>
-            </div>
-            <span>{desk ? '继续上次' : '进入'} ↗</span>
+            <em>工作台</em>
+            <p>三栏 IDE。提问、出卡、看着改、应用。</p>
+            <span>{desk ? '继续上次' : '进入'}</span>
           </a>
           <a href={appHref(user ? '/models' : '/login')} target="_blank" rel="noopener noreferrer">
-            <em>03</em>
-            <div>
-              <b>模型服务</b>
-              <p>选平台模型，或贴自己的 Key。试一句不走积分。</p>
-            </div>
-            <span>配置 ↗</span>
+            <em>模型服务</em>
+            <p>选平台模型，或贴自己的 Key。试一句不走积分。</p>
+            <span>配置</span>
           </a>
           <a href={appHref(user ? '/credits' : '/login')} target="_blank" rel="noopener noreferrer">
-            <em>04</em>
-            <div>
-              <b>积分中心</b>
-              <p>余额、套餐、支付、流水、对账。预扣多退少补。</p>
-            </div>
-            <span>查看 ↗</span>
+            <em>积分中心</em>
+            <p>余额、套餐、支付、流水、对账。预扣多退少补。</p>
+            <span>查看</span>
           </a>
           <a href={appHref(user ? '/account' : '/login')} target="_blank" rel="noopener noreferrer">
-            <em>05</em>
-            <div>
-              <b>账号与安全</b>
-              <p>邮箱验证、改密码、登录设备，逐个踢掉。</p>
-            </div>
-            <span>打开 ↗</span>
+            <em>账号与安全</em>
+            <p>邮箱验证、改密码、登录设备，逐个踢掉。</p>
+            <span>打开</span>
           </a>
           <a href="https://gitee.com/du-jiangjiang/web-code-assistant" target="_blank" rel="noopener noreferrer">
-            <em>06</em>
-            <div>
-              <b>Gitee 仓库</b>
-              <p>源码与发行都在这。构建脚本也从这里拉。</p>
-            </div>
-            <span>打开仓库 ↗</span>
+            <em>Gitee 仓库</em>
+            <p>源码与发行都在这。构建脚本也从这里拉。</p>
+            <span>打开仓库</span>
           </a>
         </div>
       </section>
 
       <section className="gate-next" id="next">
         <div className="gate-next-copy">
-          <p className="gate-kicker">下一步</p>
-          <h2>写下一问，便能看见补丁。</h2>
-          <p>先登录，开一个示例工作区，对当前文件说「解释一下这个类」。引用能点，改动会先出卡。</p>
+          <p className="gate-kicker">开始</p>
+          <h2>开一个工作区，问第一句。</h2>
+          <p>对当前文件说「解释一下这个类」。引用能点，改动会先出卡。</p>
           <div className="gate-hero-cta">
             <a className="gate-solid gate-lg" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
               {user ? '进入工作区' : '登录 / 注册'}
@@ -421,7 +475,7 @@ export function HomePage({ user, onLogout }: HomePageProps) {
               {copied === 'github' ? '已复制 GitHub' : '复制 GitHub'}
             </button>
             <a href="https://github.com/Dujiang777/WebCodeAssistant" target="_blank" rel="noopener noreferrer">
-              GitHub ↗
+              GitHub
             </a>
           </div>
         </div>
