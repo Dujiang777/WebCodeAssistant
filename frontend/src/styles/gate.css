@@ -152,15 +152,12 @@ body:has(.gate)::after {
   cursor: pointer;
   font-size: 13px;
   text-decoration: none;
-  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .gate-ghost:hover,
 .gate-spine a:hover,
-.gate-clone-actions button:hover,
-.gate-clone-actions a:hover,
-.gate-foot-links a:hover,
-.gate-code header a:hover {
+.gate-foot-links a:hover {
   transform: translateY(-1px);
   background: #efe6d4;
 }
@@ -625,8 +622,9 @@ body:has(.gate)::after {
 }
 
 .gate-code {
-  background: var(--gate-dark);
-  color: #f3efe6;
+  background: #1b1813;
+  color: #f6f0e4;
+  border: 1px solid #4a4538;
   border-radius: 12px;
   padding: 22px;
 }
@@ -638,14 +636,29 @@ body:has(.gate)::after {
   font-size: 12px;
   letter-spacing: 0.08em;
   margin-bottom: 14px;
-  color: #9a917f;
+  color: #e8dcc4;
+}
+
+.gate-code header a {
+  color: #1a140c;
+  background: #f3efe6;
+  border-color: #f3efe6;
+  font-weight: 600;
+}
+
+.gate-code header a:hover {
+  transform: translateY(-1px);
+  background: var(--gate-brass);
+  border-color: var(--gate-brass);
+  color: #1a140c;
 }
 
 .gate-code pre {
   margin: 0;
   font-family: var(--gate-mono);
-  font-size: 13px;
-  line-height: 1.8;
+  font-size: 14px;
+  line-height: 1.85;
+  color: #f6f0e4;
 }
 
 .gate-flow-grid {
@@ -798,47 +811,61 @@ body:has(.gate)::after {
 }
 
 .gate-next .gate-kicker {
-  color: var(--gate-brass);
+  color: var(--gate-brass-2);
 }
 
 .gate-next h2 {
-  color: #f3efe6;
+  color: #fbf6ee;
 }
 
 .gate-next p {
-  color: #9a917f;
+  color: #e4d9c4;
+}
+
+.gate-next .gate-solid {
+  background: #f3efe6;
+  border-color: #f3efe6;
+  color: #1a140c;
+}
+
+.gate-next .gate-solid:hover {
+  background: var(--gate-brass);
+  border-color: var(--gate-brass);
+  color: #1a140c;
 }
 
 .gate-next .gate-ghost {
   color: #f3efe6;
-  border-color: #2a261e;
+  border-color: #c4b89a;
 }
 
 .gate-next .gate-ghost:hover {
-  background: #14120e;
+  background: #f3efe6;
+  color: #1a140c;
+  border-color: #f3efe6;
 }
 
 .gate-clone {
   margin-top: 28px;
-  background: #14120e;
-  border: 1px solid #2a261e;
+  background: #1b1813;
+  border: 1px solid #5c5546;
   border-radius: 12px;
   padding: 22px;
 }
 
 .gate-clone header {
   font-size: 13px;
-  color: #9a917f;
+  color: #e8dcc4;
   margin-bottom: 10px;
 }
 
 .gate-clone code {
   display: block;
   font-family: var(--gate-mono);
-  font-size: 13px;
+  font-size: 14px;
   word-break: break-all;
   margin-bottom: 14px;
-  color: #d8d0c0;
+  color: #f6f0e4;
 }
 
 .gate-clone-actions {
@@ -849,9 +876,18 @@ body:has(.gate)::after {
 
 .gate-clone-actions button,
 .gate-clone-actions a {
-  color: #f3efe6;
-  border-color: #2a261e;
-  background: transparent;
+  color: #1a140c;
+  border-color: #f3efe6;
+  background: #f3efe6;
+  font-weight: 600;
+}
+
+.gate-clone-actions button:hover,
+.gate-clone-actions a:hover {
+  transform: translateY(-1px);
+  background: var(--gate-brass);
+  border-color: var(--gate-brass);
+  color: #1a140c;
 }
 
 .gate-foot {
