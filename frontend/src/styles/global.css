@@ -6831,7 +6831,8 @@ button.risk-chip:hover {
   position: absolute;
   top: calc(100% + 7px);
   right: 0;
-  min-width: 300px;
+  min-width: 380px;
+  max-width: min(460px, calc(100vw - 24px));
   max-height: 400px;
   overflow-y: auto;
   padding: 6px;
@@ -6853,9 +6854,11 @@ button.risk-chip:hover {
 }
 
 .md-picker-item {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 2px;
   width: 100%;
   padding: 8px 10px;
   border: none;
@@ -6874,12 +6877,47 @@ button.risk-chip:hover {
 
 .md-picker-item.on .md-picker-name { color: var(--signal-soft); }
 
+.md-picker .chip {
+  max-width: 240px;
+  min-width: 0;
+}
+
+.md-picker-chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .md-picker-name {
   font-size: 12.5px;
   font-weight: 550;
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.md-picker-title {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.md-picker-meta {
+  display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+}
+
+.md-picker-meta .md-byok-tag,
+.md-picker-meta .md-tier-tag {
+  flex: none;
+  white-space: nowrap;
 }
 
 .md-byok-tag,
@@ -6907,6 +6945,7 @@ button.risk-chip:hover {
   font-size: 10.5px;
   color: var(--fg-2);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .md-picker-empty {

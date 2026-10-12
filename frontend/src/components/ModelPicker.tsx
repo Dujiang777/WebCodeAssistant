@@ -63,7 +63,7 @@ export function ModelPicker({ models, currentKey, defaultKey, healthReady, onPic
         }
       >
         <span className={`dot ${ready ? 'dot-ok' : 'dot-warn'}`} />
-        {label}
+        <span className="md-picker-chip-label">{label}</span>
         {models !== null && <span className="md-picker-caret">▾</span>}
       </button>
 
@@ -85,11 +85,13 @@ export function ModelPicker({ models, currentKey, defaultKey, healthReady, onPic
               title={model.note ?? model.displayName}
             >
               <span className="md-picker-name">
-                {model.displayName}
-                {model.byok && <em className="md-byok-tag">自带</em>}
-                <em className={`md-tier-tag md-tier-${(MODEL_TIERS[model.tier] ?? { tone: 'mid' }).tone}`}>
-                  {(MODEL_TIERS[model.tier] ?? { label: model.tier }).label}
-                </em>
+                <span className="md-picker-title">{model.displayName}</span>
+                <span className="md-picker-meta">
+                  {model.byok && <em className="md-byok-tag">自带</em>}
+                  <em className={`md-tier-tag md-tier-${(MODEL_TIERS[model.tier] ?? { tone: 'mid' }).tone}`}>
+                    {(MODEL_TIERS[model.tier] ?? { label: model.tier }).label}
+                  </em>
+                </span>
               </span>
               <span className="md-picker-price">
                 {model.byok ? '免积分' : `${model.per1kInput}/${model.per1kOutput} 每千`}
