@@ -664,26 +664,41 @@ export function HomePage({ user, onLogout }: HomePageProps) {
         </div>
         <div className="gate-spine">
           <article>
-            <span>{t.evid}</span>
-            <h3>{t.evidH}</h3>
-            <p>{t.evidP}</p>
-            <a href={appHref(enter)} target="_blank" rel="noopener noreferrer">
+            <header className="gate-spine-meta">
+              <em>01</em>
+              <span>{t.evid}</span>
+            </header>
+            <div className="gate-spine-copy">
+              <h3>{t.evidH}</h3>
+              <p>{t.evidP}</p>
+            </div>
+            <a className="gate-spine-go" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
               {t.evidA}
             </a>
           </article>
           <article>
-            <span>{t.review}</span>
-            <h3>{t.reviewH}</h3>
-            <p>{t.reviewP}</p>
-            <a href={appHref(user ? '/workspaces' : '/login')} target="_blank" rel="noopener noreferrer">
+            <header className="gate-spine-meta">
+              <em>02</em>
+              <span>{t.review}</span>
+            </header>
+            <div className="gate-spine-copy">
+              <h3>{t.reviewH}</h3>
+              <p>{t.reviewP}</p>
+            </div>
+            <a className="gate-spine-go" href={appHref(user ? '/workspaces' : '/login')} target="_blank" rel="noopener noreferrer">
               {t.reviewA}
             </a>
           </article>
           <article>
-            <span>{t.write}</span>
-            <h3>{t.writeH}</h3>
-            <p>{t.writeP}</p>
-            <button type="button" onClick={() => scrollTo('flow')}>
+            <header className="gate-spine-meta">
+              <em>03</em>
+              <span>{t.write}</span>
+            </header>
+            <div className="gate-spine-copy">
+              <h3>{t.writeH}</h3>
+              <p>{t.writeP}</p>
+            </div>
+            <button type="button" className="gate-spine-go" onClick={() => scrollTo('flow')}>
               {t.writeA}
             </button>
           </article>

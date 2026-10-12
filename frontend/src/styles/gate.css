@@ -294,8 +294,7 @@ body:has(.gate)::after {
 
 .gate-ghost,
 .gate-solid,
-.gate-spine a,
-.gate-spine button,
+.gate-spine-go,
 .gate-clone-actions button,
 .gate-clone-actions a,
 .gate-foot-links a,
@@ -315,7 +314,7 @@ body:has(.gate)::after {
 }
 
 .gate-ghost:hover,
-.gate-spine a:hover,
+.gate-spine-go:hover,
 .gate-foot-links a:hover {
   transform: translateY(-1px);
   background: #efe6d4;
@@ -775,6 +774,7 @@ body:has(.gate)::after {
   cursor: pointer;
   color: inherit;
   text-align: left;
+  white-space: nowrap;
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
@@ -822,11 +822,18 @@ body:has(.gate)::after {
 
 .gate-spine article {
   display: grid;
-  grid-template-columns: 88px 1fr auto;
-  gap: 18px;
-  align-items: start;
-  padding: 22px 0;
+  grid-template-columns: 6.5rem minmax(0, 1fr) auto;
+  gap: 8px 28px;
+  align-items: center;
+  padding: 28px 16px 28px 14px;
   border-top: 1px solid var(--gate-line);
+  border-left: 2px solid transparent;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.gate-spine article:hover {
+  background: #efe6d4;
+  border-left-color: var(--gate-brass);
 }
 
 .gate-reveal.in .gate-spine article:nth-child(1) {
@@ -841,27 +848,51 @@ body:has(.gate)::after {
   animation: gate-rise 0.55s ease 0.16s both;
 }
 
-.gate-spine span {
+.gate-spine-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gate-spine-meta em {
   font-family: var(--gate-mono);
-  font-size: 12px;
-  letter-spacing: 0.14em;
+  font-style: normal;
+  font-size: 11px;
+  letter-spacing: 0.16em;
   color: var(--gate-brass);
-  padding-top: 6px;
+}
+
+.gate-spine-meta span {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--gate-mute);
+}
+
+.gate-spine-copy {
+  min-width: 0;
 }
 
 .gate-spine h3 {
-  margin: 0 0 6px;
-  font-size: 22px;
+  margin: 0 0 8px;
+  font-size: 24px;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
 }
 
 .gate-spine p {
   margin: 0;
+  max-width: 38rem;
   color: var(--gate-mute);
+  font-size: 15px;
+  line-height: 1.65;
 }
 
-.gate-spine a,
-.gate-spine button {
+.gate-spine-go {
   align-self: center;
+  white-space: nowrap;
+  padding: 10px 16px;
+  font-weight: 600;
 }
 
 .gate-embed {
@@ -878,7 +909,7 @@ body:has(.gate)::after {
 }
 
 .gate-embed li {
-  padding: 16px 0;
+  padding: 18px 0;
   border-top: 1px solid var(--gate-line);
   color: var(--gate-mute);
 }
@@ -886,7 +917,9 @@ body:has(.gate)::after {
 .gate-embed li b {
   display: block;
   color: var(--gate-ink);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  font-size: 16px;
+  letter-spacing: -0.02em;
 }
 
 .gate-code {
@@ -1034,10 +1067,10 @@ body:has(.gate)::after {
   position: relative;
   overflow: hidden;
   display: grid;
-  grid-template-columns: 140px 1fr auto;
-  gap: 16px;
+  grid-template-columns: 140px minmax(0, 1fr) auto;
+  gap: 16px 24px;
   align-items: center;
-  padding: 18px 12px;
+  padding: 22px 14px;
   border-top: 1px solid var(--gate-line);
   text-decoration: none;
   color: inherit;
@@ -1390,9 +1423,10 @@ body:has(.gate[data-theme="night"])::after {
 }
 
 .gate[data-theme="night"] .gate-ghost:hover,
-.gate[data-theme="night"] .gate-spine a:hover,
+.gate[data-theme="night"] .gate-spine-go:hover,
 .gate[data-theme="night"] .gate-foot-links a:hover,
-.gate[data-theme="night"] .gate-door-list a:hover {
+.gate[data-theme="night"] .gate-door-list a:hover,
+.gate[data-theme="night"] .gate-spine article:hover {
   background: #1b1813;
 }
 
@@ -1465,6 +1499,17 @@ body:has(.gate[data-theme="night"])::after {
   }
 }
 
+@media (max-width: 1080px) {
+  .gate-spine article {
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+  }
+
+  .gate-spine-go {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
 @media (max-width: 900px) {
   .gate-nav {
     padding: 12px 16px;
@@ -1524,9 +1569,13 @@ body:has(.gate[data-theme="night"])::after {
     border-bottom: 1px solid #2a261e;
   }
 
-  .gate-spine a,
-  .gate-spine button {
+  .gate-spine-go {
+    grid-column: 1;
     justify-self: start;
+  }
+
+  .gate-spine article {
+    padding-left: 4px;
   }
 
   .gate-band,
