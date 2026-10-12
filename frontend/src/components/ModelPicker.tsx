@@ -7,19 +7,16 @@ import { navigate } from '../lib/router';
 /**
  * 顶栏的模型选择器。
  *
- * 它接替了原来那颗只「读一眼」的模型状态 chip：现在它同时是三件事——
- *   1. 状态灯（绿点/黄点：模型通不通，沿用健康检查）；
- *   2. 当前用的是哪个模型（名字直接写在 chip 上）；
- *   3. 下拉就能换（每轮对话都可以换，只影响下一轮，不改动你的全局默认）。
- *
- * 「全局默认」在模型服务页里改：那里改的是持久偏好；这里改的是「本轮用谁」。
- * 两者刻意分开 —— 就像WorkBuddy：顶部随时切，设置页存偏好。
+ * 选中的就是账号默认：刷新、换工作区、再进来都还是它。
+ * chip 上永远写真实模型名 —— 「默认模型」四个字看不出下一轮会打给谁。
  */
-export function ModelPicker({ models, currentKey, healthReady, onPick }: {
+export function ModelPicker({ models, currentKey, defaultKey, healthReady, onPick }: {
   /** 模型目录里的全部选项；null 表示还没拉到目录（此时退化为纯状态 chip）。 */
   models: ModelOption[] | null;
   /** 当前选中的模型 key；null = 跟随默认。 */
   currentKey: string | null;
+  /** 账号里记住的默认；currentKey 为空时用它来显示名字。 */
+  defaultKey: string | null;
   healthReady: boolean;
   onPick: (modelKey: string | null) => void;
 }) {
@@ -45,8 +42,12 @@ export function ModelPicker({ models, currentKey, healthReady, onPick }: {
     };
   }, [open]);
 
-  const current = models?.find((m) => m.modelKey === currentKey) ?? null;
   const available = (models ?? []).filter((m) => m.available);
+  const effectiveKey = currentKey ?? defaultKey;
+  const current = (models ?? []).find((m) => m.modelKey === effectiveKey)
+    ?? available.find((m) => !m.byok)
+    ?? available[0]
+    ?? null;
   const label = current ? current.displayName : '默认模型';
   const ready = healthReady && (models === null || available.length > 0);
 
@@ -57,7 +58,7 @@ export function ModelPicker({ models, currentKey, healthReady, onPick }: {
         onClick={() => setOpen((v) => !v)}
         title={
           ready
-            ? '当前对话模型。点开可以为本轮对话换模型（只影响下一轮）'
+            ? `当前对话模型：${label}。换了会记住，刷新还是它`
             : '模型未就绪 —— 点开看看哪些模型可用，或到模型服务页配置'
         }
       >
@@ -68,7 +69,7 @@ export function ModelPicker({ models, currentKey, healthReady, onPick }: {
 
       {open && models !== null && (
         <div className="md-picker-menu" role="listbox" aria-label="选择对话模型">
-          <div className="md-picker-head">为本轮对话选择模型</div>
+          <div className="md-picker-head">选择对话模型（会记住）</div>
           <button
             className={`md-picker-item${currentKey === null ? ' on' : ''}`}
             onClick={() => { onPick(null); setOpen(false); }}

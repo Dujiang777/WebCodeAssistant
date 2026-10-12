@@ -382,8 +382,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     try {
       const catalog = await api.modelCatalog();
       setModelCatalog(catalog);
-      // 目录里已没有这个 key（被删了）→ 回到跟随默认
-      setModelKey((key) => (key && catalog.models.some((m) => m.modelKey === key) ? key : null));
+      setModelKey((key) => {
+        if (key && catalog.models.some((m) => m.available && m.modelKey === key)) return key;
+        return catalog.defaultModelKey;
+      });
     } catch {
       // 目录是增强信息，拉不到顶栏退化为状态 chip
     }
@@ -2113,7 +2115,19 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         onOpenAccount={() => navigate('/account')}
         models={modelCatalog?.models ?? null}
         modelKey={modelKey}
-        onPickModel={(key) => { setModelKey(key); void refreshCredits(); }}
+        defaultModelKey={modelCatalog?.defaultModelKey ?? null}
+        onPickModel={(key) => {
+          setModelKey(key);
+          void (async () => {
+            try {
+              await api.setDefaultModel(key ?? '');
+              await refreshModels();
+            } catch {
+              // 记住失败也不改这一轮的选择，刷新前仍按刚点的那个打
+            }
+            await refreshCredits();
+          })();
+        }}
       />
 
       <div className="workbench" style={{ gridTemplateColumns: columns }}>

@@ -39,7 +39,9 @@ interface TopBarProps {
   models: ModelOption[] | null;
   /** 本轮对话选用的模型 key；null = 跟随默认。 */
   modelKey: string | null;
-  /** 在下拉里选了模型（只影响下一轮，不改全局默认）。 */
+  /** 账号默认；顶栏在还没指定本轮模型时用它显示名字。 */
+  defaultModelKey: string | null;
+  /** 换模型：立刻用于下一轮，并写成账号默认。 */
   onPickModel: (modelKey: string | null) => void;
 }
 
@@ -57,6 +59,7 @@ export function TopBar({
   onOpenCredits,
   models,
   modelKey,
+  defaultModelKey,
   onPickModel,
 }: TopBarProps) {
   const modelReady = health?.modelConfigured ?? false;
@@ -122,7 +125,13 @@ export function TopBar({
           {modelReady ? health?.model ?? '模型已就绪' : '模型未配置'}
         </span>
       ) : (
-        <ModelPicker models={models} currentKey={modelKey} healthReady={modelReady} onPick={onPickModel} />
+        <ModelPicker
+          models={models}
+          currentKey={modelKey}
+          defaultKey={defaultModelKey}
+          healthReady={modelReady}
+          onPick={onPickModel}
+        />
       )}
 
       {credits !== null && (
