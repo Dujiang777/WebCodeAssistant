@@ -33,11 +33,23 @@ AI 能读你的项目、能按正则搜代码，但**它没有任何写盘权限
 
 工作区是**服务器磁盘上的真实目录**（`git clone` 或 zip 导入），不是浏览器里的虚拟文件系统。
 
-打开站点先到**产品首页**（`/#/` 或 `/#/home`，登录与否都一样）：象牙纸面、黄铜点缀，工作台会把「提问 → 出卡 → 看着改 → 应用」演一遍。顶栏可切中英、白天/夜晚。工作区 / 工作台 / 模型 / 积分 / 账号都会开新标签，首页自己留着。
+打开站点先到**产品首页**（`/#/` 或 `/#/home`，登录与否都一样）：象牙纸面、黄铜点缀，工作台会把「提问 → 出卡 → 看着改 → 应用」演一遍。顶栏可切中英、白天/夜晚。工作区 / 工作台 / 模型 / 积分 / 账号都会开新标签，首页自己留着。页尾是创作者 **Dujiang777** 和两份仓库：
 
-### 视觉设计：「Darkroom Brass」（暗房黄铜 · 温润版）
+- Gitee：https://gitee.com/du-jiangjiang/web-code-assistant
+- GitHub：https://github.com/Dujiang777/WebCodeAssistant
 
-界面刻意长成**一间暗房**，而不是「又一个深色 SaaS」：
+### 产品首页：象牙纸 × 黄铜
+
+首页跟工作台**不是同一张皮**。变量只挂在 `.gate` 上，不动 `:root` 的 Brass 契约，所以改介绍页不会把 IDE 换色。
+
+- 白天是象牙纸面，夜晚是暗房黄铜；选择记在 `localStorage`，只作用这一页
+- 顶栏是「文 A」语言菜单 + 日夜拨杆
+- 进产品的门一律 `target="_blank"`，这一页自己留着
+- 尊重 `prefers-reduced-motion`：循环、倾斜、跑马条都会停
+
+### 工作台：「Darkroom Brass」（暗房黄铜 · 温润版）
+
+登录页、工作区、三栏 IDE 刻意长成**一间暗房**，而不是「又一个深色 SaaS」：
 
 - **底色**是暖调近黑五级（`#0a0907` 起），**底 / 面 / 抬起**三级刻意拉开 —— 面板是一块
   独立的面，而不是底色上的一片色差。整页只在左上角留一团暖光：44px 发丝网格已撤，
@@ -102,9 +114,10 @@ AI 能读你的项目、能按正则搜代码，但**它没有任何写盘权限
 ## 2. 架构
 
 ```
-浏览器 (React + Vite + Monaco)
-  ├── 工作台：工具轨道（按性质分三组）+ 三栏：文件树（禁区/痕迹）/ 标签页编辑器（Ctrl+P）/ 对话
-  ├── 二级页：积分中心 / 账号与安全 / 邮箱验证 / 重置密码
+浏览器 (React + Vite + Monaco，hash 路由)
+  ├── 产品首页 /#/ 与 /#/home：象牙纸 + 黄铜，进产品开新标签
+  ├── 工作台 /#/ide/:id：工具轨道（按性质分三组）+ 三栏：文件树（禁区/痕迹）/ 标签页编辑器（Ctrl+P）/ 对话
+  ├── 二级页：工作区列表 / 模型服务 / 积分中心 / 账号与安全 / 管理后台 / 邮箱验证 / 重置密码
   ├── 会话层：双令牌（access 内存 + refresh 落盘），401 自动静默刷新（单例 Promise 防并发）
   ├── Monaco：自定义 wca-dark 主题（本地 bundle，不依赖 CDN）
   └── SSE 客户端：fetch + ReadableStream 自己解析（因为要带 Bearer token，且令牌要动态取）
@@ -125,9 +138,9 @@ Spring Boot 3.5 (Java 21, 虚拟线程)
   ├── constitution/ 仓库宪法（.wca/CONSTITUTION.md 读写 + 模板）
   ├── map/         Spring 组件地图（Bean / 端点 / 依赖注入扫描）
   ├── context/     system prompt 组装（项目画像 / 规则文件 / 引用规则 / 当前模式）+ 引用校验
-  └── llm/         LangChain4j 流式模型、限流与配额、对话与 embedding 可分源
+  └── llm/         模型目录 + BYOK、LangChain4j 流式、限流与配额、对话与 embedding 可分源
         │
-        ├── MySQL 8（Flyway 管迁移：V1→V5，14 张表）
+        ├── MySQL 8（Flyway 管迁移：V1→V9，17 张表）
         └── Redis 7（限流 / 配额，可降级）
                   │
                   ▼
@@ -167,7 +180,18 @@ cp ../.env.example .env
 docker compose up --build
 ```
 
-打开 **http://localhost:5173**。
+打开 **http://localhost:5173**（会落到 `/#/` 产品首页）。常用 hash：
+
+| 路径 | 页面 |
+| --- | --- |
+| `/#/` · `/#/home` | 产品首页（登录与否都先到这） |
+| `/#/login` | 登录 / 注册 |
+| `/#/workspaces` | 工作区列表 |
+| `/#/ide/:id` | 三栏工作台 |
+| `/#/models` | 模型服务 |
+| `/#/credits` | 积分中心 |
+| `/#/account` | 账号与安全 |
+| `/#/admin` | 管理后台（仅 ADMIN） |
 
 > 不填模型信息也能启动，只是对话会提示「模型未配置」——文件浏览与编辑仍完全可用。
 
@@ -302,10 +326,16 @@ node tools/mock-llm/server.mjs --port 8787
 
 按顺序走一遍，每一步都写清了「应该看到什么」。这也正是 `tools/e2e-smoke.mjs` 自动跑的那条路径。
 
-**1｜注册并创建工作区**
-打开首页 → 「一键随机演示账号」或自己注册 → 进入工作区列表 → 点 **内置示例（最快）** → 创建工作区。
+**0｜产品首页**
+打开 `/#/` 或 `/#/home`（登录与否都先到这里）。
 
-> 预期：进入三栏 IDE，左侧文件树已自动展开到 `src/main/java/com/demo/UserService.java`。
+> 预期：象牙纸面、黄铜点缀；中间的工作台把「提问 → 出卡 → 看着改 → 应用」演一遍。
+> 顶栏可切中英、白天/夜晚。点「开始使用 / 工作区 / 进入工作台」都在**新标签**打开，这一页留着。
+
+**1｜注册并创建工作区**
+在首页点「开始使用」或「登录」（新标签 `/#/login`）→ 「一键随机演示账号」或自己注册 → `/#/workspaces` 工作区列表 → 点 **内置示例（最快）** → 创建工作区。
+
+> 预期：新标签进入三栏 IDE，左侧文件树已自动展开到 `src/main/java/com/demo/UserService.java`。原标签仍停在产品首页。
 
 **2｜打开文件，确认上下文注入**
 点开 `UserService.java`。
@@ -454,7 +484,7 @@ node tools/mock-llm/server.mjs --port 8787
 
 ### 自动跑一遍（不用开浏览器）
 
-三个脚本，覆盖三层：基础链路、功能 13–16、账号与积分。**基线是 83 / 65 / 114，全部 0 失败。**
+四个脚本，覆盖四层：基础链路、功能 13–16、账号与积分、多文件补丁。**基线是 83 / 65 / 114 / 15，全部 0 失败。**
 
 ```bash
 # ① 基础链路：健康 → 注册 → 工作区 → 文件 → 对话 → 补丁 → 宪法 → Spring 地图 → PR 预演 → 测试运行
@@ -468,6 +498,9 @@ node tools/e2e-features-13-16.mjs           # 65 项断言
 # ③ 账号与积分：注册验证 / 防枚举 / 失败锁定 / 双令牌轮换与重放 / 找回改密 /
 #               登录设备 / 订单支付幂等 / 预扣结算 / 余额闸门与管理端 / 越权 / 登出
 node tools/e2e-auth-credits.mjs             # 114 项断言
+
+# ④ 多文件补丁：一次 propose_patch 拆成两条、带 summary、apply-all 后磁盘真的变了
+node tools/e2e-multifile-patch.mjs          # 15 项断言
 ```
 
 `e2e-smoke.mjs` 依次验证：健康检查 → 注册 → 建工作区 → 读文件树 → 读文件基线 → **越界防护** →
@@ -713,7 +746,7 @@ data: {"seq":20,"type":"canceled"}
 
 ## 6. 数据模型
 
-由 Flyway 自动迁移（`backend/src/main/resources/db/migration/`，V1 → V5）：
+由 Flyway 自动迁移（`backend/src/main/resources/db/migration/`，V1 → V9）：
 
 | 表 / 迁移 | 作用 | 关键点 |
 | --- | --- | --- |
@@ -721,16 +754,19 @@ data: {"seq":20,"type":"canceled"}
 | `workspaces` · V1 | 工作区 | 存磁盘 `root_path`；接口层**不下发**这个字段 |
 | `chat_sessions` · V1 | 会话 | 外键到工作区 |
 | `chat_messages` · V1 | 消息 | `meta` 存模型名、token 用量、本轮补丁 id 列表 |
-| `patches` · V1 | 补丁 | `status` 用带条件的 UPDATE 做 CAS，保证只被应用/拒绝一次 |
-| `workspace_snapshots` · V2 | 快照 | 应用补丁前自动打点，支撑「一键回滚」 |
+| `patches` · V1/V7 | 补丁 | `status` 用带条件的 UPDATE 做 CAS，保证只被应用/拒绝一次；V7 加 `summary`（模型写的变更说明） |
+| `snapshots` · V2 | 快照 | 应用补丁前自动打点，zip 在磁盘、元数据在表里，支撑「一键回滚」 |
 | `code_chunks` · V3 | 语义检索 | 代码切块 + 向量，供相似度检索 |
 | `email_tokens` · V4 | 邮箱验证 / 重置密码 | 只存 `token_hash`；`purpose` 区分用途；`consumed_at` 保证一次性 |
 | `refresh_tokens` · V4 | 会话 | 只存 sha256；`replaced_by` 支撑**轮换与重放检测**；`device`/`ip` 支撑登录设备列表 |
 | `login_audit` · V4 | 登录审计 | 成功与失败都记（含 IP / UA / 失败原因） |
-| `credit_accounts` · V5 | 积分余额快照 | 带 `check (balance >= 0)` —— 即使业务代码算错，余额也不可能为负 |
+| `credit_accounts` · V5/V9 | 积分余额快照 | 带 `check (balance >= 0)`；V9 加 `quota_reset_at`，每周把余额补回注册赠送额 |
 | `credit_ledger` · V5 | 积分流水 | **只增不改**，是「事实」；`uk_credit_ledger_idem` 唯一键做幂等 |
 | `credit_plans` · V5 | 套餐 | 是**配置**不是代码，运营改价不用等发版 |
-| `credit_orders` · V5 | 订单 | 下单时把到账积分**冻结进订单**，之后改价不影响历史订单 |
+| `credit_orders` · V5/V8 | 订单 | 下单时把到账积分**冻结进订单**；V8 加退款字段（`PAID → REFUNDED` 只发生一次） |
+| `llm_providers` · V6 | 模型服务商 | `PLATFORM` 用环境变量里的 Key、扣积分；`USER` 是自带 Key（AES-GCM 存库），不扣积分 |
+| `llm_models` · V6 | 模型目录 | 单价挂在模型上，贵模型多扣、便宜模型少扣 |
+| `admin_audit` · V6 | 管理审计 | 停用账号、改角色、动别人的钱，只增不改 |
 
 核心关系一句话：**`credit_ledger` 是事实，`credit_accounts` 只是它的缓存**。
 余额永远能由账本重算出来，所以「对账」这个动作才有意义 —— 两个数不一致就是真出事了。
@@ -746,7 +782,7 @@ MySQL 的 `now()` 只到秒，写库必须用 `now(6)`，否则同一秒内的 H
 | --- | --- |
 | 路径越界 | `WorkspacePathResolver` 三层校验：形式校验（拒绝 `..`、绝对路径、盘符）→ 词法归一化 → 真实路径校验（解析符号链接后必须仍在工作区内）。所有文件操作都必须经过它。 |
 | 越权访问 | 每个资源查询都带 `userId`（`findOwned`），查不到一律 404，不泄露「存在但不属于你」。 |
-| 密钥 | LLM Key 只存在后端环境变量；`WorkspaceView` 不含 `root_path`；日志不打印 Key。 |
+| 密钥 | 平台 Key 只存在后端环境变量（库里只记变量名）；用户自带 Key 走 AES-GCM 加密存库、只回显尾号。`WorkspaceView` 不含 `root_path`；日志不打印 Key。 |
 | 上传 | zip slip（禁止 `..` 与绝对路径）、zip bomb（限制条目数与解压总量）、拒绝符号链接。 |
 | 克隆 | 只允许 http/https/git/ssh，拒绝 `file://`；depth=1 浅克隆 + 超时，失败即清理目录。 |
 | 配额 | 按工作区总量算（默认 200 MB），写入前预检。 |
@@ -902,17 +938,21 @@ refresh 落库换来的是这两件事都成立了：
       每张卡片带模型写的变更说明（summary），支持批量应用
 - [x] **工作区快照与回滚** —— 应用补丁前自动打点，一键回滚
 - [x] **网页终端** —— `run_command` 的受控版本，只给登录用户用
-- [x] **账号与商业级鉴权** —— 双令牌 / 邮箱验证 / 失败锁定 / 登录设备
-- [x] **AI 用量积分体系** —— 预扣结算、只增账本、套餐订单、对账
+- [x] **账号与商业级鉴权** —— 双令牌 / 邮箱验证 / 失败锁定 / 登录设备 / 注册图形验证码
+- [x] **AI 用量积分体系** —— 预扣结算、只增账本、套餐订单、对账、每周额度重置、订单退款
+- [x] **模型目录与自带 Key** —— 平台模型点卡片即默认；BYOK 加密存库，「试一句」不走积分
+- [x] **产品首页** —— `/#/` 永远先到介绍页；中英 / 日夜；进产品开新标签；页尾创作者与仓库地址
+- [x] **停止本轮** —— 协作式取消：当前工具跑完即停，半截回答保留，预扣全额退回
 
-**还没做**
+**还没做（明确推迟）**
 
 - [ ] **每用户 Docker 沙箱** + xterm.js 真终端（设计见 `deploy/sandbox/README.md`）——
       现在的编译验证与网页终端都带着服务进程的身份跑，防的是「模型乱写代码」而非「恶意构建脚本」
-- [ ] **Java LSP 接入**（跳转、诊断、补全）—— 现在 Monaco 只做语法着色
+- [ ] **Java LSP / 调试器**（跳转、诊断、补全）—— 现在 Monaco 只做语法着色
 - [ ] **对接真实支付网关**（微信 / 支付宝）+ 回调验签、金额比对、异步通知重试
-- [ ] **IP 维度限流 / 注册验证码** —— 现在账号锁定只按用户名计，挡不住横向撞库
+- [ ] **IP 维度限流** —— 注册已有图形验证码，账号锁定仍只按用户名计，挡不住横向撞库
 - [ ] 每工作区的 profile / 系统提示词覆盖（现在只有 `.wca/CONSTITUTION.md` 与 `.coding-rules.md`）
+- [ ] 多人同时改同一工作区、自动开 PR（现在 git 提交只落本地，不 push）
 
 ---
 
@@ -931,7 +971,7 @@ web-code-assistant/
 │   │   ├── constitution/          仓库宪法（.wca/CONSTITUTION.md 读写 + 模板）
 │   │   ├── context/               system prompt 组装（引用规则 / 宪法 / 双模式）+ 引用校验
 │   │   ├── credit/                积分：账户、只增账本、定价、套餐、订单、支付提供方（mock 可替换）
-│   │   ├── llm/                   LangChain4j 模型 + 限流配额
+│   │   ├── llm/                   模型目录 + BYOK、LangChain4j 流式、限流配额
 │   │   ├── mail/                  邮件通道：dev（不发信、回显令牌）/ smtp（真发）
 │   │   ├── map/                   Spring 组件地图（Bean / 端点 / 依赖注入扫描）
 │   │   ├── scm/                   Git 克隆、zip 导入、内置示例
@@ -940,14 +980,16 @@ web-code-assistant/
 │   │   ├── terminal/              网页终端（受控 run_command）
 │   │   └── workspace/             路径解析、文件读写、diff 解析与应用、快照与回滚、禁区 REDZONE
 │   └── src/main/resources/
-│       ├── db/migration/          Flyway SQL（V1 初始化 → V5 积分体系）
+│       ├── db/migration/          Flyway SQL（V1 初始化 → V9 每周额度）
 │       └── samples/demo-java/     内置演示项目（带一个待重构点）
 ├── frontend/                      React + Vite 前端
 │   └── src/
 │       ├── components/            工具轨道 / 文件树 / 标签页编辑器 / 快速打开 / 对话 / 补丁卡片 / 工位 / 闸门 / What-if …
-│       ├── lib/                   API 客户端（双令牌+静默刷新）、SSE 客户端、diff 工具、Monaco 主题
-│       ├── pages/                 登录注册 / 邮箱验证 / 重置密码 / 工作区列表 / IDE / 积分中心 / 账号安全
-│       └── styles/global.css      Web Code Assistant 设计系统（Darkroom Brass，CSS 变量）
+│       ├── lib/                   API 客户端（双令牌+静默刷新）、hash 路由、SSE 客户端、diff 工具、Monaco 主题
+│       ├── pages/                 产品首页 / 登录注册 / 邮箱验证 / 重置密码 / 工作区列表 / IDE / 模型服务 / 积分中心 / 账号安全 / 管理后台
+│       └── styles/
+│           ├── global.css         工作台设计系统（Darkroom Brass，挂在 :root）
+│           └── gate.css           产品首页（象牙纸 × 黄铜，只挂 .gate）
 ├── deploy/
 │   ├── docker-compose.yml         全栈一键起（变量从根目录 .env.example 拷过来）
 │   └── sandbox/                   沙箱设计（未实现）
@@ -958,6 +1000,7 @@ web-code-assistant/
     ├── e2e-features-13-16.mjs     功能 13–16 自测（65 项断言：工位 / 时间冻结 / What-if / 特性开关）
     ├── e2e-auth-credits.mjs       账号与积分自测（114 项断言：注册验证 / 防枚举 / 锁定 / 令牌轮换与重放 /
     │                              找回改密 / 登录设备 / 订单幂等 / 预扣结算 / 余额闸门 / 越权 / 登出）
+    ├── e2e-multifile-patch.mjs    多文件补丁自测（15 项断言：拆卡 / summary / apply-all / 磁盘确认）
     ├── ui-probe.mjs               浏览器自检驱动（按 JSON 步骤跑 agent-browser）
     ├── maven-self-test-settings.xml  自测用 Maven settings（把内网镜像换回 Central）
     └── ui-steps/                  自检步骤定义（*.json，剧本 18/19/20 …）
