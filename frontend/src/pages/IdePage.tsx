@@ -1836,9 +1836,9 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       const scroller = el.closest('.chat-scroll');
       if (scroller instanceof HTMLElement) {
         const delta = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 36;
-        scroller.scrollTo({ top: scroller.scrollTop + delta, behavior: 'smooth' });
+        scroller.scrollTop += delta;
       } else {
-        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        el.scrollIntoView({ block: 'center' });
       }
       el.classList.add('patch-card-flash');
       window.setTimeout(() => el.classList.remove('patch-card-flash'), 1600);
