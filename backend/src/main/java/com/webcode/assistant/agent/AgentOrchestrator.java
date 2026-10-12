@@ -506,6 +506,7 @@ public class AgentOrchestrator {
         if (text == null) {
             text = "";
         }
+        text = toolbox.salvageEmbeddedDiff(text, request.currentFile());
 
         // 引用校验：只标注、不篡改正文。指向不存在文件的引用会被前端标红。
         List<Citation> citations = citationVerifier.verify(workspace, text);

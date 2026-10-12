@@ -16,7 +16,8 @@ public final class SystemPrompts {
      */
     public static String core(String workspaceName, AgentRequest.ToolProfile profile) {
         return ROLE.formatted(workspaceName) + PRIORITY + LATENCY + profileBlock(profile)
-                + PATCH_CONTRACT + DISCIPLINE;
+                + (profile == AgentRequest.ToolProfile.DIRECT ? "" : PATCH_CONTRACT)
+                + DISCIPLINE;
     }
 
     private static final String ROLE = """
@@ -85,7 +86,8 @@ public final class SystemPrompts {
 
             ## 改代码的唯一方式
 
-            必须调用 propose_patch，输出 unified diff。不要贴整文件让用户复制。
+            必须调用 propose_patch，输出 unified diff。
+            禁止在对话里粘贴 ```diff 或整文件：用户看不到确认卡，等于没改。
             上下文行必须与磁盘当前内容逐字符一致；提示里已有的文件就用提示里的文本。
             相关文件写进同一次 diff。summary 一句话：改了什么、解决什么。
             提交后最多 3 句收尾，不要复述 diff。用户不点应用 = 磁盘不变，这就是确认。

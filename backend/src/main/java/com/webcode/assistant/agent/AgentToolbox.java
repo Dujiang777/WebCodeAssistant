@@ -109,6 +109,34 @@ public class AgentToolbox {
         return List.copyOf(proposedPatches);
     }
 
+    /**
+     * 模型把 diff 贴进对话、没调 propose_patch 时，尽量收成确认卡。
+     * 写盘仍要用户点「应用」。收不成（格式烂、对不上磁盘）就原样返回，前端会藏掉那一长串。
+     */
+    public String salvageEmbeddedDiff(String text, String currentFile) {
+        if (!proposedPatches.isEmpty() || text == null || text.isBlank()) {
+            return text;
+        }
+        String diff = ChatDiffSalvage.extract(text);
+        if (!ChatDiffSalvage.looksLike(diff)) {
+            return text;
+        }
+        try {
+            List<Patch> patches = patchService.proposeBatch(
+                    sessionId, null, workspace, currentFile, diff, "从回答里收回的补丁");
+            for (Patch patch : patches) {
+                proposedPatches.add(patch.id());
+                publisher.patch(patch.id().toString(), patch.filePath(), patch.diffText(), patch.summary());
+            }
+            String prose = ChatDiffSalvage.strip(text);
+            String note = "已经把改动收成补丁卡，点确认才写盘。";
+            return prose.isBlank() ? note : prose + "\n\n" + note;
+        } catch (RuntimeException ex) {
+            log.info("回答里的 diff 收不成补丁卡: {}", ex.getMessage());
+            return text;
+        }
+    }
+
     /** 本轮模型通过 set_plan 给出的执行计划（最后一次调用为准），回合结束随 meta 落库。 */
     private volatile List<String> planSteps = List.of();
 

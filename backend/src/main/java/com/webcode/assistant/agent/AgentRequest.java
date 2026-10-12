@@ -80,7 +80,10 @@ public record AgentRequest(
     private static boolean asksWrite(String text) {
         return containsAny(text, "改成", "改一下", "帮我改", "修复", "实现", "加上",
                 "删除", "重构", "替换", "写成", "补丁", "新建", "新增", "注入",
-                "写一个", "propose_patch");
+                "写一个", "propose_patch",
+                "再写", "你写", "写啊", "写一下", "写这个", "写点", "写复杂",
+                "复杂一点", "扩展", "扩成", "重写", "优化一下", "优化这个",
+                "改这个", "改它", "加点");
     }
 
     private static boolean asksSearch(String text) {

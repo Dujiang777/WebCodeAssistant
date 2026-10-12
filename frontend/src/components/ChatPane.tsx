@@ -44,6 +44,7 @@ import type { MentionHit } from '../lib/mention';
 import type { RecipeView } from '../lib/review';
 import type { StreamStatus } from '../lib/sse';
 import { CitationText } from './CitationText';
+import { stripEmbeddedDiff } from '../lib/chatDiff';
 import { GateCard } from './GateCard';
 import { PatchBundle } from './PatchBundle';
 import { PatchCard } from './PatchCard';
@@ -783,7 +784,12 @@ export function ChatPane({
                   {(turn.text || (sending && !turn.stopped)) && (
                     <div className={`msg-body${turn.text ? '' : ' msg-body-live'}`}>
                       {turn.text ? (
-                        <CitationText text={turn.text} citations={turn.citations} onOpen={onOpenCitation} />
+                        <AssistantProse
+                          text={turn.text}
+                          citations={turn.citations}
+                          onOpen={onOpenCitation}
+                          hasPatch={livePatches.length > 0}
+                        />
                       ) : (
                         <span className="msg-body-placeholder">回答会出现在这里</span>
                       )}
@@ -1070,6 +1076,31 @@ export function ChatPane({
   );
 }
 
+function AssistantProse({
+  text,
+  citations,
+  onOpen,
+  hasPatch,
+}: {
+  text: string;
+  citations?: unknown;
+  onOpen: (file: string, line: number | null) => void;
+  hasPatch: boolean;
+}) {
+  const cleaned = stripEmbeddedDiff(text);
+  const shown = cleaned.hadDiff ? (cleaned.prose || '') : text;
+  return (
+    <>
+      {shown ? <CitationText text={shown} citations={citations} onOpen={onOpen} /> : null}
+      {cleaned.hadDiff && !hasPatch && (
+        <p className="msg-diff-note">
+          模型把改动写成了文字，没有出确认卡。再说一次「给这个文件出补丁」，就会走补丁卡。
+        </p>
+      )}
+    </>
+  );
+}
+
 function MessageBlock({
   message,
   patches,
@@ -1157,7 +1188,12 @@ function MessageBlock({
           {isUser ? (
             message.content || '（空消息）'
           ) : (
-            <CitationText text={message.content || '（空消息）'} citations={citations} onOpen={onOpenCitation} />
+            <AssistantProse
+              text={message.content || '（空消息）'}
+              citations={citations}
+              onOpen={onOpenCitation}
+              hasPatch={attached.length > 0}
+            />
           )}
         </div>
 

@@ -332,31 +332,11 @@ public class WhatIfService {
 
     /** 从模型回答里抽出 diff：优先 ```diff 代码块，退化到第一处 `--- ` 起始段。 */
     static String extractDiff(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return null;
+        String extracted = ChatDiffSalvage.extract(raw);
+        if (extracted != null) {
+            return extracted;
         }
-        int cursor = 0;
-        while (true) {
-            int open = raw.indexOf("```", cursor);
-            if (open < 0) {
-                break;
-            }
-            int lineEnd = raw.indexOf('\n', open);
-            if (lineEnd < 0) {
-                break;
-            }
-            int close = raw.indexOf("```", lineEnd);
-            if (close < 0) {
-                break;
-            }
-            String body = raw.substring(lineEnd + 1, close);
-            if (body.contains("@@") || body.contains("--- ")) {
-                return body.strip();
-            }
-            cursor = close + 3;
-        }
-        int start = raw.indexOf("--- ");
-        return start >= 0 ? raw.substring(start).strip() : raw.strip();
+        return raw == null ? null : raw.strip();
     }
 
     private static String withLineNumbers(String text) {

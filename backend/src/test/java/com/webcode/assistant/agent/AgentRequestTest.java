@@ -23,6 +23,18 @@ class AgentRequestTest {
     }
 
     @Test
+    void makeFileMoreComplexUsesEditProfile() {
+        AgentRequest request = request("再写复杂一点这个文件", "src/BubbleSort.java", null);
+        assertThat(request.toolProfile()).isEqualTo(AgentRequest.ToolProfile.EDIT);
+    }
+
+    @Test
+    void justWriteItUsesEditProfile() {
+        AgentRequest request = request("你写啊", "src/BubbleSort.java", null);
+        assertThat(request.toolProfile()).isEqualTo(AgentRequest.ToolProfile.EDIT);
+    }
+
+    @Test
     void findUsagesUsesSearchProfile() {
         AgentRequest request = request(
                 "选中的这段还在哪些地方被用到？列出调用方。",
