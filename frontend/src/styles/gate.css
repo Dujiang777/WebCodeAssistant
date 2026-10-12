@@ -486,6 +486,7 @@ body:has(.gate)::after {
 }
 
 .gate-done {
+  display: none;
   border: 1px solid #2a261e;
   background: #14120e;
   color: var(--gate-ok);
@@ -493,6 +494,7 @@ body:has(.gate)::after {
 }
 
 .gate-desk.is-beat-3 .gate-done {
+  display: flex;
   opacity: 1;
   transform: none;
 }
