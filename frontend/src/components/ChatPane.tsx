@@ -769,7 +769,7 @@ export function ChatPane({
                     <TurnReel turn={turn} patches={livePatches} onOpen={onOpenCitation} />
                   )}
 
-                  {!turn.text && sending && stage && (
+                  {!turn.text && sending && stage && !turn.stopped && (
                     <div className="thinking-row" data-stage={stage.key}>
                       <span className="thinking-rail" aria-hidden="true" />
                       <span className="dots">

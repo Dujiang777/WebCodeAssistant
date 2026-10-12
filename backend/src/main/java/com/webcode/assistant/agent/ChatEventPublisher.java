@@ -33,7 +33,9 @@ public class ChatEventPublisher {
     }
 
     private boolean live() {
-        return !gated || !cancellation.isCanceled(sessionId, generation);
+        // 只在被新问题取代时静音。用户点停止后仍要能推 canceled + done，
+        // 否则前端会一直停在「已停止」，下一问也会被这张残卡吃掉。
+        return !gated || !cancellation.isStale(sessionId, generation);
     }
 
     private void emit(String type, Map<String, Object> body) {

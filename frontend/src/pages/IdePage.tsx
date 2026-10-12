@@ -289,6 +289,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const [chatLoading, setChatLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
+  /** 这一张 live 卡是用户点停止停掉的；迟到的 canceled 不能标到下一问上。 */
+  const userStoppedRef = useRef(false);
+  /** 上一轮收尾的 done 还在路上时，先别把新回合收掉。 */
+  const skipNextDoneRef = useRef(false);
   const markSending = (value: boolean) => {
     sendingRef.current = value;
     setSending(value);
@@ -842,6 +846,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     turnRef.current = null;
     setTurn(null);
     markSending(false);
+    userStoppedRef.current = false;
+    skipNextDoneRef.current = false;
     // 回合落库了，快照就没用了 —— 不清的话下次进这个会话会恢复出一个「幽灵进行中」。
     dropTurnSnapshot();
 
@@ -866,7 +872,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     void refreshCredits();
   };
 
-  const handleEvent = (event: ChatEvent) => {
+    const handleEvent = (event: ChatEvent) => {
+    if (event.type === 'text' || event.type === 'tool_call' || event.type === 'plan' || event.type === 'stage' || event.type === 'patch') {
+      skipNextDoneRef.current = false;
+    }
     // 用户停止后只认收尾事件：模型流/工具的残余增量一律不再上屏
     if (turnRef.current?.stopped && event.type !== 'done' && event.type !== 'error') {
       return;
@@ -1024,8 +1033,9 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       }
 
       case 'canceled': {
-        // 用户停止已被后端接受（工具边界生效）。运行中的工具卡立刻标停；
-        // 半截回答由后端落库后经 done 回来，这里只做即时视觉反馈。
+        // 只认「这一轮用户点了停止」。发新问题时后端也会推一张 canceled，
+        // 不能把它标到刚起的下一问上，否则画面会停在「已停止 / 半截回答会保留」。
+        if (!userStoppedRef.current) return;
         const base = turnRef.current;
         if (!base) return;
         const tools = base.tools.map((tool) =>
@@ -1054,6 +1064,11 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       }
 
       case 'done': {
+        if (skipNextDoneRef.current) {
+          skipNextDoneRef.current = false;
+          void refetchChat();
+          return;
+        }
         finishTurn(Number(event.messageId));
         return;
       }
@@ -2027,9 +2042,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       toast.error('会话尚未就绪，请稍后再试');
       return;
     }
-    if (sendingRef.current) {
-      void api.cancelTurn(sid).catch(() => undefined);
-    }
+    // 上一轮还在跑或停在「已停止」等 done：新问题由服务端 begin() 作废旧代次。
+    // 这里不要再 POST cancel —— 那张未绑定代次的 canceled 会把刚起的下一问标停。
+    skipNextDoneRef.current = sendingRef.current;
+    userStoppedRef.current = false;
     markSending(true);
     turnRef.current = beginTurn();
     setTurn(turnRef.current);
@@ -2053,11 +2069,14 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       setMessages((list) =>
         list.map((message) => (message.id === optimisticId ? { ...message, id: response.messageId } : message)),
       );
+      skipNextDoneRef.current = false;
       try {
         setSessions(await api.listSessions(workspaceId));
       } catch {
         // 标题刷新失败不影响本轮对话
       }
+      // 上一轮若被停止/取代，服务端会补一条「已停止」说明；拉回来避免两条「你」连在一起。
+      void refetchChat();
     } catch (err) {
       if (err instanceof HttpError && err.code === 'INSUFFICIENT_CREDITS') {
         // 402 的语义不是「没权限」而是「免费额度用完了」。横幅常驻 + 弹出引导：
@@ -2072,6 +2091,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       turnRef.current = null;
       setTurn(null);
       markSending(false);
+      userStoppedRef.current = false;
+      skipNextDoneRef.current = false;
     }
   };
 
@@ -2083,6 +2104,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const stopTurn = async () => {
     const sid = sessionId;
     if (sid === null || !turnRef.current) return;
+    userStoppedRef.current = true;
+    skipNextDoneRef.current = false;
     turnRef.current = { ...turnRef.current, stopped: true };
     setTurn(turnRef.current);
     try {
