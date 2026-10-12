@@ -1,6 +1,7 @@
 package com.webcode.assistant.api;
 
 import com.webcode.assistant.agent.AgentRequest;
+import com.webcode.assistant.agent.PatchService;
 import com.webcode.assistant.agent.PendingInboxItem;
 import com.webcode.assistant.workspace.Workspace;
 import jakarta.validation.constraints.NotBlank;
@@ -259,6 +260,24 @@ public final class ApiModels {
 
     public record PatchView(String id, long sessionId, Long messageId, String file, String diff,
                             String summary, String status, String createdAt, String appliedAt) {
+    }
+
+    /** 编辑器逐段预览。frames[0] 是磁盘原文，后面每一帧多一个 hunk。 */
+    public record LivePreviewView(String patchId, String file, String summary,
+                                  List<String> frames, List<LiveMarkView> marks) {
+        public static LivePreviewView of(PatchService.LivePreview preview) {
+            return new LivePreviewView(
+                    preview.patchId(),
+                    preview.file(),
+                    preview.summary(),
+                    preview.frames(),
+                    preview.marks().stream()
+                            .map(mark -> new LiveMarkView(mark.startLine(), mark.endLine()))
+                            .toList());
+        }
+    }
+
+    public record LiveMarkView(int startLine, int endLine) {
     }
 
     /** 工作区待确认收件箱一行。不带 diff，点开再跳回那张卡。 */

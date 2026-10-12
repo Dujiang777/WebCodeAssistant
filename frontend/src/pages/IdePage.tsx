@@ -17,6 +17,7 @@ import type {
   GitStatus,
   GatePolicy,
   HealthInfo,
+  LivePreviewView,
   ModelCatalog,
   NavigateView,
   PatchRecord,
@@ -43,7 +44,7 @@ import { ChatPane } from '../components/ChatPane';
 import { AgentDesk } from '../components/AgentDesk';
 import { ConstitutionModal } from '../components/ConstitutionModal';
 import { EditorPane } from '../components/EditorPane';
-import type { RevealTarget, DiagnosticCounts } from '../components/EditorPane';
+import type { LivePreviewShow, RevealTarget, DiagnosticCounts } from '../components/EditorPane';
 import { FileTree } from '../components/FileTree';
 import type { CreateTarget } from '../components/FileTree';
 import { PatchModal } from '../components/PatchModal';
@@ -259,6 +260,14 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   // 编辑器诊断计数（EditorPane 防抖 lint 后上报，状态栏显示）
   const [diagnostics, setDiagnostics] = useState<DiagnosticCounts | null>(null);
   const [reveal, setReveal] = useState<RevealTarget | null>(null);
+  const [live, setLive] = useState<{
+    patchId: string;
+    file: string;
+    frames: string[];
+    marks: LivePreviewView['marks'];
+    frame: number;
+    playing: boolean;
+  } | null>(null);
 
   const [creating, setCreating] = useState<CreateTarget | null>(null);
   const [createBusy, setCreateBusy] = useState(false);
@@ -427,6 +436,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const sessionIdRef = useRef<number | null>(null);
   const selectedPathRef = useRef<string | null>(null);
   const dirtyRef = useRef(false);
+  const liveSeq = useRef(0);
+  const playLiveRef = useRef<(id: string, file: string, manual?: boolean) => void>(() => {});
   /** 已经为哪些补丁发过影响面请求 —— 防止 patches 每次变化都重发一遍。 */
   const radiusRequested = useRef<Set<string>>(new Set());
   const didAutopen = useRef(false);
@@ -446,7 +457,25 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     onStatus: (_status: StreamStatus) => {},
   });
 
-  const dirty = file !== null && docText !== savedText;
+  const previewingThis = live !== null && live.file === selectedPath;
+  const dirty = file !== null && !previewingThis && docText !== savedText;
+  const editorText = previewingThis ? live.frames[Math.min(live.frame, live.frames.length - 1)] : docText;
+  const liveShow: LivePreviewShow | null =
+    previewingThis && live
+      ? {
+          playing: live.playing,
+          frame: live.frame,
+          total: live.frames.length,
+          mark: live.frame === 0 ? null : (live.marks[live.frame - 1] ?? null),
+          onExit: () => {
+            liveSeq.current += 1;
+            setLive(null);
+          },
+          onReplay: () => {
+            setLive((current) => (current ? { ...current, frame: 0, playing: true } : current));
+          },
+        }
+      : null;
 
   useEffect(() => {
     sessionIdRef.current = sessionId;
@@ -776,12 +805,35 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   }, [refreshInbox]);
 
   useEffect(() => {
+    liveSeq.current += 1;
+    setLive(null);
+  }, [sessionId]);
+
+  useEffect(() => {
     const id = pendingRevealId.current;
     if (!id || chatLoading) return;
-    if (!patches.some((item) => item.id === id)) return;
+    const found = patches.find((item) => item.id === id);
+    if (!found) return;
     pendingRevealId.current = null;
     revealPatchById(id);
+    if (found.status === 'pending') playLiveRef.current(found.id, found.file);
   }, [chatLoading, patches]);
+
+  useEffect(() => {
+    if (!live?.playing) return;
+    if (live.frame >= live.frames.length - 1) {
+      setLive((current) => (current && current.playing ? { ...current, playing: false } : current));
+      return;
+    }
+    const delay = live.frame === 0 ? 320 : 400;
+    const timer = window.setTimeout(() => {
+      setLive((current) => {
+        if (!current || !current.playing) return current;
+        return { ...current, frame: Math.min(current.frame + 1, current.frames.length - 1) };
+      });
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [live]);
 
   // ------------------------------------------------------------ 事件处理
 
@@ -908,6 +960,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         };
         setTurn(turnRef.current);
         void refreshInbox();
+        playLiveRef.current(id, record.file);
         return;
       }
 
@@ -1166,6 +1219,46 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       setFileLoading(false);
     }
   };
+
+  const playLivePatch = async (id: string, filePath: string, manual = false) => {
+    if (!id || !filePath) return;
+    if (!manual && dirtyRef.current && selectedPathRef.current === filePath) {
+      toast.info('编辑器里有未保存的改动，没法同时放这段预览。先保存或丢掉，再点卡片上的「看着改」。');
+      return;
+    }
+    if (manual && dirtyRef.current && selectedPathRef.current === filePath) {
+      const confirmed = window.confirm(
+        `「${filePath}」有未保存的修改。放预览会先回到磁盘上的版本（还没写盘），确定继续？`,
+      );
+      if (!confirmed) return;
+      dirtyRef.current = false;
+      setDocText(savedText);
+    }
+    const seq = ++liveSeq.current;
+    try {
+      const view = await api.livePreview(id);
+      if (seq !== liveSeq.current) return;
+      if (view.frames.length < 2) {
+        if (manual) toast.info('这张补丁没有可回放的画面');
+        return;
+      }
+      if (selectedPathRef.current !== view.file) {
+        await openFile(view.file);
+        if (seq !== liveSeq.current) return;
+      }
+      setLive({
+        patchId: view.patchId,
+        file: view.file,
+        frames: view.frames,
+        marks: view.marks,
+        frame: 0,
+        playing: true,
+      });
+    } catch (err) {
+      if (manual) toast.error(messageOf(err) || '这段预览放不出来');
+    }
+  };
+  playLiveRef.current = playLivePatch;
 
   const closeTab = async (path: string) => {
     if (selectedPathRef.current === path && dirtyRef.current) {
@@ -1515,6 +1608,13 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       });
       toast.success(`补丁已应用：${applied.file}`);
       void refreshInbox();
+      setLive((current) => {
+        if (current && (current.patchId === patch.id || current.file === applied.file)) {
+          liveSeq.current += 1;
+          return null;
+        }
+        return current;
+      });
 
       if (selectedPathRef.current === applied.file) {
         if (dirtyRef.current) {
@@ -1615,6 +1715,13 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       setPatches((list) => list.map((item) => (item.id === rejected.id ? rejected : item)));
       toast.info(`已丢弃补丁：${rejected.file}`);
       void refreshInbox();
+      setLive((current) => {
+        if (current && current.patchId === patch.id) {
+          liveSeq.current += 1;
+          return null;
+        }
+        return current;
+      });
     } catch (err) {
       toast.error(messageOf(err));
     } finally {
@@ -1639,6 +1746,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       const applied = await api.listPatches(sid);
       setPatches(applied);
       void refreshInbox();
+      liveSeq.current += 1;
+      setLive(null);
       await refreshTree();
       void refreshFilm();
       void refreshGit();
@@ -1691,6 +1800,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       const applied = await api.listPatches(sid);
       setPatches(applied);
       void refreshInbox();
+      liveSeq.current += 1;
+      setLive(null);
       await refreshTree();
       void refreshFilm();
       void refreshGit();
@@ -1886,6 +1997,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       return;
     }
     revealPatchById(item.id);
+    playLiveRef.current(item.id, item.file);
   };
 
   const askTreeFile = (path: string, kind: 'explain' | 'edit') => {
@@ -2317,12 +2429,13 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         <EditorPane
           workspaceId={workspaceId}
           file={file}
-          text={docText}
+          text={editorText}
           loading={fileLoading}
           dirty={dirty}
           saving={saving}
           error={fileError}
           reveal={reveal}
+          live={liveShow}
           onChange={setDocText}
           onSave={() => void saveFile()}
           onSelectionChange={setSelection}
@@ -2409,6 +2522,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               testsOf={(patchId) => testResults[patchId] ?? null}
               onRejectPatch={(patch) => void rejectPatch(patch)}
               onViewPatch={setDiffPatch}
+              onPlayLive={(patch) => void playLivePatch(patch.id, patch.file, true)}
               onCompilePatch={(patch) => void runCompile(patch)}
               onFixFromCompile={(patch, result) => fixFromCompile(patch, result)}
               onOpenCitation={(path, line) => void openCitation(path, line)}

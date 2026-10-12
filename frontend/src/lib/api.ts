@@ -435,6 +435,15 @@ export interface PendingInboxItem {
   createdAt: string;
 }
 
+/** 编辑器逐段预览。frames[0] 是磁盘原文，后面每一帧多一个 hunk。 */
+export interface LivePreviewView {
+  patchId: string;
+  file: string;
+  summary: string | null;
+  frames: string[];
+  marks: { startLine: number; endLine: number }[];
+}
+
 export interface HealthInfo {
   status: string;
   modelConfigured: boolean;
@@ -930,6 +939,10 @@ export const api = {
 
   listPendingInbox: (workspaceId: number) =>
     request<PendingInboxItem[]>(`/api/workspaces/${workspaceId}/pending-patches`),
+
+  /** 编辑器里看着补丁一段段长出来。不写盘。 */
+  livePreview: (patchId: string) =>
+    request<LivePreviewView>(`/api/patches/${patchId}/live-preview`),
 
   sendMessage: (
     sessionId: number,

@@ -44,6 +44,7 @@ interface PatchCardProps {
   tests?: TestRunResult | null;
   onReject: (patch: PatchRecord) => void;
   onView: (patch: PatchRecord) => void;
+  onPlay?: (patch: PatchRecord) => void;
   onCompile: (patch: PatchRecord) => void;
   onFixFromCompile: (patch: PatchRecord, result: BuildResult) => void;
   onOpenRef: (file: string, line: number | null) => void;
@@ -104,6 +105,7 @@ export function PatchCard({
   tests = null,
   onReject,
   onView,
+  onPlay,
   onCompile,
   onFixFromCompile,
   onOpenRef,
@@ -290,6 +292,16 @@ export function PatchCard({
         <button className="btn btn-sm" onClick={() => onView(patch)}>
           完整对比
         </button>
+        {onPlay && (
+          <button
+            type="button"
+            className="btn btn-sm"
+            title="在编辑器里一段段看改动，磁盘还没动"
+            onClick={() => onPlay(patch)}
+          >
+            看着改
+          </button>
+        )}
 
         {patch.status === 'pending' && (
           <>

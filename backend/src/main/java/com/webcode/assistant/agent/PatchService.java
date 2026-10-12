@@ -431,6 +431,66 @@ public class PatchService {
         return patchRepository.findPendingInbox(workspaceId, userId);
     }
 
+    /**
+     * 编辑器里「看着它改」的逐段画面：第 0 帧是磁盘原文，后面每一帧多应用一个 hunk。
+     * 不写盘。
+     */
+    public LivePreview livePreview(long userId, UUID patchId) {
+        Patch patch = requireOwned(userId, patchId);
+        Workspace workspace = workspaceOf(userId, patchId);
+        String path = normalizeDeclaredPath(patch.filePath());
+        Path target = resolveTarget(workspace, path);
+        String before = readCurrentContent(workspace, path, target);
+        FilePatch filePatch = UnifiedDiffParser.parse(patch.diffText(), path).getFirst();
+        return buildFrames(patch.id().toString(), path, patch.summary(), before, filePatch);
+    }
+
+    /**
+     * 把补丁拆成编辑器可回放的帧。大文件或 hunk 太多时只给「改前 / 改后」两帧，避免把整份 JSON 撑爆。
+     */
+    static LivePreview buildFrames(String patchId, String path, String summary,
+                                   String original, FilePatch filePatch) {
+        String before = original == null ? "" : original;
+        String source = before.isEmpty() ? null : before;
+        List<Hunk> hunks = filePatch.hunks();
+        boolean collapse = before.length() > 180_000 || hunks.size() > 24;
+        if (collapse || hunks.isEmpty()) {
+            String after = UnifiedDiffApplier.apply(source, filePatch);
+            if (after.equals(before)) {
+                return new LivePreview(patchId, path, summary, List.of(before), List.of());
+            }
+            int start = 1;
+            int end = 1;
+            if (!hunks.isEmpty()) {
+                Hunk hunk = hunks.getFirst();
+                start = Math.max(1, hunk.newStart());
+                end = Math.max(start, start + Math.max(hunk.newCount(), 1) - 1);
+            }
+            return new LivePreview(patchId, path, summary, List.of(before, after),
+                    List.of(new LiveMark(start, end)));
+        }
+        List<String> frames = new ArrayList<>(hunks.size() + 1);
+        List<LiveMark> marks = new ArrayList<>(hunks.size());
+        frames.add(before);
+        for (int i = 0; i < hunks.size(); i++) {
+            FilePatch partial = new FilePatch(
+                    filePatch.oldPath(), filePatch.newPath(), List.copyOf(hunks.subList(0, i + 1)));
+            frames.add(UnifiedDiffApplier.apply(source, partial));
+            Hunk hunk = hunks.get(i);
+            int start = Math.max(1, hunk.newStart());
+            int end = Math.max(start, start + Math.max(hunk.newCount(), 1) - 1);
+            marks.add(new LiveMark(start, end));
+        }
+        return new LivePreview(patchId, path, summary, List.copyOf(frames), List.copyOf(marks));
+    }
+
+    public record LivePreview(String patchId, String file, String summary,
+                              List<String> frames, List<LiveMark> marks) {
+    }
+
+    public record LiveMark(int startLine, int endLine) {
+    }
+
     public void attachMessage(UUID patchId, long messageId) {
         patchRepository.attachMessage(patchId, messageId);
     }

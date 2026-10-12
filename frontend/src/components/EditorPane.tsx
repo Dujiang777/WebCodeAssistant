@@ -36,6 +36,16 @@ export interface RevealTarget {
   token: number;
 }
 
+/** 补丁在编辑器里回放时的条带。磁盘还没动。 */
+export interface LivePreviewShow {
+  playing: boolean;
+  frame: number;
+  total: number;
+  mark: { startLine: number; endLine: number } | null;
+  onExit: () => void;
+  onReplay: () => void;
+}
+
 /**
  * 跳转高亮的停留时长。
  *
@@ -74,6 +84,7 @@ interface EditorPaneProps {
   onQuickOpen?: () => void;
   /** 选中代码后的行动：解释 / 改 / 找引用。Ctrl+K 走 edit。 */
   onAskSelection?: (kind: 'explain' | 'edit' | 'usages') => void;
+  live?: LivePreviewShow | null;
 }
 
 export function EditorPane({
@@ -100,8 +111,9 @@ export function EditorPane({
   onCloseTab,
   onQuickOpen,
   onAskSelection,
+  live = null,
 }: EditorPaneProps) {
-  const readOnly = !file || file.binary || file.truncated;
+  const readOnly = !file || file.binary || file.truncated || Boolean(live);
   const [sel, setSel] = useState<Selection | null>(null);
   const outline = useMemo(
     () => (file && !file.binary && !file.truncated ? outlineOf(file.path, text) : []),
@@ -129,7 +141,7 @@ export function EditorPane({
   // 请求带序号，慢响应不许覆盖新响应 —— 打字快的时候旧 lint 还在路上是常态。
   const lintSeqRef = useRef(0);
   useEffect(() => {
-    if (!file || file.binary || file.truncated || !workspaceId) {
+    if (live || !file || file.binary || file.truncated || !workspaceId) {
       lintSeqRef.current += 1;
       onDiagnosticsChange(null);
       return;
@@ -150,7 +162,7 @@ export function EditorPane({
     return () => window.clearTimeout(timer);
     // onDiagnosticsChange 来自父级渲染，不进依赖（进依赖会打断防抖）
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file, text, workspaceId]);
+  }, [file, text, workspaceId, Boolean(live)]);
 
   // 文件关闭/切到二进制时清掉残留的下划线标记
   useEffect(() => {
@@ -189,6 +201,34 @@ export function EditorPane({
     const timer = window.setTimeout(() => decorationsRef.current?.clear(), HIGHLIGHT_MS);
     return () => window.clearTimeout(timer);
   }, [reveal, file]);
+
+  const liveDecoRef = useRef<any>(null);
+  useEffect(() => {
+    const editor = editorRef.current;
+    const monacoApi = monacoRef.current;
+    if (!editor || !monacoApi) return;
+    if (!live?.mark || !file) {
+      liveDecoRef.current?.clear();
+      return;
+    }
+    const model = editor.getModel();
+    const total = model?.getLineCount() ?? 1;
+    const start = Math.min(Math.max(live.mark.startLine, 1), total);
+    const end = Math.min(Math.max(live.mark.endLine, start), total);
+    liveDecoRef.current?.clear();
+    liveDecoRef.current = editor.createDecorationsCollection([
+      {
+        range: new monacoApi.Range(start, 1, end, 1),
+        options: {
+          isWholeLine: true,
+          className: 'live-preview-add',
+          linesDecorationsClassName: 'live-preview-gutter',
+        },
+      },
+    ]);
+    editor.revealLineInCenter(start, monacoApi.editor.ScrollType.Smooth);
+    return () => liveDecoRef.current?.clear();
+  }, [live?.playing, live?.mark?.startLine, live?.mark?.endLine, file, text]);
 
   useEffect(() => {
     setSel(null);
@@ -319,6 +359,24 @@ export function EditorPane({
         </div>
       )}
 
+      {live && (
+        <div className="live-preview-banner">
+          <span className="dot dot-ok" />
+          <strong>预览 · 未写盘</strong>
+          <span>
+            {Math.min(live.frame + 1, live.total)} / {live.total}
+            {live.playing ? ' · 正在改' : ' · 已放到改后'}
+          </span>
+          <div className="topbar-spacer" />
+          <button type="button" className="btn btn-sm" onClick={live.onReplay}>
+            再放一遍
+          </button>
+          <button type="button" className="btn btn-sm" onClick={live.onExit}>
+            退出预览
+          </button>
+        </div>
+      )}
+
       <div className="editor-wrap">
         {file?.binary ? (
           <div className="editor-empty">
@@ -360,7 +418,10 @@ export function EditorPane({
             theme={WCA_THEME}
             value={text}
             options={{ ...EDITOR_OPTIONS, readOnly }}
-            onChange={(value) => onChange(value ?? '')}
+            onChange={(value) => {
+              if (live) return;
+              onChange(value ?? '');
+            }}
             loading={
               <div className="loading-block" style={{ padding: '16px 14px' }}>
                 <span className="spinner" />

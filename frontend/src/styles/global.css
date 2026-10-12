@@ -2642,6 +2642,33 @@ a.link:hover,
   color: var(--amber);
 }
 
+.live-preview-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 7px 12px;
+  border: none;
+  border-bottom: 1px solid var(--signal-line);
+  background: var(--signal-dim);
+  color: var(--signal-soft);
+  font-size: 12px;
+}
+
+.live-preview-banner strong {
+  color: var(--signal);
+  font-weight: 600;
+}
+
+.monaco-editor .live-preview-add {
+  background: rgba(232, 180, 90, 0.14);
+}
+
+.monaco-editor .live-preview-gutter {
+  background: var(--signal);
+  width: 3px !important;
+}
+
 /* 引用跳转后的整行高亮（Monaco decoration） */
 .cite-line {
   background: rgba(232, 180, 90, 0.14);

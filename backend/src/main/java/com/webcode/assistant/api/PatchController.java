@@ -116,6 +116,12 @@ public class PatchController {
         return patchService.inspectFit(currentUser.requireId(), patchId);
     }
 
+    /** 编辑器里看着补丁一段段长出来。纯只读，不写盘。 */
+    @GetMapping("/{patchId}/live-preview")
+    public ApiModels.LivePreviewView livePreview(@PathVariable UUID patchId) {
+        return ApiModels.LivePreviewView.of(patchService.livePreview(currentUser.requireId(), patchId));
+    }
+
     /** 宪章对账：补丁新增行有没有踩到 CONSTITUTION 里的禁止条款。纯只读。 */
     @GetMapping("/{patchId}/charter")
     public ConstitutionAuditService.Audit charter(@PathVariable UUID patchId) {

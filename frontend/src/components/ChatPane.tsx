@@ -100,6 +100,7 @@ interface PatchDeps {
   testsOf?: (patchId: string) => TestRunResult | null;
   onRejectPatch: (patch: PatchRecord) => void;
   onViewPatch: (patch: PatchRecord) => void;
+  onPlayLive?: (patch: PatchRecord) => void;
   onCompilePatch: (patch: PatchRecord) => void;
   onFixFromCompile: (patch: PatchRecord, result: BuildResult) => void;
   onOpenCitation: (file: string, line: number | null) => void;
@@ -278,6 +279,7 @@ export function ChatPane({
   testsOf,
   onRejectPatch,
   onViewPatch,
+  onPlayLive,
   onCompilePatch,
   onFixFromCompile,
   onOpenCitation,
@@ -521,6 +523,7 @@ export function ChatPane({
       tests={testsOf?.(patch.id) ?? null}
       onReject={onRejectPatch}
       onView={onViewPatch}
+      onPlay={onPlayLive}
       onCompile={onCompilePatch}
       onFixFromCompile={onFixFromCompile}
       onOpenRef={onOpenCitation}
