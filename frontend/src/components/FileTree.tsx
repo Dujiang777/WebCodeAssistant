@@ -48,6 +48,9 @@ interface FileTreeProps {
   traced?: Set<string>;
   patched?: Set<string>;
   onToggleRedzone?: (path: string) => void;
+  onAsk?: (path: string) => void;
+  onEdit?: (path: string) => void;
+  onOpenPatch?: (path: string) => void;
   creating: CreateTarget | null;
   createBusy: boolean;
 }
@@ -109,6 +112,9 @@ export function FileTree({
   traced,
   patched,
   onToggleRedzone,
+  onAsk,
+  onEdit,
+  onOpenPatch,
   creating,
   createBusy,
 }: FileTreeProps) {
@@ -172,6 +178,9 @@ export function FileTree({
             traced={traced}
             patched={patched}
             onToggleRedzone={onToggleRedzone}
+            onAsk={onAsk}
+            onEdit={onEdit}
+            onOpenPatch={onOpenPatch}
           />
         ))
       )}
@@ -193,6 +202,9 @@ interface TreeRowProps {
   traced?: Set<string>;
   patched?: Set<string>;
   onToggleRedzone?: (path: string) => void;
+  onAsk?: (path: string) => void;
+  onEdit?: (path: string) => void;
+  onOpenPatch?: (path: string) => void;
 }
 
 function TreeRow({
@@ -209,6 +221,9 @@ function TreeRow({
   traced,
   patched,
   onToggleRedzone,
+  onAsk,
+  onEdit,
+  onOpenPatch,
 }: TreeRowProps) {
   const isDir = node.type === 'dir';
   const open = isDir && expanded.has(node.path);
@@ -323,6 +338,21 @@ function TreeRow({
           <>
             <span className="tree-size">{formatBytes(node.size)}</span>
             <span className="tree-actions" onClick={(event) => event.stopPropagation()}>
+              {onAsk && (
+                <button className="tree-act" title="解释这个文件" onClick={() => onAsk(node.path)}>
+                  问
+                </button>
+              )}
+              {onEdit && !locked && (
+                <button className="tree-act" title="对着这个文件出补丁" onClick={() => onEdit(node.path)}>
+                  改
+                </button>
+              )}
+              {onOpenPatch && hasPatch && (
+                <button className="tree-act tree-act-patch" title="跳到这张待确认补丁" onClick={() => onOpenPatch(node.path)}>
+                  补丁
+                </button>
+              )}
               {onToggleRedzone && (
                 <button
                   className={`icon-btn${locked ? ' on' : ''}`}
@@ -363,6 +393,9 @@ function TreeRow({
             traced={traced}
             patched={patched}
             onToggleRedzone={onToggleRedzone}
+            onAsk={onAsk}
+            onEdit={onEdit}
+            onOpenPatch={onOpenPatch}
           />
         ))}
     </>

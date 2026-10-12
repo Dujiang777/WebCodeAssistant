@@ -30,6 +30,7 @@ import { beginTurn, messageOf, nextToolId, toolPathOf } from '../lib/chat';
 import type { LiveTurn, Selection, ToolItem } from '../lib/chat';
 import { diffLinePrompt } from '../lib/follow';
 import type { DiffLineAsk } from '../lib/follow';
+import { treeEdit, treeExplain } from '../lib/treeAsk';
 import type { RecipeView } from '../lib/review';
 import { testSummary } from '../lib/review';
 import { navigate, rememberIde } from '../lib/router';
@@ -1816,6 +1817,38 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     void send(`${lead}\n\n${where}：\n\`\`\`\n${clip}\n\`\`\``);
   };
 
+  const seedComposer = (text: string) => {
+    composerSeedToken.current += 1;
+    setComposerSeed({ token: composerSeedToken.current, text });
+  };
+
+  const revealPatch = (path?: string) => {
+    setChatVisible(true);
+    const patch = path
+      ? patches.find((item) => item.file === path && item.status === 'pending')
+        ?? patches.find((item) => item.file === path)
+      : patches.find((item) => item.status === 'pending');
+    window.requestAnimationFrame(() => {
+      const el = patch
+        ? document.querySelector(`[data-patch-id="${patch.id}"]`)
+        : document.querySelector('.patch-card');
+      if (!(el instanceof HTMLElement)) return;
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.classList.add('patch-card-flash');
+      window.setTimeout(() => el.classList.remove('patch-card-flash'), 1400);
+    });
+  };
+
+  const askTreeFile = (path: string, kind: 'explain' | 'edit') => {
+    void openFile(path);
+    setChatVisible(true);
+    if (kind === 'edit') {
+      seedComposer(treeEdit(path));
+      return;
+    }
+    void send(treeExplain(path), path);
+  };
+
   const askDiffLine = (ask: DiffLineAsk) => {
     setDiffPatch(null);
     const text = diffLinePrompt(ask);
@@ -2109,6 +2142,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         onBack={() => navigate('/workspaces')}
         onLogout={onLogout}
         pendingPatches={patches.filter((patch) => patch.status === 'pending').length}
+        onOpenPending={() => revealPatch()}
         credits={credits?.balance ?? null}
         creditLow={credits?.lowBalance ?? false}
         onOpenCredits={() => navigate('/credits')}
@@ -2212,6 +2246,9 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
                 traced={tracedPaths}
                 patched={patchedPaths}
                 onToggleRedzone={(path) => void toggleRedzone(path)}
+                onAsk={(path) => askTreeFile(path, 'explain')}
+                onEdit={(path) => askTreeFile(path, 'edit')}
+                onOpenPatch={(path) => revealPatch(path)}
               />
             </div>
           </div>

@@ -11121,3 +11121,31 @@ body {
 .md-provider .row {
   margin-top: 6px;
 }
+
+/* ------------------------------------------------------------ 批62 树上问改 / 待确认跳转 */
+.tree-act {
+  border: 0;
+  background: transparent;
+  color: var(--signal);
+  font-size: 11px;
+  padding: 0 4px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.tree-act:hover {
+  color: var(--fg-0);
+}
+
+.tree-act-patch {
+  color: var(--violet);
+}
+
+.tree-row:hover .tree-size {
+  display: none;
+}
+
+.patch-card-flash {
+  outline: 1px solid var(--signal-line);
+  box-shadow: 0 0 0 4px var(--signal-dim);
+}

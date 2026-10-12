@@ -28,6 +28,8 @@ interface TopBarProps {
   onBack: () => void;
   onLogout: () => void;
   pendingPatches: number;
+  /** 点顶栏「待确认」跳到对话里第一张待确认卡。 */
+  onOpenPending?: () => void;
   /** 剩余积分；null 表示还没拉到（这时不显示徽标，而不是显示 0）。 */
   credits: number | null;
   creditLow: boolean;
@@ -54,6 +56,7 @@ export function TopBar({
   onBack,
   onLogout,
   pendingPatches,
+  onOpenPending,
   credits,
   creditLow,
   onOpenCredits,
@@ -107,9 +110,14 @@ export function TopBar({
       <div className="topbar-spacer" />
 
       {pendingPatches > 0 && (
-        <span className="chip" style={{ color: 'var(--violet)', borderColor: 'var(--violet-dim)' }}>
+        <button
+          className="chip chip-btn"
+          style={{ color: 'var(--violet)', borderColor: 'var(--violet-dim)' }}
+          onClick={onOpenPending}
+          title="跳到对话里第一张待确认补丁"
+        >
           待确认补丁 {pendingPatches}
-        </span>
+        </button>
       )}
 
       {models === null ? (
