@@ -79,9 +79,12 @@ const I18N = {
     talk: '对话',
     talkP: '交付或教学两种口吻。补丁卡、引用、停止，都在这一栏。',
     tryOnce: '去试一次',
-    hitl: `模型：读文件、搜代码、出 unified diff
-你：看影响面 / 看着改 / 点「应用并写盘」
-磁盘：只在 Apply 时被改写`,
+    hitlModel: '模型',
+    hitlModelP: '读文件、搜代码、出 unified diff',
+    hitlYou: '你',
+    hitlYouP: '看影响面 / 看着改 / 点「应用并写盘」',
+    hitlDisk: '磁盘',
+    hitlDiskP: '只在 Apply 时被改写',
     flowKicker: '主循环',
     flowH2: '一张补丁，怎么落到磁盘上。',
     flowLead: '它会自己往前走。点某一步，循环会停在那一幕。',
@@ -182,9 +185,12 @@ const I18N = {
     talk: 'Chat',
     talkP: 'Deliver or teach. Patch cards, citations, and stop live here.',
     tryOnce: 'Try it',
-    hitl: `model: read, search, emit a unified diff
-you: inspect impact / watch it change / apply
-disk: rewritten only on Apply`,
+    hitlModel: 'Model',
+    hitlModelP: 'Read, search, emit a unified diff',
+    hitlYou: 'You',
+    hitlYouP: 'Inspect impact / watch it change / apply',
+    hitlDisk: 'Disk',
+    hitlDiskP: 'Rewritten only on Apply',
     flowKicker: 'Main loop',
     flowH2: 'How a patch actually lands.',
     flowLead: 'It walks forward on its own. Click a step to hold that frame.',
@@ -577,6 +583,11 @@ export function HomePage({ user, onLogout }: HomePageProps) {
               {t.seeLoop}
             </button>
           </div>
+          <ul className="gate-proof">
+            {t.tape.slice(0, 4).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
         </div>
         <div className="gate-tape" aria-hidden="true">
           <div className="gate-tape-track">
@@ -612,8 +623,8 @@ export function HomePage({ user, onLogout }: HomePageProps) {
                 <header>{t.files}</header>
                 <ul>
                   <li>src</li>
-                  <li className="on">UserService.java</li>
-                  <li>UserRepository.java</li>
+                  <li className="on nest">UserService.java</li>
+                  <li className="nest">UserRepository.java</li>
                   <li>pom.xml</li>
                 </ul>
               </aside>
@@ -711,16 +722,25 @@ export function HomePage({ user, onLogout }: HomePageProps) {
           <h2>{t.embedH2}</h2>
           <ol>
             <li>
-              <b>{t.tree}</b>
-              {t.treeP}
+              <em>01</em>
+              <div>
+                <b>{t.tree}</b>
+                <p>{t.treeP}</p>
+              </div>
             </li>
             <li>
-              <b>{t.ed}</b>
-              {t.edP}
+              <em>02</em>
+              <div>
+                <b>{t.ed}</b>
+                <p>{t.edP}</p>
+              </div>
             </li>
             <li>
-              <b>{t.talk}</b>
-              {t.talkP}
+              <em>03</em>
+              <div>
+                <b>{t.talk}</b>
+                <p>{t.talkP}</p>
+              </div>
             </li>
           </ol>
         </div>
@@ -731,7 +751,20 @@ export function HomePage({ user, onLogout }: HomePageProps) {
               {t.tryOnce}
             </a>
           </header>
-          <pre>{t.hitl}</pre>
+          <ul className="gate-hitl">
+            <li>
+              <b>{t.hitlModel}</b>
+              <span>{t.hitlModelP}</span>
+            </li>
+            <li>
+              <b>{t.hitlYou}</b>
+              <span>{t.hitlYouP}</span>
+            </li>
+            <li>
+              <b>{t.hitlDisk}</b>
+              <span>{t.hitlDiskP}</span>
+            </li>
+          </ul>
         </div>
       </section>
 
@@ -756,36 +789,43 @@ export function HomePage({ user, onLogout }: HomePageProps) {
             ))}
           </ol>
           <div className={`gate-stage stage-${FLOW[play].screen}`} key={`${play}-${lang}`}>
-            <p className="gate-stage-kicker">
-              {FLOW[play].no} / {FLOW[play][lang].title}
-            </p>
-            {play === 0 && (
-              <div className="gate-stage-ask">
-                <span>{t.you}</span>
-                <p>{t.bubble}</p>
-              </div>
-            )}
-            {play === 1 && (
-              <div className="gate-stage-card">
-                <b>{t.patch}</b>
-                <code>+ private final UserRepository repo;</code>
-                <small>{t.impact}</small>
-              </div>
-            )}
-            {play === 2 && (
-              <div className="gate-stage-live">
-                <i /> {t.live}
-                <pre>{`  public UserService(UserRepository repo) {\n      this.repo = repo;\n  }`}</pre>
-              </div>
-            )}
-            {play === 3 && (
-              <div className="gate-stage-apply">
-                <p>{t.compiling}</p>
-                <a className="gate-solid" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
-                  {t.realIde}
-                </a>
-              </div>
-            )}
+            <div className="gate-stage-bar">
+              <i />
+              <i />
+              <i />
+              <em>
+                {FLOW[play].no} / {FLOW[play][lang].title}
+              </em>
+            </div>
+            <div className="gate-stage-body">
+              {play === 0 && (
+                <div className="gate-stage-ask">
+                  <span>{t.you}</span>
+                  <p>{t.bubble}</p>
+                </div>
+              )}
+              {play === 1 && (
+                <div className="gate-stage-card">
+                  <b>{t.patch}</b>
+                  <code>+ private final UserRepository repo;</code>
+                  <small>{t.impact}</small>
+                </div>
+              )}
+              {play === 2 && (
+                <div className="gate-stage-live">
+                  <i /> {t.live}
+                  <pre>{`  public UserService(UserRepository repo) {\n      this.repo = repo;\n  }`}</pre>
+                </div>
+              )}
+              {play === 3 && (
+                <div className="gate-stage-apply">
+                  <p>{t.compiling}</p>
+                  <a className="gate-solid" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
+                    {t.realIde}
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -797,32 +837,50 @@ export function HomePage({ user, onLogout }: HomePageProps) {
         </div>
         <div className="gate-door-list">
           <a href={appHref(user ? '/workspaces' : '/login')} target="_blank" rel="noopener noreferrer">
-            <em>{t.d1}</em>
+            <em>
+              <i>01</i>
+              {t.d1}
+            </em>
             <p>{t.d1p}</p>
             <span>{t.d1a}</span>
           </a>
           <a href={appHref(desk ?? enter)} target="_blank" rel="noopener noreferrer">
-            <em>{t.d2}</em>
+            <em>
+              <i>02</i>
+              {t.d2}
+            </em>
             <p>{t.d2p}</p>
             <span>{desk ? t.d2b : t.d2a}</span>
           </a>
           <a href={appHref(user ? '/models' : '/login')} target="_blank" rel="noopener noreferrer">
-            <em>{t.d3}</em>
+            <em>
+              <i>03</i>
+              {t.d3}
+            </em>
             <p>{t.d3p}</p>
             <span>{t.d3a}</span>
           </a>
           <a href={appHref(user ? '/credits' : '/login')} target="_blank" rel="noopener noreferrer">
-            <em>{t.d4}</em>
+            <em>
+              <i>04</i>
+              {t.d4}
+            </em>
             <p>{t.d4p}</p>
             <span>{t.d4a}</span>
           </a>
           <a href={appHref(user ? '/account' : '/login')} target="_blank" rel="noopener noreferrer">
-            <em>{t.d5}</em>
+            <em>
+              <i>05</i>
+              {t.d5}
+            </em>
             <p>{t.d5p}</p>
             <span>{t.d5a}</span>
           </a>
           <a href="https://gitee.com/du-jiangjiang/web-code-assistant" target="_blank" rel="noopener noreferrer">
-            <em>{t.d6}</em>
+            <em>
+              <i>06</i>
+              {t.d6}
+            </em>
             <p>{t.d6p}</p>
             <span>{t.d6a}</span>
           </a>

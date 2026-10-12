@@ -342,8 +342,10 @@ body:has(.gate)::after {
 }
 
 .gate-lg {
-  padding: 12px 20px;
+  padding: 13px 22px;
+  min-height: 46px;
   font-size: 15px;
+  letter-spacing: 0.02em;
 }
 
 .gate-hero,
@@ -358,7 +360,8 @@ body:has(.gate)::after {
 }
 
 .gate-hero {
-  padding: 56px 0 28px;
+  padding: 64px 0 36px;
+  scroll-margin-top: 76px;
 }
 
 .gate-hero-copy {
@@ -435,6 +438,25 @@ body:has(.gate)::after {
   gap: 10px;
 }
 
+.gate-proof {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+}
+
+.gate-proof li {
+  font-family: var(--gate-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--gate-brass);
+  border: 1px solid var(--gate-line);
+  border-radius: 999px;
+  padding: 5px 11px;
+}
+
 .gate-tape {
   overflow: hidden;
   margin: 8px 0 28px;
@@ -463,8 +485,8 @@ body:has(.gate)::after {
 
 .gate-live-pill {
   position: absolute;
-  top: 14px;
-  right: -6px;
+  top: -12px;
+  right: 18px;
   z-index: 4;
   display: inline-flex;
   align-items: center;
@@ -497,7 +519,8 @@ body:has(.gate)::after {
   box-shadow:
     0 36px 70px -32px #1a140c,
     0 0 40px -12px color-mix(in srgb, var(--gate-brass) 55%, transparent),
-    0 0 0 1px #2a261e;
+    0 0 0 1px #2a261e,
+    inset 0 1px 0 color-mix(in srgb, var(--gate-brass) 22%, transparent);
   transform: rotateX(var(--rx)) rotateY(var(--ry));
   transform-style: preserve-3d;
   transition: transform 0.12s ease-out, box-shadow 0.4s ease;
@@ -591,6 +614,10 @@ body:has(.gate)::after {
   border-radius: 6px;
   color: #9a917f;
   font-size: 13px;
+}
+
+.gate-pane-tree li.nest {
+  padding-left: 22px;
 }
 
 .gate-pane-tree li.on {
@@ -759,7 +786,7 @@ body:has(.gate)::after {
   gap: 8px;
   list-style: none;
   padding: 0;
-  margin: 16px 0 0;
+  margin: 20px 0 0;
 }
 
 .gate-beats button {
@@ -799,7 +826,8 @@ body:has(.gate)::after {
 .gate-embed,
 .gate-flow,
 .gate-doors {
-  padding: 88px 0 12px;
+  padding: 96px 0 28px;
+  scroll-margin-top: 76px;
 }
 
 .gate-band-head {
@@ -895,6 +923,11 @@ body:has(.gate)::after {
   font-weight: 600;
 }
 
+.gate-spine-go::after {
+  content: ' →';
+  color: var(--gate-brass);
+}
+
 .gate-embed {
   display: grid;
   grid-template-columns: 1.05fr 0.95fr;
@@ -908,18 +941,34 @@ body:has(.gate)::after {
   margin: 22px 0 0;
 }
 
-.gate-embed li {
+.gate-embed ol > li {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: 12px;
   padding: 18px 0;
   border-top: 1px solid var(--gate-line);
   color: var(--gate-mute);
 }
 
-.gate-embed li b {
+.gate-embed ol > li em {
+  font-family: var(--gate-mono);
+  font-style: normal;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--gate-brass);
+  padding-top: 4px;
+}
+
+.gate-embed ol > li b {
   display: block;
   color: var(--gate-ink);
   margin-bottom: 6px;
   font-size: 16px;
   letter-spacing: -0.02em;
+}
+
+.gate-embed ol > li p {
+  margin: 0;
 }
 
 .gate-code {
@@ -960,6 +1009,40 @@ body:has(.gate)::after {
   font-size: 14px;
   line-height: 1.85;
   color: #f6f0e4;
+}
+
+.gate-hitl {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.gate-hitl li {
+  display: grid;
+  grid-template-columns: 3.2rem minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #14120e;
+  border: 0;
+  color: #f6f0e4;
+}
+
+.gate-hitl b {
+  font-family: var(--gate-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--gate-brass);
+  font-weight: 600;
+  padding-top: 2px;
+}
+
+.gate-hitl span {
+  color: #f6f0e4;
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .gate-flow-grid {
@@ -1016,18 +1099,49 @@ body:has(.gate)::after {
 .gate-stage {
   min-height: 280px;
   border-radius: 12px;
+  overflow: hidden;
   background: var(--gate-dark);
   color: #f3efe6;
-  padding: 28px;
+  padding: 0;
+  box-shadow:
+    0 0 0 1px #2a261e,
+    0 24px 60px -32px #0c0b09,
+    inset 0 1px 0 color-mix(in srgb, var(--gate-brass) 18%, transparent);
   animation: gate-stage-in 0.45s ease;
 }
 
-.gate-stage-kicker {
+.gate-stage-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 14px;
+  background: #14120e;
+  border-bottom: 1px solid #2a261e;
+}
+
+.gate-stage-bar i {
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  background: #3a352c;
+}
+
+.gate-stage-bar i:nth-child(1) { background: #c26a5a; }
+.gate-stage-bar i:nth-child(2) { background: var(--gate-brass); }
+.gate-stage-bar i:nth-child(3) { background: #57e389; }
+
+.gate-stage-bar em {
+  margin-left: 8px;
   font-family: var(--gate-mono);
+  font-style: normal;
   font-size: 12px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   color: var(--gate-brass);
-  margin: 0 0 16px;
+}
+
+.gate-stage-body {
+  padding: 28px;
 }
 
 .gate-stage-ask p,
@@ -1067,14 +1181,15 @@ body:has(.gate)::after {
   position: relative;
   overflow: hidden;
   display: grid;
-  grid-template-columns: 140px minmax(0, 1fr) auto;
+  grid-template-columns: 7.5rem minmax(0, 1fr) auto;
   gap: 16px 24px;
   align-items: center;
-  padding: 22px 14px;
+  padding: 22px 14px 22px 16px;
   border-top: 1px solid var(--gate-line);
+  border-left: 2px solid transparent;
   text-decoration: none;
   color: inherit;
-  transition: background 0.2s ease, padding-left 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, padding-left 0.2s ease;
 }
 
 .gate-door-list a::after {
@@ -1088,7 +1203,8 @@ body:has(.gate)::after {
 
 .gate-door-list a:hover {
   background: #efe6d4;
-  padding-left: 18px;
+  padding-left: 20px;
+  border-left-color: var(--gate-brass);
 }
 
 .gate-door-list a:hover::after {
@@ -1096,9 +1212,22 @@ body:has(.gate)::after {
 }
 
 .gate-door-list em {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   font-style: normal;
   font-weight: 700;
   font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.gate-door-list em i {
+  font-style: normal;
+  font-family: var(--gate-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  color: var(--gate-brass);
 }
 
 .gate-door-list p {
@@ -1112,12 +1241,17 @@ body:has(.gate)::after {
   white-space: nowrap;
 }
 
+.gate-door-list span::after {
+  content: ' →';
+}
+
 .gate-next {
   width: 100%;
   margin: 64px 0 0;
   padding: 72px 0;
   background: var(--gate-dark);
   color: #f3efe6;
+  scroll-margin-top: 76px;
 }
 
 .gate-next-copy,
@@ -1438,6 +1572,10 @@ body:has(.gate[data-theme="night"])::after {
   background: #16130e;
 }
 
+.gate[data-theme="night"] .gate-proof li {
+  border-color: #3a352c;
+}
+
 .gate[data-theme="night"] .gate-solid {
   background: #f3efe6;
   border-color: #f3efe6;
@@ -1541,8 +1679,8 @@ body:has(.gate[data-theme="night"])::after {
   }
 
   .gate-live-pill {
-    right: 8px;
-    top: 8px;
+    right: 12px;
+    top: -10px;
   }
 
   .gate-repos li {
