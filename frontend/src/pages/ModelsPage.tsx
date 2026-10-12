@@ -594,9 +594,13 @@ export function ModelsPage({ onBack, onLogout, onModelChanged }: {
   const platformProviders = (catalog?.providers ?? []).filter((p) => p.scope === 'PLATFORM');
   const userProviders = (catalog?.providers ?? []).filter((p) => p.scope === 'USER');
   const defaultKey = catalog?.defaultModelKey ?? null;
-  const defaultModel = (catalog?.models ?? []).find((m) => m.modelKey === defaultKey) ?? null;
   const platformModels = (catalog?.models ?? []).filter((m) => !m.byok);
   const byokModels = (catalog?.models ?? []).filter((m) => m.byok);
+  const chosen = (catalog?.models ?? []).find((m) => m.modelKey === defaultKey) ?? null;
+  const fallback = platformModels.find((m) => m.available) ?? null;
+  const defaultModel = chosen ?? fallback;
+  const following = !chosen && !!fallback;
+  const currentKey = defaultModel?.modelKey ?? null;
   const filtered = useMemo(
     () => filterModels(catalog?.models ?? [], query, source, tier),
     [catalog, query, source, tier],
@@ -624,13 +628,14 @@ export function ModelsPage({ onBack, onLogout, onModelChanged }: {
             <div className="md-hero-main">
               <span className="cr-balance-label">对话使用的默认模型</span>
               <div className="md-hero-name">
-                {loading ? '读取中…' : defaultModel ? defaultModel.displayName : '跟随平台默认'}
+                {loading ? '读取中…' : defaultModel ? defaultModel.displayName : '还没有可用模型'}
                 {defaultModel && <TierBadge tier={defaultModel.tier} />}
+                {following && <span className="ad-badge">跟随平台</span>}
               </div>
               <div className="dim">
                 {defaultModel
-                  ? `${defaultModel.byok ? '自带 Key · 本轮不扣积分' : '按真实用量结算，多退少补'} · ${defaultModel.providerName}`
-                  : '未指定时自动使用平台当前推荐的模型'}
+                  ? `${following ? '未指定时用平台推荐 · ' : ''}${defaultModel.byok ? '自带 Key · 本轮不扣积分' : '按真实用量结算，多退少补'} · ${defaultModel.providerName}`
+                  : '平台还没配密钥。下面点一家预设，贴上自己的 Key 就能用'}
               </div>
               {defaultModel && (
                 <div className="md-hero-stats">
@@ -657,7 +662,7 @@ export function ModelsPage({ onBack, onLogout, onModelChanged }: {
                   试一句
                 </button>
               )}
-              {defaultModel && (
+              {chosen && (
                 <button className="btn btn-sm" disabled={busyModel !== null} onClick={() => void followPlatform()}>
                   恢复跟随平台默认
                 </button>
@@ -710,7 +715,7 @@ export function ModelsPage({ onBack, onLogout, onModelChanged }: {
                 <ModelCard
                   key={model.modelKey}
                   model={model}
-                  isDefault={model.modelKey === defaultKey}
+                  isDefault={model.modelKey === currentKey}
                   busy={busyModel !== null}
                   onSetDefault={(m) => void setDefault(m)}
                   onPing={(m) => void pingCatalog(m)}
@@ -755,7 +760,7 @@ export function ModelsPage({ onBack, onLogout, onModelChanged }: {
                   <ModelCard
                     key={'byok-' + model.modelKey}
                     model={model}
-                    isDefault={model.modelKey === defaultKey}
+                    isDefault={model.modelKey === currentKey}
                     busy={busyModel !== null}
                     onSetDefault={(m) => void setDefault(m)}
                     onPing={(m) => void pingCatalog(m)}
