@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import type {
   AgentMode,
@@ -7,6 +8,7 @@ import type {
   ChatMessage,
   ChatSession,
   CharterAudit,
+  CompletionSymbol,
   FlagView,
   GatePolicy,
   PatchRecord,
@@ -27,12 +29,23 @@ import {
 } from '../lib/chat';
 import type { LiveTurn, Selection, ToolItem } from '../lib/chat';
 import { copyText } from '../lib/clipboard';
+import { bundleKey, mergeReview } from '../lib/bundle';
 import { buildChecklist, checklistKey, followPrompt } from '../lib/follow';
 import type { ChecklistItem, FollowKind } from '../lib/follow';
+import {
+  applyMention,
+  expandComposer,
+  fileHits,
+  mentionAt,
+  mergeHits,
+  symbolHits,
+} from '../lib/mention';
+import type { MentionHit } from '../lib/mention';
 import type { RecipeView } from '../lib/review';
 import type { StreamStatus } from '../lib/sse';
 import { CitationText } from './CitationText';
 import { GateCard } from './GateCard';
+import { PatchBundle } from './PatchBundle';
 import { PatchCard } from './PatchCard';
 import { AvatarMenu } from './AvatarMenu';
 import { QuotaBar } from './QuotaBar';
@@ -109,7 +122,15 @@ interface ChatPaneProps extends PatchDeps {
   onAskSelection?: (kind: 'explain' | 'edit' | 'usages') => void;
   mode: AgentMode;
   onModeChange: (mode: AgentMode) => void;
-  onSend: (content: string) => void;
+  onSend: (content: string, fileHint?: string | null) => void;
+  /** 工作区文件路径，给 @ 提及用。 */
+  files?: string[];
+  onLookupMentions?: (prefix: string) => Promise<CompletionSymbol[]>;
+  onApplyBundle?: (patches: PatchRecord[]) => void;
+  onRejectBundle?: (patches: PatchRecord[]) => void;
+  onVerifyBundle?: (patches: PatchRecord[]) => void;
+  onRollbackBundle?: (patches: PatchRecord[]) => void;
+  bundleBusy?: boolean;
   /** 停止当前回合（sending 时输入区旁出现停止按钮）。 */
   onStop: () => void;
   /**
@@ -204,6 +225,13 @@ export function ChatPane({
   mode,
   onModeChange,
   onSend,
+  files = [],
+  onLookupMentions,
+  onApplyBundle,
+  onRejectBundle,
+  onVerifyBundle,
+  onRollbackBundle,
+  bundleBusy = false,
   onStop,
   onRegenerate,
   onSelectSession,
@@ -272,6 +300,11 @@ export function ChatPane({
       return true;
     }
   });
+  const [caret, setCaret] = useState(0);
+  const [mentionHits, setMentionHits] = useState<MentionHit[]>([]);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const mentionKnown = useRef<Map<string, string>>(new Map());
+  const mentionOpen = mentionAt(draft, caret);
 
   useEffect(() => {
     if (!sending) return;
@@ -318,6 +351,29 @@ export function ChatPane({
   }, [composerSeed?.token]);
 
   useEffect(() => {
+    if (!mentionOpen) {
+      setMentionHits([]);
+      return;
+    }
+    const query = mentionOpen.query;
+    let alive = true;
+    const filesOnly = fileHits(files, query);
+    setMentionHits(filesOnly);
+    setMentionIndex(0);
+    if (!onLookupMentions) return;
+    const timer = window.setTimeout(() => {
+      void onLookupMentions(query).then((symbols) => {
+        if (!alive) return;
+        setMentionHits(mergeHits(fileHits(files, query), symbolHits(symbols, query)));
+      });
+    }, 120);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [mentionOpen?.query, mentionOpen?.start, files, onLookupMentions]);
+
+  useEffect(() => {
     if (sessionId === null) {
       setChecked(new Set());
       return;
@@ -352,11 +408,28 @@ export function ChatPane({
     stickToBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80;
   };
 
+  const pickMention = (hit: MentionHit) => {
+    mentionKnown.current.set(hit.insert.replace(/^@/, '').toLowerCase(), hit.file);
+    const next = applyMention(draft, caret, hit.insert);
+    setDraft(next.text);
+    setCaret(next.caret);
+    setMentionHits([]);
+    window.setTimeout(() => {
+      const node = textareaRef.current;
+      if (!node) return;
+      node.focus();
+      node.setSelectionRange(next.caret, next.caret);
+    }, 0);
+  };
+
   const submit = () => {
     const content = draft.trim();
     if (!content) return;
-    onSend(content);
+    const extra = [...mentionKnown.current.entries()].map(([token, file]) => ({ token, file }));
+    const built = expandComposer(content, files, extra);
+    onSend(built.content, built.focusFile);
     setDraft('');
+    setMentionHits([]);
   };
 
   /**
@@ -379,31 +452,6 @@ export function ChatPane({
       node.focus();
       node.setSelectionRange(node.value.length, node.value.length);
     }, 0);
-  };
-
-  const deps: PatchDeps = {
-    patchBusyId,
-    compileBusyId,
-    radiusOf,
-    radiusLoading,
-    radiusErrorOf,
-    flagOf,
-    flagLoading,
-    flagErrorOf,
-    flagAckedOf,
-    onAckFlag,
-    compileOf,
-    onApplyPatch,
-    onVerifyPatch,
-    recipeOf,
-    testsOf,
-    onRejectPatch,
-    onViewPatch,
-    onCompilePatch,
-    onFixFromCompile,
-    onOpenCitation,
-    fitOf,
-    charterOf,
   };
 
   const toggleCheck = (id: string) => {
@@ -451,7 +499,7 @@ export function ChatPane({
   const elapsed =
     turn?.startedAt && sending && !turn.stopped ? formatElapsed(now - turn.startedAt) : null;
 
-  const renderPatch = (patch: PatchRecord) => (
+  const renderPatch = (patch: PatchRecord, bundled = false) => (
     <PatchCard
       key={patch.id}
       patch={patch}
@@ -477,9 +525,46 @@ export function ChatPane({
       onOpenRef={onOpenCitation}
       fit={fitOf?.(patch.id) ?? null}
       charter={charterOf?.(patch.id) ?? null}
+      hideBrief={bundled}
       onFollow={followPatch}
     />
   );
+
+  const renderStack = (group: PatchRecord[]) => {
+    if (group.length === 0) return null;
+    const bundled = group.length >= 2;
+    const brief = bundled
+      ? mergeReview(group, {
+          radius: radiusOf,
+          radiusLoading,
+          radiusError: radiusErrorOf,
+          charter: (id) => charterOf?.(id) ?? null,
+        })
+      : [];
+    const blocked = group.some(
+      (patch) =>
+        (Boolean(flagOf(patch.id)?.required) && !flagAckedOf(patch.id)) ||
+        Boolean(fitOf?.(patch.id) && !fitOf(patch.id)?.fits) ||
+        Boolean(charterOf?.(patch.id)?.blocked),
+    );
+    return (
+      <div className="stack-gap" data-bundle={bundled ? bundleKey(group) : undefined}>
+        {bundled && (
+          <PatchBundle
+            patches={group}
+            brief={brief}
+            busy={bundleBusy || group.some((patch) => patchBusyId === patch.id)}
+            blocked={blocked}
+            onApply={() => onApplyBundle?.(group)}
+            onVerify={onVerifyBundle ? () => onVerifyBundle(group) : undefined}
+            onReject={() => onRejectBundle?.(group)}
+            onRollback={onRollbackBundle ? () => onRollbackBundle(group) : undefined}
+          />
+        )}
+        {group.map((patch) => renderPatch(patch, bundled))}
+      </div>
+    );
+  };
 
   return (
     <div className="chat">
@@ -634,13 +719,12 @@ export function ChatPane({
                 key={message.id}
                 message={message}
                 patches={patches}
-                deps={deps}
                 username={username}
                 onOpenCitation={onOpenCitation}
                 onRegenerate={onRegenerate}
                 onQuote={(text) => putIntoComposer(text, false)}
                 onEditResend={(text) => putIntoComposer(text, true)}
-                onFollow={followPatch}
+                renderStack={renderStack}
                 canRegenerate={!sending && message.role === 'assistant' && index === messages.length - 1}
               />
             ))}
@@ -707,7 +791,7 @@ export function ChatPane({
                     </div>
                   )}
 
-                  {livePatches.length > 0 && <div className="stack-gap">{livePatches.map(renderPatch)}</div>}
+                  {livePatches.length > 0 && renderStack(livePatches)}
 
                   {turn.error && (
                     <div className="banner error">
@@ -881,33 +965,83 @@ export function ChatPane({
           <span style={{ fontSize: 10.5, color: 'var(--fg-3)' }}>{streamLabel(streamStatus)}</span>
         </div>
 
-        <textarea
-          ref={textareaRef}
-          className="composer-input"
-          placeholder={
-            mode === 'teach'
-              ? '描述你想理解什么。Enter 发送，Shift + Enter 换行。（教学模式：我会解释每一步的动机与取舍）'
-              : '描述你想做什么。Enter 发送，Shift + Enter 换行。'
-          }
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter') return;
-            // 输入法合成中（拼音选词）按 Enter 是「确认候选词」，此时绝不能当成发送
-            if ((event.nativeEvent as KeyboardEvent).isComposing) return;
-            // Shift+Enter 换行；Enter 与 Ctrl/⌘+Enter 都发送 —— 聊天框的通用直觉优先
-            if (event.shiftKey && !event.ctrlKey && !event.metaKey) return;
-            event.preventDefault();
-            submit();
-          }}
-        />
+        <div className="composer-box">
+          {mentionOpen && mentionHits.length > 0 && (
+            <div className="mention-pop" role="listbox" aria-label="提及文件或符号">
+              {mentionHits.map((hit, index) => (
+                <button
+                  key={`${hit.kind}-${hit.file}-${hit.label}`}
+                  type="button"
+                  className={`mention-hit${index === mentionIndex ? ' active' : ''}`}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    pickMention(hit);
+                  }}
+                >
+                  <span className="mention-hit-k">{hit.kind === 'symbol' ? '符号' : '文件'}</span>
+                  <span className="mention-hit-n">{hit.label}</span>
+                  <span className="mention-hit-d">{hit.detail}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <textarea
+            ref={textareaRef}
+            className="composer-input"
+            placeholder={
+              mode === 'teach'
+                ? '描述你想理解什么。@文件或符号可点进上下文。Enter 发送，Shift + Enter 换行。'
+                : '描述你想做什么。@文件或符号可点进上下文。Enter 发送，Shift + Enter 换行。'
+            }
+            value={draft}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setCaret(event.target.selectionStart);
+            }}
+            onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
+            onKeyDown={(event) => {
+              if (mentionOpen && mentionHits.length > 0) {
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  setMentionIndex((current) => (current + 1) % mentionHits.length);
+                  return;
+                }
+                if (event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  setMentionIndex((current) => (current - 1 + mentionHits.length) % mentionHits.length);
+                  return;
+                }
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  setMentionHits([]);
+                  return;
+                }
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  pickMention(mentionHits[mentionIndex] ?? mentionHits[0]);
+                  return;
+                }
+                if (event.key === 'Tab') {
+                  event.preventDefault();
+                  pickMention(mentionHits[mentionIndex] ?? mentionHits[0]);
+                  return;
+                }
+              }
+              if (event.key !== 'Enter') return;
+              if ((event.nativeEvent as KeyboardEvent).isComposing) return;
+              if (event.shiftKey && !event.ctrlKey && !event.metaKey) return;
+              event.preventDefault();
+              submit();
+            }}
+          />
+        </div>
 
         <div className="composer-actions">
           <span
             className="composer-hint"
             title="AI 没有任何写盘权限：它只能产出补丁，必须由你点「应用」，磁盘上的文件才会真的被改写。"
           >
-            补丁需你确认后才写盘
+            补丁需你确认后才写盘 · @ 提及文件或符号
           </span>
           <span className="topbar-spacer" />
           {/* 头像就在发送键旁边：设置、主题、模型服务在这里抬手即达，
@@ -939,18 +1073,16 @@ export function ChatPane({
 function MessageBlock({
   message,
   patches,
-  deps,
   username,
   onOpenCitation,
   onRegenerate,
   onQuote,
   onEditResend,
-  onFollow,
+  renderStack,
   canRegenerate,
 }: {
   message: ChatMessage;
   patches: PatchRecord[];
-  deps: PatchDeps;
   username: string;
   onOpenCitation: (file: string, line: number | null) => void;
   /** 让模型重答上一条提问（只有最后一条回答可用）。 */
@@ -959,7 +1091,7 @@ function MessageBlock({
   onQuote: (text: string) => void;
   /** 把这条用户消息放回输入框改完再发。 */
   onEditResend: (text: string) => void;
-  onFollow: (kind: FollowKind, patch: PatchRecord) => void;
+  renderStack: (group: PatchRecord[]) => ReactNode;
   canRegenerate: boolean;
 }) {
   const [copied, setCopied] = useState<'idle' | 'ok' | 'fail'>('idle');
@@ -1029,39 +1161,7 @@ function MessageBlock({
           )}
         </div>
 
-        {attached.length > 0 && (
-          <div className="stack-gap">
-            {attached.map((patch) => (
-              <PatchCard
-                key={patch.id}
-                patch={patch}
-                busy={deps.patchBusyId === patch.id}
-                radius={deps.radiusOf(patch.id)}
-                radiusLoading={deps.radiusLoading(patch.id)}
-                radiusError={deps.radiusErrorOf(patch.id)}
-                flag={deps.flagOf(patch.id)}
-                flagLoading={deps.flagLoading(patch.id)}
-                flagError={deps.flagErrorOf(patch.id)}
-                flagAcked={deps.flagAckedOf(patch.id)}
-                onAckFlag={deps.onAckFlag}
-                compileBusy={deps.compileBusyId === patch.id}
-                compile={deps.compileOf(patch.id)}
-                onApply={deps.onApplyPatch}
-                onVerify={deps.onVerifyPatch}
-                recipe={deps.recipeOf?.(patch.id) ?? null}
-                tests={deps.testsOf?.(patch.id) ?? null}
-                onReject={deps.onRejectPatch}
-                onView={deps.onViewPatch}
-                onCompile={deps.onCompilePatch}
-                onFixFromCompile={deps.onFixFromCompile}
-                onOpenRef={deps.onOpenCitation}
-                fit={deps.fitOf?.(patch.id) ?? null}
-                charter={deps.charterOf?.(patch.id) ?? null}
-                onFollow={onFollow}
-              />
-            ))}
-          </div>
-        )}
+        {attached.length > 0 && renderStack(attached)}
 
         {/* 消息操作条：一直显示（不做 hover 才出现）—— 找不到的功能等于没有，
             而这条窄带只占 20px，不挤占阅读节奏。 */}

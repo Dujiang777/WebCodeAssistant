@@ -9,6 +9,8 @@ import com.webcode.assistant.agent.ChatSessionService;
 import com.webcode.assistant.agent.Patch;
 import com.webcode.assistant.agent.PatchService;
 import com.webcode.assistant.agent.TurnCancellation;
+import com.webcode.assistant.common.ApiException;
+import com.webcode.assistant.common.ErrorCode;
 import com.webcode.assistant.security.CurrentUser;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -25,7 +27,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * 对话接口：会话管理、消息历史、SSE 事件流、补丁列表。
@@ -151,9 +155,16 @@ public class ChatController {
      */
     @PostMapping("/{sid}/patches/apply-all")
     public PatchService.BatchApplyResult applyAll(@PathVariable long sid,
-                                                  @RequestBody(required = false) ApiModels.FlagAckRequest request) {
+                                                  @RequestBody(required = false) ApiModels.ApplyBatchRequest request) {
         boolean acknowledged = request != null && request.acknowledgeFlag();
-        return patchService.applyAll(currentUser.requireId(), sid, acknowledged);
+        List<UUID> ids = parsePatchIds(request == null ? null : request.ids());
+        return patchService.applyAll(currentUser.requireId(), sid, acknowledged, ids);
+    }
+
+    @PostMapping("/{sid}/patches/reject-all")
+    public PatchService.BatchApplyResult rejectAll(@PathVariable long sid,
+                                                   @RequestBody ApiModels.RejectBatchRequest request) {
+        return patchService.rejectAll(currentUser.requireId(), sid, parsePatchIds(request == null ? null : request.ids()));
     }
 
     @PutMapping("/{sid}")
@@ -183,5 +194,20 @@ public class ChatController {
         PatchService.PatchView view = PatchService.PatchView.of(patch);
         return new ApiModels.PatchView(view.id().toString(), view.sessionId(), view.messageId(),
                 view.file(), view.diff(), view.summary(), view.status(), view.createdAt(), view.appliedAt());
+    }
+
+    private static List<UUID> parsePatchIds(List<String> raw) {
+        if (raw == null || raw.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> ids = new ArrayList<>(raw.size());
+        for (String item : raw) {
+            try {
+                ids.add(UUID.fromString(item));
+            } catch (IllegalArgumentException ex) {
+                throw new ApiException(ErrorCode.BAD_REQUEST, "补丁 id 无效");
+            }
+        }
+        return ids;
     }
 }

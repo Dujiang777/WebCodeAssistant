@@ -615,6 +615,7 @@ export interface BatchApplyResult {
   applied: number;
   failed: number;
   items: { patchId: string; file: string; status: string; error: string | null }[];
+  snapshotId?: string | null;
 }
 
 /** 语义检索状态。 */
@@ -1015,10 +1016,16 @@ export const api = {
    * 批量应用会话内全部待确认补丁（整批一次快照，逐补丁返回成败）。
    * 批里若含「行为变化」的补丁，必须带 acknowledgeFlag=true，否则这些会被逐个挡下。
    */
-  applyAllPatches: (sessionId: number, acknowledgeFlag = false) =>
+  applyAllPatches: (sessionId: number, acknowledgeFlag = false, ids?: string[]) =>
     request<BatchApplyResult>(`/api/chat/sessions/${sessionId}/patches/apply-all`, {
       method: 'POST',
-      body: JSON.stringify({ acknowledgeFlag }),
+      body: JSON.stringify({ acknowledgeFlag, ids }),
+    }),
+
+  rejectAllPatches: (sessionId: number, ids: string[]) =>
+    request<BatchApplyResult>(`/api/chat/sessions/${sessionId}/patches/reject-all`, {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
     }),
 
   /** 语义检索状态（是否可用 / 已索引块数）。 */

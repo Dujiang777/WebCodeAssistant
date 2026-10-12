@@ -226,8 +226,8 @@ public class PatchService {
         return applied;
     }
 
-    /** 批量应用结果：逐补丁的成功 / 失败明细。 */
-    public record BatchApplyResult(int total, int applied, int failed, List<Item> items) {
+    /** 批量应用结果：逐补丁的成功 / 失败明细。snapshotId 是整组共用的应用前快照。 */
+    public record BatchApplyResult(int total, int applied, int failed, List<Item> items, String snapshotId) {
 
         public record Item(UUID patchId, String file, String status, String error) {
         }
@@ -247,14 +247,23 @@ public class PatchService {
      * </ul>
      */
     public BatchApplyResult applyAll(long userId, long sessionId) {
-        return applyAll(userId, sessionId, false);
+        return applyAll(userId, sessionId, false, List.of());
     }
 
     public BatchApplyResult applyAll(long userId, long sessionId, boolean flagAcknowledged) {
+        return applyAll(userId, sessionId, flagAcknowledged, List.of());
+    }
+
+    public BatchApplyResult applyAll(long userId, long sessionId, boolean flagAcknowledged,
+                                     List<UUID> only) {
         requireSession(userId, sessionId);
         List<Patch> pending = patchRepository.findBySession(sessionId).stream()
                 .filter(patch -> Patch.STATUS_PENDING.equals(patch.status()))
                 .toList();
+        if (only != null && !only.isEmpty()) {
+            var wanted = new java.util.HashSet<>(only);
+            pending = pending.stream().filter(patch -> wanted.contains(patch.id())).toList();
+        }
         if (pending.isEmpty()) {
             throw new ApiException(ErrorCode.BAD_REQUEST, "没有待确认的补丁");
         }
@@ -262,8 +271,8 @@ public class PatchService {
         Workspace workspace = workspaceService.require(userId,
                 sessionRepository.findOwned(sessionId, userId).orElseThrow().workspaceId());
 
-        snapshotService.create(workspace, userId, Snapshot.KIND_AUTO,
-                "批量应用前 · " + pending.size() + " 个补丁", null);
+        var shot = snapshotService.create(workspace, userId, Snapshot.KIND_AUTO,
+                "组合包应用前 · " + pending.size() + " 个补丁", null);
 
         List<BatchApplyResult.Item> items = new ArrayList<>(pending.size());
         int applied = 0;
@@ -286,7 +295,33 @@ public class PatchService {
             workspaceService.refreshSize(workspace);
         }
         log.info("批量应用完成 session={} 总数={} 成功={} 失败={}", sessionId, pending.size(), applied, failed);
-        return new BatchApplyResult(pending.size(), applied, failed, items);
+        return new BatchApplyResult(pending.size(), applied, failed, items, shot.id().toString());
+    }
+
+    /** 丢掉一组待确认补丁。全有或全无：有一张已不是 pending 就整组拒绝。 */
+    public BatchApplyResult rejectAll(long userId, long sessionId, List<UUID> ids) {
+        requireSession(userId, sessionId);
+        if (ids == null || ids.isEmpty()) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "没有指定要丢掉的补丁");
+        }
+        List<Patch> owned = patchRepository.findBySession(sessionId);
+        var wanted = new java.util.HashSet<>(ids);
+        List<Patch> targets = owned.stream().filter(patch -> wanted.contains(patch.id())).toList();
+        if (targets.size() != wanted.size()) {
+            throw new ApiException(ErrorCode.NOT_FOUND, "有的补丁不在这个会话里");
+        }
+        for (Patch patch : targets) {
+            if (!Patch.STATUS_PENDING.equals(patch.status())) {
+                throw new ApiException(ErrorCode.PATCH_ALREADY_RESOLVED,
+                        "补丁 " + patch.filePath() + " 已是 " + patch.status() + "，不能整组丢掉");
+            }
+        }
+        List<BatchApplyResult.Item> items = new ArrayList<>(targets.size());
+        for (Patch patch : targets) {
+            reject(userId, patch.id());
+            items.add(new BatchApplyResult.Item(patch.id(), patch.filePath(), Patch.STATUS_REJECTED, null));
+        }
+        return new BatchApplyResult(targets.size(), 0, 0, items, null);
     }
 
     /** CAS 认领 + 写盘。调用方负责快照与体积刷新。 */

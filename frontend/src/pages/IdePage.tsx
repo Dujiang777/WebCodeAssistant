@@ -24,6 +24,7 @@ import type {
   TestRunResult,
   Workspace,
 } from '../lib/api';
+import { bundleKey } from '../lib/bundle';
 import { beginTurn, messageOf, nextToolId, toolPathOf } from '../lib/chat';
 import type { LiveTurn, Selection, ToolItem } from '../lib/chat';
 import { diffLinePrompt } from '../lib/follow';
@@ -299,6 +300,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   // ------------------------------------------------- 功能 9：快照与回滚
   const [snapshotsOpen, setSnapshotsOpen] = useState(false);
   const [applyAllBusy, setApplyAllBusy] = useState(false);
+  const [bundleShots, setBundleShots] = useState<Record<string, string>>({});
 
   // ------------------------------------------------- 功能 11：语义检索
   const [semanticOpen, setSemanticOpen] = useState(false);
@@ -1585,6 +1587,136 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     }
   };
 
+  const applyBundle = async (group: PatchRecord[], verify: boolean) => {
+    const sid = sessionId;
+    if (sid === null) return;
+    const pending = group.filter((patch) => patch.status === 'pending');
+    if (pending.length === 0) return;
+    const allFlaggedAcked = pending.every(
+      (patch) => !flags[patch.id]?.data?.required || flagAcks.has(patch.id),
+    );
+    setApplyAllBusy(true);
+    try {
+      const result = await api.applyAllPatches(
+        sid,
+        allFlaggedAcked,
+        pending.map((patch) => patch.id),
+      );
+      if (result.snapshotId) {
+        setBundleShots((current) => ({ ...current, [bundleKey(group)]: result.snapshotId as string }));
+      }
+      const applied = await api.listPatches(sid);
+      setPatches(applied);
+      await refreshTree();
+      void refreshFilm();
+      if (selectedPathRef.current) await openFile(selectedPathRef.current);
+      if (result.failed === 0) {
+        toast.success(`已应用这一组 ${result.applied} 个文件`);
+      } else {
+        toast.info(`这一组 ${result.applied}/${result.total} 个写上了，${result.failed} 个还待确认`);
+        for (const item of result.items) {
+          if (item.error) toast.error(`${item.file}：${item.error}`);
+        }
+      }
+      const first = applied.find((entry) => result.items.some((item) => item.patchId === entry.id && item.status === 'applied'));
+      if (!first) return;
+      if (!verify) {
+        void runCompile(first);
+        return;
+      }
+      for (const item of result.items) {
+        if (item.status === 'applied') {
+          setRecipes((current) => ({ ...current, [item.patchId]: { phase: 'compile', compile: null, tests: null } }));
+        }
+      }
+      const compile = await runCompile(first);
+      if (!compile || compile.status === 'failed') {
+        for (const item of result.items) {
+          if (item.status === 'applied') {
+            setRecipes((current) => ({ ...current, [item.patchId]: { phase: 'failed', compile, tests: null } }));
+          }
+        }
+        if (compile && compile.status === 'failed') fixFromCompile(first, compile);
+        return;
+      }
+      try {
+        const tests = await api.runTests(workspaceId);
+        for (const item of result.items) {
+          if (item.status !== 'applied') continue;
+          setTestResults((current) => ({ ...current, [item.patchId]: tests }));
+          setRecipes((current) => ({
+            ...current,
+            [item.patchId]: {
+              phase: tests.status === 'failed' ? 'failed' : 'done',
+              compile,
+              tests,
+            },
+          }));
+        }
+        if (tests.status === 'failed') {
+          toast.error(testSummary(tests));
+          fixFromTests(tests);
+        } else if (tests.status === 'ok') {
+          toast.success('这一组验收通过');
+        } else {
+          toast.info(tests.note || '测试未执行');
+        }
+      } catch (err) {
+        toast.error(messageOf(err));
+      }
+    } catch (err) {
+      toast.error(messageOf(err));
+    } finally {
+      setApplyAllBusy(false);
+    }
+  };
+
+  const rejectBundle = async (group: PatchRecord[]) => {
+    const sid = sessionId;
+    if (sid === null) return;
+    const pending = group.filter((patch) => patch.status === 'pending');
+    if (pending.length === 0) return;
+    setApplyAllBusy(true);
+    try {
+      await api.rejectAllPatches(
+        sid,
+        pending.map((patch) => patch.id),
+      );
+      setPatches(await api.listPatches(sid));
+      toast.info(`已丢掉这一组 ${pending.length} 张卡`);
+    } catch (err) {
+      toast.error(messageOf(err));
+    } finally {
+      setApplyAllBusy(false);
+    }
+  };
+
+  const rollbackBundle = async (group: PatchRecord[]) => {
+    const key = bundleKey(group);
+    const remembered = bundleShots[key];
+    const fromCards = film
+      .filter((shot) => shot.patchId && group.some((patch) => patch.id === shot.patchId))
+      .slice()
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const shotId = remembered ?? fromCards[0]?.id;
+    if (!shotId) {
+      toast.info('这一组还没有应用前的快照，去胶卷里回滚');
+      return;
+    }
+    setApplyAllBusy(true);
+    try {
+      await api.restoreSnapshot(workspaceId, shotId);
+      await refreshTree();
+      void refreshFilm();
+      if (selectedPathRef.current) await openFile(selectedPathRef.current);
+      toast.success('已回到这一组写盘前的底片');
+    } catch (err) {
+      toast.error(messageOf(err));
+    } finally {
+      setApplyAllBusy(false);
+    }
+  };
+
   // ------------------------------------------------------------ 会话操作
 
   /**
@@ -1637,7 +1769,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     void send(text);
   };
 
-  const send = async (content: string) => {
+  const send = async (content: string, fileHint?: string | null) => {
     const sid = sessionId;
     if (sid === null) {
       toast.error('会话尚未就绪，请稍后再试');
@@ -1659,7 +1791,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     try {
       const response = await api.sendMessage(sid, {
         content,
-        currentFile: selectedPath,
+        currentFile: fileHint || selectedPath,
         selection: selection
           ? { startLine: selection.startLine, endLine: selection.endLine, text: selection.text }
           : null,
@@ -1871,6 +2003,12 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     [patches],
   );
 
+  const allFiles = useMemo(() => flattenFiles(tree?.children ?? []), [tree]);
+  const lookupMentions = useCallback(
+    (prefix: string) => api.completions(workspaceId, prefix),
+    [workspaceId],
+  );
+
   const selectionLines = selection ? selection.endLine - selection.startLine + 1 : 0;
   const saveState: 'clean' | 'dirty' | 'saving' | 'no-file' = !file
     ? 'no-file'
@@ -2079,7 +2217,14 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
                     : '已切到交付：下一轮少说话，直接给补丁和结论',
                 );
               }}
-              onSend={(content) => void send(content)}
+              onSend={(content, fileHint) => void send(content, fileHint)}
+              files={allFiles}
+              onLookupMentions={lookupMentions}
+              onApplyBundle={(group) => void applyBundle(group, false)}
+              onVerifyBundle={(group) => void applyBundle(group, true)}
+              onRejectBundle={(group) => void rejectBundle(group)}
+              onRollbackBundle={(group) => void rollbackBundle(group)}
+              bundleBusy={applyAllBusy}
               onStop={() => void stopTurn()}
               onRegenerate={() => void regenerate()}
               onSelectSession={setSessionId}

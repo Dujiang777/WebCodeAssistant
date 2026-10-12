@@ -345,6 +345,16 @@ public final class ApiModels {
     public record FlagAckRequest(boolean acknowledgeFlag) {
     }
 
+    /**
+     * 批量应用：可只点一组补丁（组合包），不传 ids 则仍是会话内全部待确认。
+     */
+    public record ApplyBatchRequest(boolean acknowledgeFlag, List<String> ids) {
+    }
+
+    /** 丢掉一组待确认补丁。ids 必填。 */
+    public record RejectBatchRequest(List<String> ids) {
+    }
+
     /** 工具闸门审批：放行时可带上改过的参数（只覆盖工具自己声明的键）。 */
     public record GateApproveRequest(Map<String, Object> args, String note) {
     }

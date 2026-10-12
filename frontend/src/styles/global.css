@@ -2277,6 +2277,95 @@ a.link:hover,
   color: var(--rose);
 }
 
+.patch-bundle {
+  padding: 10px 12px 8px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--violet);
+  background: var(--bg-1);
+}
+
+.patch-bundle-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.patch-bundle-k {
+  color: var(--violet);
+}
+
+.patch-bundle-n {
+  color: var(--fg-2);
+}
+
+.patch-bundle-brief {
+  margin: 8px 0 0;
+}
+
+.patch-bundle-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.composer-box {
+  position: relative;
+}
+
+.mention-pop {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 4px;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+  z-index: 30;
+}
+
+.mention-hit {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--fg-1);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mention-hit.active,
+.mention-hit:hover {
+  background: var(--bg-2);
+  color: var(--fg-0);
+}
+
+.mention-hit-k {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--cyan);
+}
+
+.mention-hit-n {
+  flex: none;
+}
+
+.mention-hit-d {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--fg-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 55%;
+}
+
 .recipe-strip {
   display: flex;
   flex-wrap: wrap;

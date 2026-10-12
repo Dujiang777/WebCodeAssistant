@@ -52,6 +52,8 @@ interface PatchCardProps {
   charter?: CharterAudit | null;
   /** 对着这张卡继续说：按这张再改 / 只要这几行 / 丢掉重来。 */
   onFollow?: (kind: 'revise' | 'narrow' | 'redo', patch: PatchRecord) => void;
+  /** 组合包已经有一张简报时，单卡不再重复三行。 */
+  hideBrief?: boolean;
 }
 
 const PREVIEW_LINE_LIMIT = 26;
@@ -108,6 +110,7 @@ export function PatchCard({
   fit = null,
   charter = null,
   onFollow,
+  hideBrief = false,
 }: PatchCardProps) {
   const parsed = useMemo(() => parseUnifiedDiff(patch.diff), [patch.diff]);
   const preview = useMemo(() => buildPreview(patch.diff), [patch.diff]);
@@ -162,7 +165,7 @@ export function PatchCard({
         </div>
       )}
 
-      {brief.length > 0 && (
+      {brief.length > 0 && !hideBrief && (
         <div className="review-brief">
           {brief.map((line) => (
             <div key={line.key} className={`review-line review-${line.tone}`}>
