@@ -82,7 +82,7 @@ export function App() {
     navigate('/login');
   };
 
-  if (route.name === 'home' || (route.name === 'root' && !user)) {
+  if (route.name === 'home' || route.name === 'root') {
     return <HomePage user={user} onLogout={handleLogout} />;
   }
 

@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { AuthUser } from '../lib/api';
 import { copyText } from '../lib/clipboard';
-import { lastIdePath, navigate } from '../lib/router';
+import { lastIdePath } from '../lib/router';
 import { TerminalMark } from '../components/icons';
 import '../styles/gate.css';
 
 /**
- * 产品入口长页。浅底、分节、锚点导航，卡片点进去就是工作区 / 登录 / 模型。
+ * 产品入口长页。浅底、分节、锚点导航；进产品的门都开新标签，这一页自己留着。
  * 视觉参考 Ink 那种纸面 + 深绿装置，但不改应用里的 Darkroom Brass。
  */
 interface HomePageProps {
@@ -88,7 +88,6 @@ export function HomePage({ user, onLogout }: HomePageProps) {
     window.setTimeout(() => setCopied(null), 1600);
   };
 
-  const jump = (path: string) => navigate(path);
 
   const clock = useMemo(() => {
     const now = new Date();
@@ -99,7 +98,9 @@ export function HomePage({ user, onLogout }: HomePageProps) {
     <div className="gate">
       <header className="gate-nav">
         <button type="button" className="gate-brand" onClick={() => scrollTo('hero')}>
-          <TerminalMark size={18} />
+          <span className="gate-mark">
+            <TerminalMark size={16} />
+          </span>
           <span>
             <b>WEB CODE ASSISTANT</b>
             <i>网页版编码助手</i>
@@ -121,21 +122,21 @@ export function HomePage({ user, onLogout }: HomePageProps) {
           {user ? (
             <>
               <span className="gate-who">{user.username}</span>
-              <button type="button" className="gate-ghost" onClick={() => jump('/workspaces')}>
+              <a className="gate-ghost" href={appHref('/workspaces')} target="_blank" rel="noopener noreferrer">
                 工作区
-              </button>
-              <button type="button" className="gate-solid" onClick={() => jump(desk ?? '/workspaces')}>
+              </a>
+              <a className="gate-solid" href={appHref(desk ?? '/workspaces')} target="_blank" rel="noopener noreferrer">
                 进入工作台
-              </button>
+              </a>
             </>
           ) : (
             <>
-              <button type="button" className="gate-ghost" onClick={() => jump('/login')}>
+              <a className="gate-ghost" href={appHref('/login')} target="_blank" rel="noopener noreferrer">
                 登录
-              </button>
-              <button type="button" className="gate-solid" onClick={() => jump('/login')}>
+              </a>
+              <a className="gate-solid" href={appHref('/login')} target="_blank" rel="noopener noreferrer">
                 开始使用
-              </button>
+              </a>
             </>
           )}
         </div>
@@ -154,9 +155,9 @@ export function HomePage({ user, onLogout }: HomePageProps) {
             模型没有任何写盘权限 —— 你没点应用，磁盘不会动。
           </p>
           <div className="gate-hero-cta">
-            <button type="button" className="gate-solid gate-lg" onClick={() => jump(enter)}>
+            <a className="gate-solid gate-lg" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
               {user ? '打开工作区' : '登录后开始'}
-            </button>
+            </a>
             <button type="button" className="gate-ghost gate-lg" onClick={() => scrollTo('flow')}>
               看它怎么改代码 ↗
             </button>
@@ -167,8 +168,9 @@ export function HomePage({ user, onLogout }: HomePageProps) {
             <li>写盘由你点</li>
           </ul>
         </div>
-        <div className="gate-device" aria-hidden="true">
+        <div className="gate-device">
           <div className="gate-phone">
+            <i className="gate-notch" />
             <div className="gate-phone-bar">
               <span>WCA</span>
               <span>{clock}</span>
@@ -187,19 +189,20 @@ export function HomePage({ user, onLogout }: HomePageProps) {
               <div className="gate-mini-chat">
                 <b>把这个改成构造器注入</b>
                 <em>待确认 · UserService.java</em>
-                <button type="button" onClick={() => jump(enter)}>
+                <a href={appHref(enter)} target="_blank" rel="noopener noreferrer">
                   应用并写盘
-                </button>
+                </a>
               </div>
             </div>
+            <i className="gate-home-bar" />
           </div>
-          <p className="gate-device-cap">工作台预览 · 点卡片即进产品</p>
+          <p className="gate-device-cap">工作台预览 · 入口都会开新标签</p>
         </div>
       </section>
 
-      <section className="gate-band" id="how">
+      <section className="gate-band gate-band-ink" id="how">
         <div className="gate-band-head">
-          <p className="gate-kicker">INK 同构 · 会跑的界面</p>
+          <p className="gate-kicker">人在环上 · 会跑的界面</p>
           <h2>
             会改代码的助手，
             <br />
@@ -215,17 +218,17 @@ export function HomePage({ user, onLogout }: HomePageProps) {
             <span>01 ✳</span>
             <h3>每个结论都能点开</h3>
             <p>回答里的路径:行号是可点的证据。编造的引用会被标红。</p>
-            <button type="button" onClick={() => jump(enter)}>
+            <a href={appHref(enter)} target="_blank" rel="noopener noreferrer">
               打开工作台 ↗
-            </button>
+            </a>
           </article>
           <article>
             <span>02 ✳</span>
             <h3>改之前先看影响面</h3>
             <p>补丁卡算出改了谁、谁在调用、有没有踩鉴权或宪法。</p>
-            <button type="button" onClick={() => jump(user ? '/workspaces' : '/login')}>
+            <a href={appHref(user ? '/workspaces' : '/login')} target="_blank" rel="noopener noreferrer">
               去工作区 ↗
-            </button>
+            </a>
           </article>
           <article>
             <span>03 ✳</span>
@@ -260,9 +263,9 @@ export function HomePage({ user, onLogout }: HomePageProps) {
         <div className="gate-code">
           <header>
             <span>HITL · propose_patch</span>
-            <button type="button" onClick={() => jump(enter)}>
+            <a href={appHref(enter)} target="_blank" rel="noopener noreferrer">
               去试一次 ↗
-            </button>
+            </a>
           </header>
           <pre>{`模型：读文件、搜代码、出 unified diff
 你：看影响面 / 看着改 / 点「应用并写盘」
@@ -318,9 +321,9 @@ export function HomePage({ user, onLogout }: HomePageProps) {
             {step === 3 && (
               <div className="gate-stage-apply">
                 <p>补丁已应用。正在编译…</p>
-                <button type="button" className="gate-solid" onClick={() => jump(enter)}>
+                <a className="gate-solid" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
                   去真实工作台
-                </button>
+                </a>
               </div>
             )}
           </div>
@@ -333,37 +336,37 @@ export function HomePage({ user, onLogout }: HomePageProps) {
           <h2>通过这一页，跳进产品里的每一扇门。</h2>
         </div>
         <div className="gate-door-grid">
-          <button type="button" onClick={() => jump(user ? '/workspaces' : '/login')}>
+          <a href={appHref(user ? '/workspaces' : '/login')} target="_blank" rel="noopener noreferrer">
             <em>01</em>
             <b>工作区</b>
             <p>克隆仓库、上传 zip、或开内置示例。代码在服务器磁盘上。</p>
-            <span>进入 ↗</span>
-          </button>
-          <button type="button" onClick={() => jump(desk ?? enter)}>
+            <span>新标签打开 ↗</span>
+          </a>
+          <a href={appHref(desk ?? enter)} target="_blank" rel="noopener noreferrer">
             <em>02</em>
             <b>工作台</b>
             <p>三栏 IDE。提问、出卡、看着改、应用。</p>
             <span>{desk ? '继续上次' : '进入'} ↗</span>
-          </button>
-          <button type="button" onClick={() => jump(user ? '/models' : '/login')}>
+          </a>
+          <a href={appHref(user ? '/models' : '/login')} target="_blank" rel="noopener noreferrer">
             <em>03</em>
             <b>模型服务</b>
             <p>选平台模型，或贴自己的 Key。试一句不走积分。</p>
             <span>配置 ↗</span>
-          </button>
-          <button type="button" onClick={() => jump(user ? '/credits' : '/login')}>
+          </a>
+          <a href={appHref(user ? '/credits' : '/login')} target="_blank" rel="noopener noreferrer">
             <em>04</em>
             <b>积分中心</b>
             <p>余额、套餐、支付、流水、对账。预扣多退少补。</p>
             <span>查看 ↗</span>
-          </button>
-          <button type="button" onClick={() => jump(user ? '/account' : '/login')}>
+          </a>
+          <a href={appHref(user ? '/account' : '/login')} target="_blank" rel="noopener noreferrer">
             <em>05</em>
             <b>账号与安全</b>
             <p>邮箱验证、改密码、登录设备，逐个踢掉。</p>
             <span>打开 ↗</span>
-          </button>
-          <a href="https://gitee.com/du-jiangjiang/web-code-assistant" target="_blank" rel="noreferrer">
+          </a>
+          <a href="https://gitee.com/du-jiangjiang/web-code-assistant" target="_blank" rel="noopener noreferrer">
             <em>06</em>
             <b>Gitee 仓库</b>
             <p>源码与发行都在这。构建脚本也从这里拉。</p>
@@ -378,9 +381,9 @@ export function HomePage({ user, onLogout }: HomePageProps) {
           <h2>写下一问，便能看见补丁。</h2>
           <p>先登录，开一个示例工作区，对当前文件说「解释一下这个类」。引用能点，改动会先出卡。</p>
           <div className="gate-hero-cta">
-            <button type="button" className="gate-solid gate-lg" onClick={() => jump(enter)}>
+            <a className="gate-solid gate-lg" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
               {user ? '进入工作区' : '登录 / 注册'}
-            </button>
+            </a>
             {user && (
               <button type="button" className="gate-ghost gate-lg" onClick={onLogout}>
                 退出登录
@@ -398,7 +401,7 @@ export function HomePage({ user, onLogout }: HomePageProps) {
             <button type="button" onClick={() => void copy('github')}>
               {copied === 'github' ? '已复制 GitHub' : '复制 GitHub'}
             </button>
-            <a href="https://github.com/Dujiang777/WebCodeAssistant" target="_blank" rel="noreferrer">
+            <a href="https://github.com/Dujiang777/WebCodeAssistant" target="_blank" rel="noopener noreferrer">
               GitHub ↗
             </a>
           </div>
@@ -406,21 +409,23 @@ export function HomePage({ user, onLogout }: HomePageProps) {
       </section>
 
       <footer className="gate-foot">
-        <TerminalMark size={22} />
+        <span className="gate-mark">
+          <TerminalMark size={16} />
+        </span>
         <div>
           <b>Web Code Assistant</b>
           <p>模型只出补丁。写盘这件事，留给你。</p>
         </div>
         <div className="gate-foot-links">
-          <button type="button" onClick={() => jump('/login')}>
+          <a href={appHref('/login')} target="_blank" rel="noopener noreferrer">
             登录
-          </button>
-          <button type="button" onClick={() => jump('/workspaces')}>
+          </a>
+          <a href={appHref('/workspaces')} target="_blank" rel="noopener noreferrer">
             工作区
-          </button>
-          <button type="button" onClick={() => jump('/models')}>
+          </a>
+          <a href={appHref('/models')} target="_blank" rel="noopener noreferrer">
             模型
-          </button>
+          </a>
         </div>
       </footer>
     </div>
@@ -429,4 +434,11 @@ export function HomePage({ user, onLogout }: HomePageProps) {
 
 function scrollTo(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/** 同一站点的 hash 路由，新标签打开，首页自己留着。 */
+function appHref(path: string): string {
+  const url = new URL(window.location.href);
+  url.hash = `#${path.startsWith('/') ? path : `/${path}`}`;
+  return url.toString();
 }
