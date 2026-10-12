@@ -1828,15 +1828,21 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       ? patches.find((item) => item.file === path && item.status === 'pending')
         ?? patches.find((item) => item.file === path)
       : patches.find((item) => item.status === 'pending');
-    window.requestAnimationFrame(() => {
+    window.setTimeout(() => {
       const el = patch
         ? document.querySelector(`[data-patch-id="${patch.id}"]`)
         : document.querySelector('.patch-card');
       if (!(el instanceof HTMLElement)) return;
-      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      const scroller = el.closest('.chat-scroll');
+      if (scroller instanceof HTMLElement) {
+        const delta = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 36;
+        scroller.scrollTo({ top: scroller.scrollTop + delta, behavior: 'smooth' });
+      } else {
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
       el.classList.add('patch-card-flash');
-      window.setTimeout(() => el.classList.remove('patch-card-flash'), 1400);
-    });
+      window.setTimeout(() => el.classList.remove('patch-card-flash'), 1600);
+    }, 40);
   };
 
   const askTreeFile = (path: string, kind: 'explain' | 'edit') => {
