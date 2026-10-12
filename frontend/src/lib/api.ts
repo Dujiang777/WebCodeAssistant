@@ -1169,6 +1169,13 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  /** 试一句：确认模型真能补全。不走积分、不写对话。 */
+  pingModel: (body: PingModelBody) =>
+    request<PingResult>('/api/models/ping', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   /** 设为默认模型；传空串 = 恢复「跟随平台默认」。 */
   setDefaultModel: (modelKey: string) =>
     request<{ defaultModelKey: string | null }>('/api/models/default', {
@@ -1587,6 +1594,22 @@ export interface ProbeResult {
   ok: boolean;
   message: string;
   models: string[];
+}
+
+export interface PingModelBody {
+  modelKey?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  providerId?: number;
+  model?: string;
+}
+
+export interface PingResult {
+  ok: boolean;
+  message: string;
+  latencyMs: number;
+  model: string;
+  sample: string;
 }
 
 // ------------------------------------------------------------------ 管理端类型

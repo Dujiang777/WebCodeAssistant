@@ -10907,3 +10907,217 @@ body {
   font-size: 11px;
   color: var(--signal);
 }
+
+/* ------------------------------------------------------------ 批61 模型配置页 */
+.md-hero {
+  align-items: flex-start;
+}
+
+.md-hero-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: none;
+}
+
+.md-hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 22px;
+  margin-top: 12px;
+}
+
+.md-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 88px;
+}
+
+.md-stat-k {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
+}
+
+.md-stat-v {
+  font-size: 13.5px;
+  color: var(--fg-0);
+  font-variant-numeric: tabular-nums;
+}
+
+.md-card-pick {
+  cursor: pointer;
+}
+
+.md-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 11.5px;
+  color: var(--fg-2);
+}
+
+.md-card-act {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.md-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+
+.md-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: min(260px, 100%);
+  padding: 0 10px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--bg-2);
+  color: var(--fg-2);
+}
+
+.md-search:focus-within {
+  border-color: var(--signal-line);
+  color: var(--fg-0);
+}
+
+.md-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-0);
+  font-size: 12.5px;
+  outline: none;
+}
+
+.md-facets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.md-facet,
+.md-preset {
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--fg-2);
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.md-facet:hover,
+.md-preset:hover {
+  border-color: var(--signal-line);
+  color: var(--fg-0);
+}
+
+.md-facet.on,
+.md-preset.on {
+  border-color: var(--signal-line);
+  background: var(--signal-dim);
+  color: var(--signal-soft);
+}
+
+.md-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.md-preset {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  border-radius: var(--radius);
+  padding: 8px 12px;
+}
+
+.md-preset em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--fg-3);
+}
+
+.md-preset-tag {
+  font-size: 11px;
+  color: var(--cyan, var(--fg-2));
+}
+
+.md-step {
+  margin: 14px 0 8px;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
+}
+
+.md-step:first-child {
+  margin-top: 0;
+}
+
+.md-manual {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.md-manual input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--bg-2);
+  color: var(--fg-0);
+}
+
+.md-manual input:focus {
+  border-color: var(--signal-line);
+  outline: none;
+}
+
+.md-ping {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--lime, #9ccc65) 40%, var(--line));
+  border-radius: var(--radius-s);
+  background: var(--bg-2);
+  color: var(--lime, var(--fg-1));
+  font-size: 12.5px;
+}
+
+.md-ping.fail {
+  border-color: var(--rose-line);
+  color: var(--fg-1);
+}
+
+.md-empty {
+  padding: 14px 4px 6px;
+  color: var(--fg-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.md-modal {
+  min-width: min(640px, 94vw);
+}
+
+.md-provider .row {
+  margin-top: 6px;
+}

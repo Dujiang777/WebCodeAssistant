@@ -508,6 +508,22 @@ public final class ApiModels {
     public record ProbeModelsResponse(boolean ok, String message, List<String> models) {
     }
 
+    /**
+     * 试一句：对目录里的模型，或对尚未保存的自带地址，发一条极短补全。
+     *
+     * <p>{@code modelKey} 有值时走已解析的目录项（平台 Key 或已存的自带 Key）。
+     * 否则用 {@code baseUrl} + {@code apiKey}/{@code providerId} + {@code model}。
+     */
+    public record PingModelsRequest(@Size(max = 96, message = "模型名过长") String modelKey,
+                                    @Size(max = 255, message = "地址过长") String baseUrl,
+                                    @Size(max = 400, message = "密钥过长") String apiKey,
+                                    Long providerId,
+                                    @Size(max = 96, message = "模型名过长") String model) {
+    }
+
+    public record PingModelsResponse(boolean ok, String message, long latencyMs, String model, String sample) {
+    }
+
     // --------------------------------------------------------- 企业级管理端（V6）
 
     /**

@@ -70,6 +70,12 @@ public class ModelProbeService {
     public record ProbeResult(boolean ok, String message, List<String> models) {
     }
 
+    public record PingResult(boolean ok, String message, long latencyMs, String model, String sample) {
+        static PingResult fail(String message, long latencyMs, String model) {
+            return new PingResult(false, message, latencyMs, model == null ? "" : model, "");
+        }
+    }
+
     /**
      * 试连并列出模型。
      *
@@ -77,26 +83,12 @@ public class ModelProbeService {
      * 把 401 说成「密钥不对」比抛一个 500 有用得多，也不会在页面上留一堆红色堆栈。
      */
     public ProbeResult probe(String rawBaseUrl, String apiKey) {
-        String baseUrl = normalize(rawBaseUrl);
-        URI uri;
-        try {
-            uri = URI.create(baseUrl + "/models");
-        } catch (RuntimeException ex) {
-            return new ProbeResult(false, "接口地址格式不对", List.of());
+        Target target = resolveTarget(rawBaseUrl, "/models");
+        if (target.error() != null) {
+            return new ProbeResult(false, target.error(), List.of());
         }
-        String host = uri.getHost();
-        if (host == null) {
-            return new ProbeResult(false, "接口地址里没有主机名", List.of());
-        }
-        String lowerHost = host.toLowerCase(Locale.ROOT);
-        if (BLOCKED_HOSTS.contains(lowerHost)) {
-            log.warn("拒绝试连云元数据地址: {}", lowerHost);
-            return new ProbeResult(false, "该地址不被允许", List.of());
-        }
-        String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
-        if (!scheme.equals("http") && !scheme.equals("https")) {
-            return new ProbeResult(false, "只支持 http 或 https 地址", List.of());
-        }
+        URI uri = target.uri();
+        String lowerHost = uri.getHost().toLowerCase(Locale.ROOT);
 
         HttpRequest.Builder builder = HttpRequest.newBuilder(uri)
                 .timeout(TIMEOUT)
@@ -141,6 +133,159 @@ public class ModelProbeService {
             log.warn("试连失败 host={} error={}", lowerHost, message);
             return new ProbeResult(false, "连不上：" + message, List.of());
         }
+    }
+
+    /**
+     * 试一句：发一条极短的 {@code /chat/completions}，确认 Key 真能说话。
+     *
+     * <p>{@code GET /models} 过了不等于能对话 —— 不少中转站目录是开的、补全是关的，
+     * 或者模型名写错。这里用 8 个 token 的非流式请求验证，不走积分、不进对话历史。
+     */
+    public PingResult ping(String rawBaseUrl, String apiKey, String model) {
+        String modelName = model == null ? "" : model.trim();
+        if (modelName.isBlank()) {
+            return PingResult.fail("先选一个模型再试一句", 0, "");
+        }
+        Target target = resolveTarget(rawBaseUrl, "/chat/completions");
+        if (target.error() != null) {
+            return PingResult.fail(target.error(), 0, modelName);
+        }
+        URI uri = target.uri();
+        String lowerHost = uri.getHost().toLowerCase(Locale.ROOT);
+        long started = System.nanoTime();
+
+        byte[] payload;
+        try {
+            payload = objectMapper.writeValueAsBytes(java.util.Map.of(
+                    "model", modelName,
+                    "messages", java.util.List.of(java.util.Map.of("role", "user", "content", "只回 ok")),
+                    "max_tokens", 8,
+                    "stream", false));
+        } catch (Exception ex) {
+            return PingResult.fail("无法组装探测请求", 0, modelName);
+        }
+
+        HttpRequest.Builder builder = HttpRequest.newBuilder(uri)
+                .timeout(Duration.ofSeconds(12))
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofByteArray(payload));
+        if (apiKey != null && !apiKey.isBlank()) {
+            builder.header("Authorization", "Bearer " + apiKey.trim());
+        }
+
+        try {
+            HttpResponse<byte[]> response = httpClient.send(builder.build(),
+                    HttpResponse.BodyHandlers.ofByteArray());
+            long latencyMs = (System.nanoTime() - started) / 1_000_000L;
+            int status = response.statusCode();
+            if (status == 401 || status == 403) {
+                return PingResult.fail("密钥被拒绝（HTTP " + status + "），请检查 Key 是否正确", latencyMs, modelName);
+            }
+            if (status == 404) {
+                return PingResult.fail("该地址没有 /chat/completions（HTTP 404）。确认地址是否要带 /v1", latencyMs, modelName);
+            }
+            byte[] body = response.body() == null ? new byte[0] : response.body();
+            if (body.length > MAX_BODY_BYTES) {
+                return PingResult.fail("探测响应过大，已忽略", latencyMs, modelName);
+            }
+            String text = new String(body, StandardCharsets.UTF_8);
+            if (status < 200 || status >= 300) {
+                return PingResult.fail(upstreamError(text, status), latencyMs, modelName);
+            }
+            String sample = parseCompletion(text);
+            log.info("试一句成功 host={} model={} {}ms", lowerHost, modelName, latencyMs);
+            if (sample.isBlank()) {
+                return new PingResult(true, "连上了，接口可用 · " + latencyMs + "ms", latencyMs, modelName, "");
+            }
+            return new PingResult(true,
+                    "连上了，模型回了「" + sample + "」· " + latencyMs + "ms",
+                    latencyMs, modelName, sample);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return PingResult.fail("试一句被中断", (System.nanoTime() - started) / 1_000_000L, modelName);
+        } catch (Exception ex) {
+            String message = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
+            log.warn("试一句失败 host={} model={} error={}", lowerHost, modelName, message);
+            return PingResult.fail("连不上：" + message, (System.nanoTime() - started) / 1_000_000L, modelName);
+        }
+    }
+
+    private record Target(URI uri, String error) {
+        static Target bad(String error) {
+            return new Target(null, error);
+        }
+    }
+
+    private Target resolveTarget(String rawBaseUrl, String path) {
+        String baseUrl;
+        try {
+            baseUrl = normalize(rawBaseUrl);
+        } catch (ApiException ex) {
+            return Target.bad(ex.getMessage());
+        }
+        URI uri;
+        try {
+            uri = URI.create(baseUrl + path);
+        } catch (RuntimeException ex) {
+            return Target.bad("接口地址格式不对");
+        }
+        String host = uri.getHost();
+        if (host == null) {
+            return Target.bad("接口地址里没有主机名");
+        }
+        String lowerHost = host.toLowerCase(Locale.ROOT);
+        if (BLOCKED_HOSTS.contains(lowerHost)) {
+            log.warn("拒绝探测云元数据地址: {}", lowerHost);
+            return Target.bad("该地址不被允许");
+        }
+        String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
+        if (!scheme.equals("http") && !scheme.equals("https")) {
+            return Target.bad("只支持 http 或 https 地址");
+        }
+        return new Target(uri, null);
+    }
+
+    private String parseCompletion(String body) {
+        try {
+            JsonNode root = objectMapper.readTree(body);
+            JsonNode choices = root.path("choices");
+            if (!choices.isArray() || choices.isEmpty()) {
+                return "";
+            }
+            JsonNode first = choices.get(0);
+            String content = first.path("message").path("content").asText("");
+            if (content.isBlank()) {
+                content = first.path("text").asText("");
+            }
+            return clipSample(content);
+        } catch (Exception ex) {
+            return "";
+        }
+    }
+
+    private String upstreamError(String body, int status) {
+        try {
+            JsonNode root = objectMapper.readTree(body);
+            String message = root.path("error").path("message").asText("");
+            if (message.isBlank()) {
+                message = root.path("message").asText("");
+            }
+            if (!message.isBlank()) {
+                return clipSample(message) + "（HTTP " + status + "）";
+            }
+        } catch (Exception ignored) {
+            // 上游不是 JSON 时只报状态码
+        }
+        return "上游返回 HTTP " + status;
+    }
+
+    private static String clipSample(String raw) {
+        String value = raw.replaceAll("\\s+", " ").trim();
+        if (value.length() > 80) {
+            return value.substring(0, 80) + "…";
+        }
+        return value;
     }
 
     /** 解析 OpenAI 兼容的 {@code {"data":[{"id":"..."}]}}。兼容直接给数组的写法。 */

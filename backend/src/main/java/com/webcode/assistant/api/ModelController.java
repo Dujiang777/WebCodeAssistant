@@ -6,6 +6,7 @@ import com.webcode.assistant.config.AppProperties;
 import com.webcode.assistant.llm.LlmCatalogRepository;
 import com.webcode.assistant.llm.ModelCatalogService;
 import com.webcode.assistant.llm.ModelProbeService;
+import com.webcode.assistant.llm.ResolvedModel;
 import com.webcode.assistant.llm.SecretCipher;
 import com.webcode.assistant.security.CurrentUser;
 import jakarta.validation.Valid;
@@ -118,6 +119,47 @@ public class ModelController {
         return new ApiModels.ProbeModelsResponse(result.ok(), result.message(), result.models());
     }
 
+    /**
+     * 试一句：确认模型真能补全，不只是目录能列出来。
+     *
+     * <p>不走积分、不写对话。{@code modelKey} 优先，用来测已经在目录里的模型
+     * （含平台 Key）；否则按自带地址现测，编辑已有服务商时 Key 可留空。
+     */
+    @PostMapping("/ping")
+    public ApiModels.PingModelsResponse ping(@Valid @RequestBody ApiModels.PingModelsRequest request) {
+        long userId = currentUser.require().userId();
+        if (request.modelKey() != null && !request.modelKey().isBlank()) {
+            ResolvedModel resolved = catalogService.resolve(userId, request.modelKey());
+            if (!resolved.modelKey().equals(request.modelKey())) {
+                throw new ApiException(ErrorCode.NOT_FOUND, "该模型当前不可用");
+            }
+            ModelProbeService.PingResult result = probeService.ping(
+                    resolved.baseUrl(), resolved.apiKey(), resolved.modelKey());
+            return toPing(result);
+        }
+
+        String apiKey = request.apiKey();
+        if ((apiKey == null || apiKey.isBlank()) && request.providerId() != null) {
+            LlmCatalogRepository.Provider provider = catalogRepository
+                    .findOwnProvider(request.providerId(), userId)
+                    .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "服务商不存在或不属于你"));
+            apiKey = cipher.decrypt(provider.apiKeyEnc());
+        }
+        String model = request.model();
+        if ((model == null || model.isBlank()) && request.providerId() != null) {
+            model = catalogService.providers(userId).stream()
+                    .filter(provider -> provider.id() == request.providerId())
+                    .flatMap(provider -> provider.models().stream())
+                    .map(ModelCatalogService.ModelOption::modelKey)
+                    .findFirst()
+                    .orElse("");
+        }
+        if (request.baseUrl() == null || request.baseUrl().isBlank()) {
+            return new ApiModels.PingModelsResponse(false, "请填写接口地址", 0, model == null ? "" : model, "");
+        }
+        return toPing(probeService.ping(request.baseUrl(), apiKey, model));
+    }
+
     /** 设为默认模型。传空 modelKey 表示恢复「跟随平台默认」。 */
     @PutMapping("/default")
     public ApiModels.ModelCatalogResponse setDefault(@Valid @RequestBody ApiModels.DefaultModelRequest request) {
@@ -138,6 +180,11 @@ public class ModelController {
                         provider.enabled(), provider.ready(), provider.unavailableReason(),
                         provider.models().stream().map(ModelController::toOption).toList()))
                 .orElseThrow(() -> new ApiException(ErrorCode.INTERNAL_ERROR, "服务商保存后未能读回"));
+    }
+
+    private static ApiModels.PingModelsResponse toPing(ModelProbeService.PingResult result) {
+        return new ApiModels.PingModelsResponse(
+                result.ok(), result.message(), result.latencyMs(), result.model(), result.sample());
     }
 
     private static ModelCatalogService.ProviderInput toInput(ApiModels.SaveProviderRequest request) {
