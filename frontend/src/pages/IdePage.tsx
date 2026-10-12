@@ -14,6 +14,7 @@ import type {
   FileContent,
   FileNode,
   FlagView,
+  GitStatus,
   GatePolicy,
   HealthInfo,
   ModelCatalog,
@@ -285,6 +286,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const [recipes, setRecipes] = useState<Record<string, RecipeView>>({});
   const [testResults, setTestResults] = useState<Record<string, TestRunResult>>({});
   const [film, setFilm] = useState<SnapshotView[]>([]);
+  const [git, setGit] = useState<GitStatus | null>(null);
+  const [gitBusy, setGitBusy] = useState(false);
 
   // ------------------------------------------------------------ 布局
   const [layout, setLayout] = useState<Layout>(() => loadLayout());
@@ -473,6 +476,21 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         if (!cancelled) setFilm(list);
       })
       .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .gitStatus(workspaceId)
+      .then((view) => {
+        if (!cancelled) setGit(view);
+      })
+      .catch(() => {
+        if (!cancelled) setGit(null);
+      });
     return () => {
       cancelled = true;
     };
@@ -1220,6 +1238,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       setSavedText(saved.content ?? docText);
       toast.success(`已保存 ${saved.path}`);
       void refreshTree();
+      void refreshGit();
     } catch (err) {
       toast.error(messageOf(err));
     } finally {
@@ -1331,6 +1350,39 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       setFilm(await api.snapshots(workspaceId));
     } catch {
       // 胶卷读失败不挡主圈
+    }
+  };
+
+  const refreshGit = async () => {
+    try {
+      setGit(await api.gitStatus(workspaceId));
+    } catch {
+      setGit(null);
+    }
+  };
+
+  const initGit = async () => {
+    setGitBusy(true);
+    try {
+      setGit(await api.gitInit(workspaceId));
+      toast.success('已初始化本地仓库');
+    } catch (err) {
+      toast.error(messageOf(err));
+    } finally {
+      setGitBusy(false);
+    }
+  };
+
+  const commitGit = async (message: string) => {
+    setGitBusy(true);
+    try {
+      const result = await api.gitCommit(workspaceId, message);
+      await refreshGit();
+      toast.success(`已提交 ${result.sha} · ${result.files} 个文件`);
+    } catch (err) {
+      toast.error(messageOf(err));
+    } finally {
+      setGitBusy(false);
     }
   };
 
@@ -1446,6 +1498,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       }
       await refreshTree();
       void refreshFilm();
+      void refreshGit();
       return applied;
     } catch (err) {
       if (err instanceof HttpError && err.code === 'FLAG_ACK_REQUIRED') {
@@ -1559,6 +1612,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       setPatches(applied);
       await refreshTree();
       void refreshFilm();
+      void refreshGit();
       if (selectedPathRef.current) {
         await openFile(selectedPathRef.current);
       }
@@ -1609,6 +1663,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       setPatches(applied);
       await refreshTree();
       void refreshFilm();
+      void refreshGit();
       if (selectedPathRef.current) await openFile(selectedPathRef.current);
       if (result.failed === 0) {
         toast.success(`已应用这一组 ${result.applied} 个文件`);
@@ -1708,6 +1763,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       await api.restoreSnapshot(workspaceId, shotId);
       await refreshTree();
       void refreshFilm();
+      void refreshGit();
       if (selectedPathRef.current) await openFile(selectedPathRef.current);
       toast.success('已回到这一组写盘前的底片');
     } catch (err) {
@@ -2318,6 +2374,11 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         truncated={file?.truncated ?? false}
         sessionId={sessionId}
         diagnostics={diagnostics}
+        git={git}
+        gitBusy={gitBusy}
+        patches={patches}
+        onGitInit={() => void initGit()}
+        onGitCommit={(message) => void commitGit(message)}
       />
 
       {diffPatch && (
@@ -2365,6 +2426,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           onRestored={() => {
             void refreshTree();
             void refreshFilm();
+            void refreshGit();
             if (selectedPath) {
               void openFile(selectedPath);
             }

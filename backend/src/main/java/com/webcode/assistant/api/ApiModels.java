@@ -355,6 +355,10 @@ public final class ApiModels {
     public record RejectBatchRequest(List<String> ids) {
     }
 
+    /** 工作区本地提交。 */
+    public record GitCommitRequest(String message) {
+    }
+
     /** 工具闸门审批：放行时可带上改过的参数（只覆盖工具自己声明的键）。 */
     public record GateApproveRequest(Map<String, Object> args, String note) {
     }

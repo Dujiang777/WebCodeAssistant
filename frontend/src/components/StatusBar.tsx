@@ -1,6 +1,8 @@
 import { formatBytes } from '../lib/api';
+import type { GitStatus, PatchRecord } from '../lib/api';
 import { streamDotClass, streamLabel } from '../lib/chat';
 import type { StreamStatus } from '../lib/sse';
+import { GitBar } from './GitBar';
 
 /**
  * 底部状态栏。
@@ -20,6 +22,11 @@ interface StatusBarProps {
   sessionId: number | null;
   /** 编辑器诊断计数（确定性 lint）。null = 没有可诊断的文件。 */
   diagnostics: { errors: number; warnings: number } | null;
+  git?: GitStatus | null;
+  gitBusy?: boolean;
+  patches?: PatchRecord[];
+  onGitInit?: () => void;
+  onGitCommit?: (message: string) => void;
 }
 
 export function StatusBar({
@@ -33,6 +40,11 @@ export function StatusBar({
   truncated,
   sessionId,
   diagnostics,
+  git = null,
+  gitBusy = false,
+  patches = [],
+  onGitInit,
+  onGitCommit,
 }: StatusBarProps) {
   const sizeRatio = workspaceSize / (200 * 1024 * 1024);
   const quotaTight = sizeRatio > 0.8;
@@ -43,6 +55,16 @@ export function StatusBar({
         工作区 {formatBytes(workspaceSize)} / 200 MB
         {quotaTight && <span style={{ color: 'var(--ember)' }}>· 接近上限</span>}
       </span>
+
+      {onGitInit && onGitCommit && (
+        <GitBar
+          git={git}
+          busy={gitBusy}
+          patches={patches}
+          onInit={onGitInit}
+          onCommit={onGitCommit}
+        />
+      )}
 
       <span className="statusbar-spacer" />
 

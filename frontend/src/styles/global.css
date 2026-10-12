@@ -2366,6 +2366,81 @@ a.link:hover,
   max-width: 55%;
 }
 
+.statusbar {
+  overflow: visible;
+}
+
+.git-chip {
+  position: relative;
+}
+
+.git-chip-btn {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.git-chip-btn.dirty {
+  color: var(--signal);
+}
+
+.git-chip-btn:hover {
+  color: var(--fg-0);
+}
+
+.git-pop {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 6px);
+  width: 280px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-1);
+  color: var(--fg-1);
+  white-space: normal;
+  z-index: 40;
+}
+
+.git-pop-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: var(--fg-0);
+}
+
+.git-pop-close {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--signal);
+  font: inherit;
+  cursor: pointer;
+}
+
+.git-files {
+  margin: 0 0 8px;
+  padding-left: 16px;
+  max-height: 120px;
+  overflow: auto;
+  color: var(--fg-2);
+}
+
+.git-msg {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--fg-0);
+  font: inherit;
+  resize: vertical;
+}
+
 .recipe-strip {
   display: flex;
   flex-wrap: wrap;

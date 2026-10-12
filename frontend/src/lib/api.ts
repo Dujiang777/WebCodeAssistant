@@ -618,6 +618,21 @@ export interface BatchApplyResult {
   snapshotId?: string | null;
 }
 
+/** 工作区本地 Git 状态。repo=false 表示还没 init。 */
+export interface GitStatus {
+  repo: boolean;
+  branch: string | null;
+  dirty: number;
+  files: string[];
+  lastCommit: string | null;
+}
+
+export interface GitCommitResult {
+  sha: string;
+  message: string;
+  files: number;
+}
+
 /** 语义检索状态。 */
 export interface SemanticStatus {
   available: boolean;
@@ -1043,6 +1058,18 @@ export const api = {
     request<SemanticResult>(`/api/workspaces/${workspaceId}/semantic/search`, {
       method: 'POST',
       body: JSON.stringify({ query, topK }),
+    }),
+
+  gitStatus: (workspaceId: number) =>
+    request<GitStatus>(`/api/workspaces/${workspaceId}/git`),
+
+  gitInit: (workspaceId: number) =>
+    request<GitStatus>(`/api/workspaces/${workspaceId}/git/init`, { method: 'POST' }),
+
+  gitCommit: (workspaceId: number, message: string) =>
+    request<GitCommitResult>(`/api/workspaces/${workspaceId}/git/commit`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
     }),
 
   /** 终端：在工作区根执行一条命令（仅限登录用户手动触发；模型无此能力）。 */
