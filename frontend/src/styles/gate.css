@@ -26,8 +26,11 @@ body:has(.gate)::after {
   --gate-brass-2: #d4b56a;
   --gate-dark: #0c0b09;
   --gate-ok: #57e389;
+  --spot-x: 70%;
+  --spot-y: 20%;
   --gate-sans: var(--font-ui, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif);
   --gate-mono: var(--font-mono, 'JetBrains Mono', monospace);
+  position: relative;
   background:
     radial-gradient(70% 50% at 88% -10%, #e8d7b0 0%, transparent 56%),
     var(--gate-bg);
@@ -36,6 +39,20 @@ body:has(.gate)::after {
   font-size: 16px;
   line-height: 1.65;
   min-height: 100vh;
+}
+
+.gate-spot {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(
+    420px 420px at var(--spot-x) var(--spot-y),
+    color-mix(in srgb, var(--gate-brass) 26%, transparent),
+    transparent 68%
+  );
+  mix-blend-mode: multiply;
+  transition: background 0.08s linear;
 }
 
 .gate-nav {
@@ -72,6 +89,8 @@ body:has(.gate)::after {
   border-radius: 7px;
   background: var(--gate-dark);
   color: var(--gate-brass);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--gate-brass) 55%, transparent);
+  animation: gate-mark-ring 2.8s ease-out infinite;
 }
 
 .gate-brand b {
@@ -125,6 +144,29 @@ body:has(.gate)::after {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.gate-switch {
+  display: flex;
+  border: 1px solid var(--gate-line);
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--gate-paper) 70%, transparent);
+}
+
+.gate-switch button {
+  border: 0;
+  background: none;
+  color: var(--gate-mute);
+  padding: 5px 10px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.gate-switch button.on {
+  background: var(--gate-dark);
+  color: #f3efe6;
 }
 
 .gate-who {
@@ -226,6 +268,27 @@ body:has(.gate)::after {
   margin: 0 0 16px;
 }
 
+.gate-hero h1 {
+  display: flex;
+  flex-direction: column;
+}
+
+.gate-line {
+  display: block;
+  animation: gate-line-in 0.7s ease both;
+}
+
+.gate-line-brass {
+  background: linear-gradient(90deg, #8a6a28, var(--gate-brass), #f3efe6, var(--gate-brass), #8a6a28);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation:
+    gate-line-in 0.7s ease 0.12s both,
+    gate-shine 4.2s linear 0.8s infinite;
+}
+
 .gate-lead,
 .gate-band-head p,
 .gate-next p {
@@ -241,6 +304,31 @@ body:has(.gate)::after {
   gap: 10px;
 }
 
+.gate-tape {
+  overflow: hidden;
+  margin: 8px 0 28px;
+  border-block: 1px solid var(--gate-line);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.gate-tape-track {
+  display: flex;
+  gap: 36px;
+  width: max-content;
+  padding: 10px 0;
+  font-family: var(--gate-mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  color: var(--gate-brass);
+  animation: gate-tape 28s linear infinite;
+}
+
+.gate-desk-orbit {
+  --rx: 0deg;
+  --ry: 0deg;
+  perspective: 1400px;
+}
+
 .gate-desk {
   position: relative;
   border-radius: 14px;
@@ -249,9 +337,19 @@ body:has(.gate)::after {
   color: #f3efe6;
   box-shadow:
     0 36px 70px -32px #1a140c,
+    0 0 40px -12px color-mix(in srgb, var(--gate-brass) 55%, transparent),
     0 0 0 1px #2a261e;
-  transform: translateY(8px);
-  animation: gate-rise 0.8s ease 0.12s both;
+  transform: rotateX(var(--rx)) rotateY(var(--ry));
+  transform-style: preserve-3d;
+  transition: transform 0.12s ease-out, box-shadow 0.4s ease;
+}
+
+.gate-desk.is-beat-2,
+.gate-desk.is-beat-3 {
+  box-shadow:
+    0 36px 80px -28px #1a140c,
+    0 0 64px -8px color-mix(in srgb, var(--gate-ok) 40%, var(--gate-brass)),
+    0 0 0 1px #3a352c;
 }
 
 .gate-desk-bar {
@@ -948,6 +1046,92 @@ body:has(.gate)::after {
   50% { opacity: 1; }
 }
 
+@keyframes gate-mark-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--gate-brass) 50%, transparent); }
+  100% { box-shadow: 0 0 0 12px transparent; }
+}
+
+@keyframes gate-line-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes gate-shine {
+  from { background-position: 0 50%; }
+  to { background-position: 220% 50%; }
+}
+
+@keyframes gate-tape {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+body:has(.gate[data-theme="night"]) {
+  background: #0c0b09;
+  color: #f6f0e4;
+}
+
+body:has(.gate[data-theme="night"])::after {
+  opacity: 0.07;
+}
+
+.gate[data-theme="night"] {
+  --gate-bg: #0c0b09;
+  --gate-paper: #16130e;
+  --gate-ink: #f6f0e4;
+  --gate-mute: #cbbfa6;
+  --gate-line: #3a352c;
+  background:
+    radial-gradient(70% 50% at 12% -10%, #3a2a10 0%, transparent 52%),
+    var(--gate-bg);
+}
+
+.gate[data-theme="night"] .gate-spot {
+  mix-blend-mode: screen;
+  opacity: 0.55;
+}
+
+.gate[data-theme="night"] .gate-nav {
+  background: color-mix(in srgb, #0c0b09 78%, transparent);
+}
+
+.gate[data-theme="night"] .gate-switch button.on {
+  background: #f3efe6;
+  color: #1a140c;
+}
+
+.gate[data-theme="night"] .gate-ghost:hover,
+.gate[data-theme="night"] .gate-spine a:hover,
+.gate[data-theme="night"] .gate-foot-links a:hover,
+.gate[data-theme="night"] .gate-door-list a:hover {
+  background: #1b1813;
+}
+
+.gate[data-theme="night"] .gate-solid {
+  background: #f3efe6;
+  border-color: #f3efe6;
+  color: #1a140c;
+}
+
+.gate[data-theme="night"] .gate-solid:hover {
+  background: var(--gate-brass);
+  border-color: var(--gate-brass);
+  color: #1a140c;
+}
+
+.gate[data-theme="night"] .gate-beats button,
+.gate[data-theme="night"] .gate-flow-grid ol button {
+  background: #16130e;
+}
+
+.gate[data-theme="night"] .gate-next {
+  background: #14120e;
+}
+
+.gate[data-theme="night"] .gate-code {
+  box-shadow: 0 0 0 1px var(--gate-brass), 0 24px 60px -28px var(--gate-brass);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .gate-desk,
   .gate-reveal,
@@ -956,7 +1140,12 @@ body:has(.gate)::after {
   .gate-bubble.is-typing,
   .gate-caret,
   .gate-stage,
-  .gate-stage-live i {
+  .gate-stage-live i,
+  .gate-mark,
+  .gate-line,
+  .gate-line-brass,
+  .gate-tape-track,
+  .gate-spot {
     animation: none !important;
     transition: none !important;
     opacity: 1;
@@ -979,6 +1168,14 @@ body:has(.gate)::after {
   }
 
   .gate-links {
+    display: none;
+  }
+
+  .gate-who {
+    display: none;
+  }
+
+  .gate-nav-actions .gate-ghost {
     display: none;
   }
 
