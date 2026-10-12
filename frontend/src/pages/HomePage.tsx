@@ -8,7 +8,7 @@ import '../styles/gate.css';
 
 /**
  * 产品入口长页。浅底、分节、锚点导航；进产品的门都开新标签，这一页自己留着。
- * 视觉参考 Ink 那种纸面 + 深绿装置，但不改应用里的 Darkroom Brass。
+ * 视觉参考 Ink 那种纸面 + 装置，但不改应用里的 Darkroom Brass。
  */
 interface HomePageProps {
   user: AuthUser | null;
@@ -88,7 +88,6 @@ export function HomePage({ user, onLogout }: HomePageProps) {
     window.setTimeout(() => setCopied(null), 1600);
   };
 
-
   const clock = useMemo(() => {
     const now = new Date();
     return now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
@@ -99,10 +98,10 @@ export function HomePage({ user, onLogout }: HomePageProps) {
       <header className="gate-nav">
         <button type="button" className="gate-brand" onClick={() => scrollTo('hero')}>
           <span className="gate-mark">
-            <TerminalMark size={16} />
+            <TerminalMark size={15} />
           </span>
           <span>
-            <b>WEB CODE ASSISTANT</b>
+            <b>WCA</b>
             <i>网页版编码助手</i>
           </span>
         </button>
@@ -143,64 +142,76 @@ export function HomePage({ user, onLogout }: HomePageProps) {
       </header>
 
       <section className="gate-hero" id="hero">
-        <div className="gate-hero-copy">
-          <p className="gate-kicker">WCA / 001 ✳</p>
-          <h1>
-            AI 读懂仓库。
-            <br />
-            <em>动手之前先给你看。</em>
-          </h1>
-          <p className="gate-lead">
-            从一句提问，到一张可确认的补丁。左边文件树、中间真编辑器、右边对话。
-            模型没有任何写盘权限 —— 你没点应用，磁盘不会动。
-          </p>
-          <div className="gate-hero-cta">
-            <a className="gate-solid gate-lg" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
-              {user ? '打开工作区' : '登录后开始'}
-            </a>
-            <button type="button" className="gate-ghost gate-lg" onClick={() => scrollTo('flow')}>
-              看它怎么改代码 ↗
-            </button>
-          </div>
-          <ul className="gate-pills">
-            <li>页面自有证据</li>
-            <li>补丁先预演</li>
-            <li>写盘由你点</li>
-          </ul>
+        <p className="gate-kicker">WCA / 001 ✳</p>
+        <h1>
+          AI 不止于答。
+          <br />
+          <em>补丁跃然眼前。</em>
+        </h1>
+        <p className="gate-lead">
+          从一句提问，到一张可确认的补丁。左边文件树、中间真编辑器、右边对话。
+          模型没有任何写盘权限 —— 你没点应用，磁盘不会动。
+        </p>
+        <div className="gate-hero-cta">
+          <a className="gate-solid gate-lg" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
+            {user ? '打开工作区' : '登录后开始'}
+          </a>
+          <button type="button" className="gate-ghost gate-lg" onClick={() => scrollTo('flow')}>
+            看它怎么改代码 ↗
+          </button>
         </div>
-        <div className="gate-device">
-          <div className="gate-phone">
-            <i className="gate-notch" />
-            <div className="gate-phone-bar">
-              <span>WCA</span>
-              <span>{clock}</span>
+        <p className="gate-meta">
+          页面自有证据<span />补丁先预演<span />写盘由你点
+        </p>
+      </section>
+
+      <section className="gate-field">
+        <div className="gate-desk">
+          <div className="gate-desk-bar">
+            <i />
+            <i />
+            <i />
+            <em>demo-java / UserService.java</em>
+            <small>DeepSeek · {clock}</small>
+          </div>
+          <div className="gate-desk-body">
+            <aside className="gate-pane gate-pane-tree">
+              <header>文件</header>
+              <ul>
+                <li>src</li>
+                <li className="on">UserService.java</li>
+                <li>UserRepository.java</li>
+                <li>pom.xml</li>
+              </ul>
+            </aside>
+            <div className="gate-pane gate-pane-code">
+              <header>编辑器 · 预览未写盘</header>
+              <pre>
+                <span className="k">public class</span> <span className="n">UserService</span> {'{\n'}
+                {'  '}<span className="k">private final</span> UserRepository repo;{'\n\n'}
+                {'  '}<span className="k">public</span> UserService(UserRepository repo) {'{\n'}
+                {'    '}<span className="n">this</span>.repo = repo;{'\n'}
+                {'  }\n}'}
+              </pre>
             </div>
-            <div className="gate-phone-screen">
-              <div className="gate-mini-tree">
-                <i />
-                <i className="on" />
-                <i />
-                <i />
-              </div>
-              <div className="gate-mini-code">
-                <span>UserService.java</span>
-                <pre>{`public User getById(Long id) {\n    return repo.find(id)\n        .orElseThrow();\n}`}</pre>
-              </div>
-              <div className="gate-mini-chat">
-                <b>把这个改成构造器注入</b>
-                <em>待确认 · UserService.java</em>
+            <aside className="gate-pane gate-pane-chat">
+              <header>对话</header>
+              <div className="gate-bubble">把这个改成构造器注入</div>
+              <div className="gate-patch">
+                <b>待确认 · UserService.java</b>
+                <code>+ private final UserRepository repo;</code>
+                <small>影响面 中 · 未写盘</small>
                 <a href={appHref(enter)} target="_blank" rel="noopener noreferrer">
                   应用并写盘
                 </a>
               </div>
-            </div>
-            <i className="gate-home-bar" />
+            </aside>
           </div>
-          <p className="gate-device-cap">工作台预览 · 入口都会开新标签</p>
         </div>
+        <p className="gate-device-cap">一句提问 → 一张可确认的补丁 · 入口都会开新标签</p>
       </section>
 
-      <section className="gate-band gate-band-ink" id="how">
+      <section className="gate-band" id="how">
         <div className="gate-band-head">
           <p className="gate-kicker">人在环上 · 会跑的界面</p>
           <h2>
@@ -222,7 +233,7 @@ export function HomePage({ user, onLogout }: HomePageProps) {
               打开工作台 ↗
             </a>
           </article>
-          <article>
+          <article className="is-ink">
             <span>02 ✳</span>
             <h3>改之前先看影响面</h3>
             <p>补丁卡算出改了谁、谁在调用、有没有踩鉴权或宪法。</p>
@@ -277,56 +288,52 @@ export function HomePage({ user, onLogout }: HomePageProps) {
         <div className="gate-band-head">
           <p className="gate-kicker">一眼知晓，一步可达</p>
           <h2>看一张补丁，如何真正落地。</h2>
-          <p>下面四步是产品主循环。点序号，右侧装置会跟着切画面。</p>
+          <p>下面四步是产品主循环。点序号，下方装置会跟着切画面。</p>
         </div>
-        <div className="gate-flow-grid">
-          <ol>
-            {FLOW.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  className={step === item.id ? 'on' : ''}
-                  onClick={() => setStep(item.id)}
-                >
-                  <em>{item.no}</em>
-                  <span>
-                    <b>{item.title}</b>
-                    {item.body}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ol>
-          <div className={`gate-stage stage-${FLOW[step].screen}`}>
-            <p className="gate-stage-kicker">{FLOW[step].no} / {FLOW[step].title}</p>
-            {step === 0 && (
-              <div className="gate-stage-ask">
-                <span>你</span>
-                <p>把 UserService 改成构造器注入</p>
-              </div>
-            )}
-            {step === 1 && (
-              <div className="gate-stage-card">
-                <b>待确认 · UserService.java</b>
-                <code>+ private final UserRepository repo;</code>
-                <small>影响面 中 · 0 处引用 · 未写盘</small>
-              </div>
-            )}
-            {step === 2 && (
-              <div className="gate-stage-live">
-                <i /> 预览 · 未写盘 · 2 / 2
-                <pre>{`  public UserService(UserRepository repo) {\n      this.repo = repo;\n  }`}</pre>
-              </div>
-            )}
-            {step === 3 && (
-              <div className="gate-stage-apply">
-                <p>补丁已应用。正在编译…</p>
-                <a className="gate-solid" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
-                  去真实工作台
-                </a>
-              </div>
-            )}
-          </div>
+        <ol className="gate-steps">
+          {FLOW.map((item) => (
+            <li key={item.id}>
+              <button
+                type="button"
+                className={step === item.id ? 'on' : ''}
+                onClick={() => setStep(item.id)}
+              >
+                <em>{item.no}</em>
+                <b>{item.title}</b>
+                <span>{item.body}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+        <div className={`gate-stage stage-${FLOW[step].screen}`}>
+          <p className="gate-stage-kicker">{FLOW[step].no} / {FLOW[step].title}</p>
+          {step === 0 && (
+            <div className="gate-stage-ask">
+              <span>你</span>
+              <p>把 UserService 改成构造器注入</p>
+            </div>
+          )}
+          {step === 1 && (
+            <div className="gate-stage-card">
+              <b>待确认 · UserService.java</b>
+              <code>+ private final UserRepository repo;</code>
+              <small>影响面 中 · 0 处引用 · 未写盘</small>
+            </div>
+          )}
+          {step === 2 && (
+            <div className="gate-stage-live">
+              <i /> 预览 · 未写盘 · 2 / 2
+              <pre>{`  public UserService(UserRepository repo) {\n      this.repo = repo;\n  }`}</pre>
+            </div>
+          )}
+          {step === 3 && (
+            <div className="gate-stage-apply">
+              <p>补丁已应用。正在编译…</p>
+              <a className="gate-solid" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
+                去真实工作台
+              </a>
+            </div>
+          )}
         </div>
       </section>
 
@@ -338,45 +345,57 @@ export function HomePage({ user, onLogout }: HomePageProps) {
         <div className="gate-door-grid">
           <a href={appHref(user ? '/workspaces' : '/login')} target="_blank" rel="noopener noreferrer">
             <em>01</em>
-            <b>工作区</b>
-            <p>克隆仓库、上传 zip、或开内置示例。代码在服务器磁盘上。</p>
+            <div>
+              <b>工作区</b>
+              <p>克隆仓库、上传 zip、或开内置示例。代码在服务器磁盘上。</p>
+            </div>
             <span>新标签打开 ↗</span>
           </a>
           <a href={appHref(desk ?? enter)} target="_blank" rel="noopener noreferrer">
             <em>02</em>
-            <b>工作台</b>
-            <p>三栏 IDE。提问、出卡、看着改、应用。</p>
+            <div>
+              <b>工作台</b>
+              <p>三栏 IDE。提问、出卡、看着改、应用。</p>
+            </div>
             <span>{desk ? '继续上次' : '进入'} ↗</span>
           </a>
           <a href={appHref(user ? '/models' : '/login')} target="_blank" rel="noopener noreferrer">
             <em>03</em>
-            <b>模型服务</b>
-            <p>选平台模型，或贴自己的 Key。试一句不走积分。</p>
+            <div>
+              <b>模型服务</b>
+              <p>选平台模型，或贴自己的 Key。试一句不走积分。</p>
+            </div>
             <span>配置 ↗</span>
           </a>
           <a href={appHref(user ? '/credits' : '/login')} target="_blank" rel="noopener noreferrer">
             <em>04</em>
-            <b>积分中心</b>
-            <p>余额、套餐、支付、流水、对账。预扣多退少补。</p>
+            <div>
+              <b>积分中心</b>
+              <p>余额、套餐、支付、流水、对账。预扣多退少补。</p>
+            </div>
             <span>查看 ↗</span>
           </a>
           <a href={appHref(user ? '/account' : '/login')} target="_blank" rel="noopener noreferrer">
             <em>05</em>
-            <b>账号与安全</b>
-            <p>邮箱验证、改密码、登录设备，逐个踢掉。</p>
+            <div>
+              <b>账号与安全</b>
+              <p>邮箱验证、改密码、登录设备，逐个踢掉。</p>
+            </div>
             <span>打开 ↗</span>
           </a>
           <a href="https://gitee.com/du-jiangjiang/web-code-assistant" target="_blank" rel="noopener noreferrer">
             <em>06</em>
-            <b>Gitee 仓库</b>
-            <p>源码与发行都在这。构建脚本也从这里拉。</p>
+            <div>
+              <b>Gitee 仓库</b>
+              <p>源码与发行都在这。构建脚本也从这里拉。</p>
+            </div>
             <span>打开仓库 ↗</span>
           </a>
         </div>
       </section>
 
       <section className="gate-next" id="next">
-        <div>
+        <div className="gate-next-copy">
           <p className="gate-kicker">下一步</p>
           <h2>写下一问，便能看见补丁。</h2>
           <p>先登录，开一个示例工作区，对当前文件说「解释一下这个类」。引用能点，改动会先出卡。</p>
@@ -410,7 +429,7 @@ export function HomePage({ user, onLogout }: HomePageProps) {
 
       <footer className="gate-foot">
         <span className="gate-mark">
-          <TerminalMark size={16} />
+          <TerminalMark size={15} />
         </span>
         <div>
           <b>Web Code Assistant</b>
