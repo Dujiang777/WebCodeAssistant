@@ -1,0 +1,39 @@
+---
+description: Git 提交信息必须用 Conventional Commits
+alwaysApply: true
+---
+
+# Conventional Commits
+
+提交、推送时的 message 只用这个格式，不要写「批64 …」这类标题。
+
+```
+<type>(optional-scope): <description>
+```
+
+- `type` 小写英文；冒号用半角 `:`，后面一个空格
+- `description` 祈使句，说为什么/解决什么，不加句号
+- 一行最好 ≤ 72 字符；需要时再空一行写 body
+- 禁止 `Co-authored-by: Cursor`
+
+| type | 什么时候 |
+|---|---|
+| `feat` | 新功能 |
+| `fix` | 修 bug |
+| `docs` | 只改文档 |
+| `style` | 只改样式/排版，行为不变 |
+| `refactor` | 重构，行为不变 |
+| `perf` | 性能 |
+| `test` | 测试 |
+| `build` | 构建/依赖 |
+| `ci` | CI |
+| `chore` | 杂项（规则、配置） |
+| `revert` | 回滚 |
+
+```
+✅ feat: salvage pasted diffs into patch cards
+✅ fix: treat “再写” as an edit request
+✅ style: stop wrapping long model names in the picker
+❌ 批64 贴进聊天的 diff 会收成补丁卡
+❌ feat：添加功能
+```
