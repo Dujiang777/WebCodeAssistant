@@ -10702,8 +10702,6 @@ body {
 .room-fab,
 .room-dock {
   position: fixed;
-  right: 22px;
-  bottom: calc(var(--statusbar-h) + 18px);
   z-index: 70;
 }
 
@@ -10717,7 +10715,13 @@ body {
   box-shadow: var(--shadow-lift);
   font-family: var(--font-display);
   letter-spacing: 0.08em;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
+}
+
+.room-fab.is-dragging,
+.room-dock.is-dragging .room-head {
+  cursor: grabbing;
 }
 
 .room-fab em {
@@ -10761,6 +10765,9 @@ body {
   gap: 8px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--line);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 
 .room-head b {

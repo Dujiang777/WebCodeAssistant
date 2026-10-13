@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react';
 
 import { api } from '../lib/api';
 import type { AuthUser, RoomMessage, RoomNotice, RoomPerson } from '../lib/api';
@@ -8,6 +8,37 @@ import type { RoomStreamStatus } from '../lib/roomStream';
 import { useToast } from '../lib/toast';
 
 type Tab = 'inbox' | 'public' | 'direct';
+
+const POS_KEY = 'wca.room.pos';
+
+interface Corner {
+  right: number;
+  bottom: number;
+}
+
+function readCorner(): Corner {
+  try {
+    const raw = localStorage.getItem(POS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<Corner>;
+      if (typeof parsed.right === 'number' && typeof parsed.bottom === 'number') {
+        return { right: parsed.right, bottom: parsed.bottom };
+      }
+    }
+  } catch {
+    // 记录坏了就回到默认位置
+  }
+  return { right: 24, bottom: 120 };
+}
+
+function clampCorner(corner: Corner, width: number, height: number): Corner {
+  const maxRight = Math.max(8, window.innerWidth - width - 8);
+  const maxBottom = Math.max(8, window.innerHeight - height - 8);
+  return {
+    right: Math.min(maxRight, Math.max(8, corner.right)),
+    bottom: Math.min(maxBottom, Math.max(8, corner.bottom)),
+  };
+}
 
 function clock(value: string): string {
   if (typeof value !== 'string') return '';
@@ -46,7 +77,67 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
   const [status, setStatus] = useState<RoomStreamStatus>(user ? 'connecting' : 'closed');
   const [sending, setSending] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
+  const boxRef = useRef<HTMLElement | null>(null);
+  const [corner, setCorner] = useState<Corner>(readCorner);
+  const [dragging, setDragging] = useState(false);
+  const cornerRef = useRef(corner);
+  const skipClick = useRef(false);
   const meId = user?.userId ?? 0;
+  cornerRef.current = corner;
+
+  const place = (next: Corner) => {
+    const node = boxRef.current;
+    const width = node?.offsetWidth ?? 52;
+    const height = node?.offsetHeight ?? 52;
+    const clamped = clampCorner(next, width, height);
+    cornerRef.current = clamped;
+    setCorner(clamped);
+  };
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => place(cornerRef.current));
+    const onResize = () => place(cornerRef.current);
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [expanded]);
+
+  const beginDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.button !== 0) return;
+    const pointerId = event.pointerId;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const origin = cornerRef.current;
+    let moved = false;
+    const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (Math.hypot(dx, dy) > 5) {
+        moved = true;
+        setDragging(true);
+      }
+      place({ right: origin.right - dx, bottom: origin.bottom - dy });
+    };
+    const up = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      setDragging(false);
+      if (moved) {
+        skipClick.current = true;
+        localStorage.setItem(POS_KEY, JSON.stringify(cornerRef.current));
+      }
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  };
+
+  const spot = { right: corner.right, bottom: corner.bottom };
 
   useEffect(() => subscribeRoomOpen(() => setExpanded(true)), []);
 
@@ -217,8 +308,21 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
     return (
       <button
         type="button"
-        className="room-fab"
-        onClick={() => (user ? setExpanded(true) : onLogin())}
+        ref={(node) => {
+          boxRef.current = node;
+        }}
+        className={dragging ? 'room-fab is-dragging' : 'room-fab'}
+        style={spot}
+        title="拖动可以挪开"
+        onPointerDown={beginDrag}
+        onClick={() => {
+          if (skipClick.current) {
+            skipClick.current = false;
+            return;
+          }
+          if (user) setExpanded(true);
+          else onLogin();
+        }}
         aria-label={user ? '打开讨论室' : '登录后打开讨论室'}
       >
         讨论
@@ -228,8 +332,23 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
   }
 
   return (
-    <section className="room-dock" role="dialog" aria-label="讨论室">
-      <header className="room-head">
+    <section
+      ref={(node) => {
+        boxRef.current = node;
+      }}
+      className={dragging ? 'room-dock is-dragging' : 'room-dock'}
+      style={spot}
+      role="dialog"
+      aria-label="讨论室"
+    >
+      <header
+        className="room-head"
+        title="拖动标题可以挪开"
+        onPointerDown={(event) => {
+          if ((event.target as HTMLElement).closest('button, a, input')) return;
+          beginDrag(event);
+        }}
+      >
         <div>
           <b>讨论室</b>
           <span>{!user ? '未登录' : status === 'open' ? '实时' : status === 'closed' ? '未连接' : '连接中'}</span>
