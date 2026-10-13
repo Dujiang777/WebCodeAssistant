@@ -590,6 +590,11 @@ export function HomePage({ user, onLogout }: HomePageProps) {
 
       <section className="gate-hero" id="hero">
         <div className="gate-stars" aria-hidden="true">
+          <div className="gate-galaxy" />
+          <div className="gate-galaxy-rift" />
+          <div className="gate-galaxy-core" />
+          <i className="band" />
+          <i className="band2" />
           <i className="s1" />
           <i className="s2" />
           <i className="s3" />
