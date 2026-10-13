@@ -1123,9 +1123,14 @@ body:has(.gate)::after {
 }
 
 .gate-beats button.on {
-  background: var(--gate-dark);
-  color: #f3efe6;
+  background: color-mix(in srgb, var(--gate-brass) 14%, var(--gate-paper));
+  color: var(--gate-ink);
+  font-weight: 600;
   box-shadow: inset 0 2px 0 var(--gate-brass);
+}
+
+.gate-beats button.on em {
+  color: color-mix(in srgb, var(--gate-brass) 70%, var(--gate-ink));
 }
 
 .gate-beats em {
@@ -1401,10 +1406,14 @@ body:has(.gate)::after {
 }
 
 .gate-flow-grid ol button.on {
-  background: var(--gate-dark);
-  border-color: var(--gate-dark);
-  color: #f3efe6;
+  background: color-mix(in srgb, var(--gate-brass) 14%, var(--gate-paper));
+  border-color: color-mix(in srgb, var(--gate-brass) 42%, var(--gate-line));
+  color: var(--gate-ink);
   box-shadow: inset 3px 0 0 var(--gate-brass);
+}
+
+.gate-flow-grid ol button.on em {
+  color: color-mix(in srgb, var(--gate-brass) 70%, var(--gate-ink));
 }
 
 .gate-flow-grid ol em {
@@ -1948,8 +1957,29 @@ body:has(.gate[data-theme="night"])::after {
   background: #1b1813;
 }
 
+.gate[data-theme="night"] .gate-beats button.on {
+  background: #221e18;
+  color: var(--gate-night-bone);
+  box-shadow: inset 0 2px 0 var(--gate-gold);
+}
+
+.gate[data-theme="night"] .gate-beats button.on em {
+  color: var(--gate-gold);
+}
+
 .gate[data-theme="night"] .gate-flow-grid ol button {
   background: #16130e;
+}
+
+.gate[data-theme="night"] .gate-flow-grid ol button.on {
+  background: #221e18;
+  border-color: color-mix(in srgb, var(--gate-gold) 35%, #3a352c);
+  color: var(--gate-night-bone);
+  box-shadow: inset 3px 0 0 var(--gate-gold);
+}
+
+.gate[data-theme="night"] .gate-flow-grid ol button.on em {
+  color: var(--gate-gold);
 }
 
 .gate[data-theme="night"] .gate-next {
