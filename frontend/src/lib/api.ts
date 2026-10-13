@@ -1317,6 +1317,14 @@ export const api = {
         filePath,
       }),
     }),
+
+  roomNotices: () => request<RoomNotice[]>('/api/room/notices'),
+
+  roomRead: (kind: 'PUBLIC' | 'DIRECT', peerId: number | null) =>
+    request<{ marked: number }>('/api/room/notices/read', {
+      method: 'POST',
+      body: JSON.stringify({ kind, peerId }),
+    }),
 };
 
 // ------------------------------------------------------------------ 功能 13-16 模型
@@ -1764,6 +1772,7 @@ export interface AdminTrendPoint {
 export interface RoomPerson {
   id: number;
   username: string;
+  online?: boolean;
 }
 
 export interface RoomMessage {
@@ -1773,6 +1782,18 @@ export interface RoomMessage {
   peerId: number | null;
   body: string;
   filePath: string | null;
+  createdAt: string;
+}
+
+export interface RoomNotice {
+  id: number;
+  userId: number;
+  messageId: number;
+  kind: 'PUBLIC' | 'DIRECT';
+  senderId: number;
+  senderName: string;
+  preview: string;
+  peerId: number | null;
   createdAt: string;
 }
 

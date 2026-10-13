@@ -230,7 +230,7 @@ public class UserRepository {
         return jdbc.sql("""
                         select id, username from users
                         where id <> :id and status = 'ACTIVE'
-                        order by username
+                        order by id desc
                         limit :limit
                         """)
                 .param("id", excludeId)

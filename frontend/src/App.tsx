@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
+import { RoomDock } from './components/RoomDock';
 import { api, clearSession, loadRefreshToken, loadUser, patchUser, subscribeSession } from './lib/api';
 import type { AuthUser } from './lib/api';
 import { navigate, previousPath, useRoute } from './lib/router';
@@ -82,8 +83,15 @@ export function App() {
     navigate('/login');
   };
 
+  const withRoom = (node: ReactNode) => (
+    <>
+      {node}
+      <RoomDock user={user} onLogin={() => navigate('/login')} />
+    </>
+  );
+
   if (route.name === 'home' || route.name === 'root') {
-    return <HomePage user={user} onLogout={handleLogout} />;
+    return withRoom(<HomePage user={user} onLogout={handleLogout} />);
   }
 
   // 邮件链接落点：这两个页面在未登录状态下也要能打开
@@ -104,19 +112,19 @@ export function App() {
   const backTarget = () => previousPath() ?? '/workspaces';
 
   if (route.name === 'credits') {
-    return <CreditsPage onBack={() => navigate(backTarget())} onLogout={handleLogout} />;
+    return withRoom(<CreditsPage onBack={() => navigate(backTarget())} onLogout={handleLogout} />);
   }
 
   if (route.name === 'account') {
-    return <AccountPage onBack={() => navigate(backTarget())} onLogout={handleLogout} />;
+    return withRoom(<AccountPage onBack={() => navigate(backTarget())} onLogout={handleLogout} />);
   }
 
   if (route.name === 'models') {
-    return (
+    return withRoom(
       <ModelsPage
         onBack={() => navigate(backTarget())}
         onLogout={handleLogout}
-      />
+      />,
     );
   }
 
@@ -127,28 +135,27 @@ export function App() {
       navigate('/workspaces');
       return null;
     }
-    return (
+    return withRoom(
       <AdminPage
         key={route.tab}
         initialTab={route.tab}
         onBack={() => navigate(backTarget())}
         onLogout={handleLogout}
-      />
+      />,
     );
   }
 
   if (route.name === 'ide') {
     // key 绑定 workspaceId：切换工作区时整个 IDE 状态整块重建，避免上一份文件/会话残留
-    return (
+    return withRoom(
       <IdePage
         key={route.workspaceId}
         workspaceId={route.workspaceId}
-        userId={user.userId}
         username={user.username}
         onLogout={handleLogout}
-      />
+      />,
     );
   }
 
-  return <WorkspaceListPage username={user.username} onLogout={handleLogout} />;
+  return withRoom(<WorkspaceListPage username={user.username} onLogout={handleLogout} />);
 }

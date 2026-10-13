@@ -12,15 +12,21 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RoomService {
 
     private static final int HISTORY = 80;
+    private static final int PEOPLE = 200;
     private static final long MIN_GAP_MS = 400;
 
     private final RoomRepository repository;
+    private final RoomNoticeRepository notices;
     private final UserRepository users;
     private final RoomHub hub;
     private final Map<Long, Long> lastSent = new ConcurrentHashMap<>();
 
-    public RoomService(RoomRepository repository, UserRepository users, RoomHub hub) {
+    public RoomService(RoomRepository repository,
+                       RoomNoticeRepository notices,
+                       UserRepository users,
+                       RoomHub hub) {
         this.repository = repository;
+        this.notices = notices;
         this.users = users;
         this.hub = hub;
     }
@@ -33,11 +39,50 @@ public class RoomService {
         return repository.recentDirect(userId, peerId, HISTORY);
     }
 
-    public List<UserRepository.UserBrief> people(long userId) {
-        return users.listActiveExcept(userId, 80);
+    public List<PersonPresence> people(long userId) {
+        var online = hub.onlineIds();
+        List<PersonPresence> rows = new java.util.ArrayList<>();
+        for (UserRepository.UserBrief person : users.listActiveExcept(userId, PEOPLE)) {
+            rows.add(new PersonPresence(person.id(), person.username(), online.contains(person.id())));
+        }
+        rows.sort((a, b) -> {
+            if (a.online() != b.online()) {
+                return a.online() ? -1 : 1;
+            }
+            return Long.compare(b.id(), a.id());
+        });
+        return rows;
     }
 
-    public RoomNote send(long userId, String username, Long peerId, String rawBody, String rawPath) {
+    public List<RoomNotice> notices(long userId) {
+        return notices.unread(userId, 50);
+    }
+
+    public int markRead(long userId, String kind, Long peerId) {
+        if (!"PUBLIC".equals(kind) && !"DIRECT".equals(kind)) {
+            throw ApiException.badRequest("提醒类型不对");
+        }
+        if ("DIRECT".equals(kind) && peerId == null) {
+            throw ApiException.badRequest("私聊提醒要带上对方");
+        }
+        return notices.markRead(userId, kind, peerId);
+    }
+
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter open(long userId, String username, Long afterId) {
+        var emitter = hub.subscribe(userId, afterId, () -> announce(userId, username, false));
+        Thread.startVirtualThread(() -> {
+            try {
+                Thread.sleep(40);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            announce(userId, username, true);
+        });
+        return emitter;
+    }
+
+    public RoomNote send(long userId, Long peerId, String rawBody, String rawPath) {
         String body = rawBody == null ? "" : rawBody.trim();
         if (body.isEmpty() || body.length() > 1000) {
             throw ApiException.badRequest("消息要在 1 到 1000 字之间");
@@ -56,13 +101,28 @@ public class RoomService {
         }
         long id = repository.insert(userId, peerId, body, path.isEmpty() ? null : path);
         RoomNote note = repository.require(id);
-        // 用户名以库里为准，避免令牌里的旧名字和表不一致时前端对不上
-        if (!username.equals(note.senderName())) {
-            note = new RoomNote(note.id(), note.senderId(), note.senderName(), note.peerId(),
-                    note.body(), note.filePath(), note.createdAt());
-        }
+        enqueue(userId, note);
         hub.publish(note);
         return note;
+    }
+
+    private void enqueue(long senderId, RoomNote note) {
+        if (note.peerId() != null) {
+            RoomNotice notice = notices.insert(note.peerId(), note, "DIRECT");
+            hub.sendTo(note.peerId(), "notice", notice);
+            return;
+        }
+        for (UserRepository.UserBrief person : users.listActiveExcept(senderId, PEOPLE)) {
+            RoomNotice notice = notices.insert(person.id(), note, "PUBLIC");
+            hub.sendTo(person.id(), "notice", notice);
+        }
+    }
+
+    private void announce(long userId, String username, boolean online) {
+        hub.broadcast("presence", new PersonPresence(userId, username, online));
+    }
+
+    public record PersonPresence(long id, String username, boolean online) {
     }
 
     private void requirePeer(long userId, long peerId) {

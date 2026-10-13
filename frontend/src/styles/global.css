@@ -10699,17 +10699,50 @@ body {
   background: var(--line);
 }
 
-.room-drawer {
+.room-fab,
+.room-dock {
   position: fixed;
-  top: var(--topbar-h);
-  right: 16px;
-  bottom: calc(var(--statusbar-h) + 16px);
-  z-index: 40;
+  right: 22px;
+  bottom: calc(var(--statusbar-h) + 18px);
+  z-index: 70;
+}
+
+.room-fab {
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--signal-line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-1) 88%, black);
+  color: var(--signal-soft);
+  box-shadow: var(--shadow-lift);
+  font-family: var(--font-display);
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.room-fab em {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--signal);
+  color: var(--bg-0);
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 18px;
+}
+
+.room-dock {
   width: min(380px, calc(100vw - 32px));
+  height: min(520px, calc(100vh - 96px));
   display: flex;
   flex-direction: column;
   border: 1px solid var(--signal-line);
-  border-radius: 12px;
+  border-radius: 14px;
   background: color-mix(in srgb, var(--bg-1) 94%, black);
   box-shadow: var(--shadow-lift), 0 0 0 1px color-mix(in srgb, var(--signal) 12%, transparent);
   overflow: hidden;
@@ -10771,10 +10804,91 @@ body {
   background: var(--signal-dim);
 }
 
-.room-tabs select {
+.room-people {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 148px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.room-people input,
+.room-people button {
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--fg-0);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.room-people input {
+  padding: 6px 8px;
+}
+
+.room-people > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  overflow: auto;
+}
+
+.room-people button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.room-people button.on {
+  border-color: var(--signal-line);
+  color: var(--signal-soft);
+  background: var(--signal-dim);
+}
+
+.room-people i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fg-2);
+}
+
+.room-people i.on {
+  background: var(--signal);
+}
+
+.room-notice {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-3);
+  color: inherit;
+  cursor: pointer;
+}
+
+.room-notice header {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--fg-2);
+}
+
+.room-notice header span {
   margin-left: auto;
-  max-width: 140px;
-  padding: 4px 6px;
+  color: var(--signal);
+}
+
+.room-notice p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .room-log {
