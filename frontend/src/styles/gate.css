@@ -34,6 +34,7 @@ body:has(.gate)::after {
   position: relative;
   background:
     radial-gradient(70% 50% at 88% -10%, #e8d7b0 0%, transparent 56%),
+    radial-gradient(50% 35% at 8% 20%, color-mix(in srgb, var(--gate-brass) 12%, transparent) 0%, transparent 70%),
     var(--gate-bg);
   color: var(--gate-ink);
   font-family: var(--gate-sans);
@@ -332,6 +333,9 @@ body:has(.gate)::after {
   background: var(--gate-dark);
   border-color: var(--gate-dark);
   color: #f3efe6;
+  box-shadow:
+    0 12px 28px -16px #1a140c,
+    0 0 0 1px color-mix(in srgb, var(--gate-brass) 20%, transparent);
 }
 
 .gate-solid::after {
@@ -350,9 +354,10 @@ body:has(.gate)::after {
 }
 
 .gate-lg {
-  padding: 13px 22px;
-  min-height: 46px;
-  font-size: 15px;
+  padding: 15px 26px;
+  min-height: 52px;
+  font-size: 16px;
+  font-weight: 600;
   letter-spacing: 0.02em;
 }
 
@@ -368,7 +373,7 @@ body:has(.gate)::after {
 }
 
 .gate-hero {
-  padding: 80px 0 48px;
+  padding: 96px 0 56px;
   scroll-margin-top: 76px;
 }
 
@@ -403,11 +408,11 @@ body:has(.gate)::after {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  font-weight: 700;
-  font-size: clamp(44px, 6vw, 76px);
-  line-height: 1.08;
-  letter-spacing: -0.045em;
-  margin: 0 0 18px;
+  font-weight: 800;
+  font-size: clamp(52px, 7.2vw, 92px);
+  line-height: 1.02;
+  letter-spacing: -0.055em;
+  margin: 0 0 20px;
 }
 
 .gate-hero h1::after {
@@ -429,10 +434,10 @@ body:has(.gate)::after {
 .gate-embed h2,
 .gate-next h2 {
   font-weight: 700;
-  font-size: clamp(28px, 3.8vw, 44px);
-  line-height: 1.18;
-  letter-spacing: -0.035em;
-  margin: 0 0 14px;
+  font-size: clamp(30px, 4.2vw, 48px);
+  line-height: 1.14;
+  letter-spacing: -0.04em;
+  margin: 0 0 16px;
 }
 
 .gate-title {
@@ -508,10 +513,10 @@ body:has(.gate)::after {
 .gate-band-head p,
 .gate-next p {
   color: var(--gate-mute);
-  max-width: 40rem;
-  margin: 0 0 22px;
-  font-size: 17px;
-  line-height: 1.7;
+  max-width: 42rem;
+  margin: 0 0 24px;
+  font-size: 18px;
+  line-height: 1.65;
 }
 
 .gate-hero-cta {
@@ -608,15 +613,15 @@ body:has(.gate)::after {
 
 .gate-desk {
   position: relative;
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
   background: var(--gate-dark);
   color: #f3efe6;
   box-shadow:
-    0 40px 80px -28px #1a140c,
-    0 0 48px -10px color-mix(in srgb, var(--gate-brass) 55%, transparent),
+    0 48px 96px -32px #1a140c,
+    0 0 64px -12px color-mix(in srgb, var(--gate-brass) 60%, transparent),
     0 0 0 1px #2a261e,
-    inset 0 1px 0 color-mix(in srgb, var(--gate-brass) 22%, transparent);
+    inset 0 1px 0 color-mix(in srgb, var(--gate-brass) 28%, transparent);
   transform: rotateX(var(--rx)) rotateY(var(--ry));
   transform-style: preserve-3d;
   transition: transform 0.12s ease-out, box-shadow 0.4s ease;
@@ -942,7 +947,7 @@ body:has(.gate)::after {
 .gate-embed,
 .gate-flow,
 .gate-doors {
-  padding: 96px 0 28px;
+  padding: 112px 0 32px;
   scroll-margin-top: 76px;
 }
 
@@ -1363,8 +1368,8 @@ body:has(.gate)::after {
 
 .gate-next {
   width: 100%;
-  margin: 72px 0 0;
-  padding: 80px 0;
+  margin: 96px 0 0;
+  padding: 96px 0;
   background: var(--gate-dark);
   color: #f3efe6;
   scroll-margin-top: 76px;
