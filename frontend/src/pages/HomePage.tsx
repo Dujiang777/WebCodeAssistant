@@ -571,7 +571,7 @@ export function HomePage({ user, onLogout }: HomePageProps) {
         <div className="gate-hero-copy">
           <p className="gate-kicker">{t.kicker}</p>
           <h1>
-            <span className="gate-line">{t.h1a}</span>
+            <span className="gate-line gate-line-ink">{t.h1a}</span>
             <span className="gate-line gate-line-brass">{t.h1b}</span>
           </h1>
           <p className="gate-lead">{t.lead}</p>
@@ -670,7 +670,7 @@ export function HomePage({ user, onLogout }: HomePageProps) {
       <section className="gate-band gate-reveal" id="how">
         <div className="gate-band-head">
           <p className="gate-kicker">{t.howKicker}</p>
-          <h2>{t.howH2}</h2>
+          <h2 className="gate-title">{t.howH2}</h2>
           <p>{t.howLead}</p>
         </div>
         <div className="gate-spine">
@@ -719,7 +719,7 @@ export function HomePage({ user, onLogout }: HomePageProps) {
       <section className="gate-embed gate-reveal">
         <div>
           <p className="gate-kicker">{t.embedKicker}</p>
-          <h2>{t.embedH2}</h2>
+          <h2 className="gate-title">{t.embedH2}</h2>
           <ol>
             <li>
               <em>01</em>
@@ -771,7 +771,7 @@ export function HomePage({ user, onLogout }: HomePageProps) {
       <section className="gate-flow gate-reveal" id="flow">
         <div className="gate-band-head">
           <p className="gate-kicker">{t.flowKicker}</p>
-          <h2>{t.flowH2}</h2>
+          <h2 className="gate-title">{t.flowH2}</h2>
           <p>{t.flowLead}</p>
         </div>
         <div className="gate-flow-grid">
@@ -833,7 +833,7 @@ export function HomePage({ user, onLogout }: HomePageProps) {
       <section className="gate-doors gate-reveal" id="doors">
         <div className="gate-band-head">
           <p className="gate-kicker">{t.doorsKicker}</p>
-          <h2>{t.doorsH2}</h2>
+          <h2 className="gate-title">{t.doorsH2}</h2>
         </div>
         <div className="gate-door-list">
           <a href={appHref(user ? '/workspaces' : '/login')} target="_blank" rel="noopener noreferrer">
@@ -891,7 +891,7 @@ export function HomePage({ user, onLogout }: HomePageProps) {
         <div className="gate-next-grid">
           <div className="gate-next-copy">
             <p className="gate-kicker">{t.nextKicker}</p>
-            <h2>{t.nextH2}</h2>
+            <h2 className="gate-title">{t.nextH2}</h2>
             <p>{t.nextLead}</p>
             <div className="gate-hero-cta">
               <a className="gate-solid gate-lg" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
