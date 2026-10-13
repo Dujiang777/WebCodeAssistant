@@ -40,6 +40,7 @@ body:has(.gate)::after {
   font-size: 16px;
   line-height: 1.65;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
 .gate-spot {
@@ -102,8 +103,8 @@ body:has(.gate)::after {
   z-index: 20;
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 14px 32px;
+  gap: 20px;
+  padding: 12px 28px;
   background: color-mix(in srgb, var(--gate-bg) 78%, white);
   backdrop-filter: blur(18px);
   border-bottom: 1px solid color-mix(in srgb, var(--gate-line) 70%, transparent);
@@ -158,9 +159,10 @@ body:has(.gate)::after {
   border: 0;
   background: none;
   color: var(--gate-mute);
-  padding: 6px 12px;
+  padding: 6px 11px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
 }
 
 .gate-links button.on,
@@ -360,13 +362,13 @@ body:has(.gate)::after {
 }
 
 .gate-hero {
-  padding: 64px 0 36px;
+  padding: 72px 0 40px;
   scroll-margin-top: 76px;
 }
 
 .gate-hero-copy {
-  max-width: 38rem;
-  margin-bottom: 28px;
+  max-width: 44rem;
+  margin-bottom: 32px;
 }
 
 .gate-kicker {
@@ -391,20 +393,24 @@ body:has(.gate)::after {
   animation: gate-mark-ring 2.4s ease-out infinite;
 }
 
-.gate-hero h1,
+.gate-hero h1 {
+  display: flex;
+  flex-direction: column;
+  font-weight: 700;
+  font-size: clamp(44px, 6vw, 76px);
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+  margin: 0 0 18px;
+}
+
 .gate-band-head h2,
 .gate-embed h2,
 .gate-next h2 {
   font-weight: 700;
-  font-size: clamp(36px, 5.2vw, 64px);
-  line-height: 1.12;
-  letter-spacing: -0.04em;
-  margin: 0 0 16px;
-}
-
-.gate-hero h1 {
-  display: flex;
-  flex-direction: column;
+  font-size: clamp(28px, 3.8vw, 44px);
+  line-height: 1.18;
+  letter-spacing: -0.035em;
+  margin: 0 0 14px;
 }
 
 .gate-line {
@@ -413,7 +419,7 @@ body:has(.gate)::after {
 }
 
 .gate-line-brass {
-  background: linear-gradient(90deg, #8a6a28, var(--gate-brass), #f3efe6, var(--gate-brass), #8a6a28);
+  background: linear-gradient(90deg, #8a6a28, var(--gate-brass), #f0d48a, var(--gate-brass-2), #8a6a28);
   background-size: 220% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -427,9 +433,10 @@ body:has(.gate)::after {
 .gate-band-head p,
 .gate-next p {
   color: var(--gate-mute);
-  max-width: 38rem;
+  max-width: 40rem;
   margin: 0 0 22px;
   font-size: 17px;
+  line-height: 1.7;
 }
 
 .gate-hero-cta {
@@ -452,14 +459,15 @@ body:has(.gate)::after {
   font-size: 11px;
   letter-spacing: 0.12em;
   color: var(--gate-brass);
-  border: 1px solid var(--gate-line);
+  border: 1px solid color-mix(in srgb, var(--gate-brass) 35%, var(--gate-line));
+  background: color-mix(in srgb, var(--gate-brass) 8%, var(--gate-paper));
   border-radius: 999px;
   padding: 5px 11px;
 }
 
 .gate-tape {
   overflow: hidden;
-  margin: 8px 0 28px;
+  margin: 4px 0 32px;
   border-block: 1px solid var(--gate-line);
   mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
 }
@@ -485,8 +493,8 @@ body:has(.gate)::after {
 
 .gate-live-pill {
   position: absolute;
-  top: -12px;
-  right: 18px;
+  top: -16px;
+  right: 22px;
   z-index: 4;
   display: inline-flex;
   align-items: center;
@@ -517,8 +525,8 @@ body:has(.gate)::after {
   background: var(--gate-dark);
   color: #f3efe6;
   box-shadow:
-    0 36px 70px -32px #1a140c,
-    0 0 40px -12px color-mix(in srgb, var(--gate-brass) 55%, transparent),
+    0 40px 80px -28px #1a140c,
+    0 0 48px -10px color-mix(in srgb, var(--gate-brass) 55%, transparent),
     0 0 0 1px #2a261e,
     inset 0 1px 0 color-mix(in srgb, var(--gate-brass) 22%, transparent);
   transform: rotateX(var(--rx)) rotateY(var(--ry));
@@ -783,10 +791,18 @@ body:has(.gate)::after {
 .gate-beats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  gap: 0;
   list-style: none;
   padding: 0;
-  margin: 20px 0 0;
+  margin: 22px 0 0;
+  border: 1px solid var(--gate-line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--gate-paper);
+}
+
+.gate-beats li + li button {
+  border-left: 1px solid var(--gate-line);
 }
 
 .gate-beats button {
@@ -794,24 +810,23 @@ body:has(.gate)::after {
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid var(--gate-line);
-  background: var(--gate-paper);
-  border-radius: 8px;
-  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  padding: 12px 14px;
   cursor: pointer;
   color: inherit;
   text-align: left;
   white-space: nowrap;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .gate-beats button:hover {
-  transform: translateY(-2px);
+  background: #efe6d4;
 }
 
 .gate-beats button.on {
   background: var(--gate-dark);
-  border-color: var(--gate-dark);
   color: #f3efe6;
 }
 
@@ -1247,18 +1262,21 @@ body:has(.gate)::after {
 
 .gate-next {
   width: 100%;
-  margin: 64px 0 0;
-  padding: 72px 0;
+  margin: 72px 0 0;
+  padding: 80px 0;
   background: var(--gate-dark);
   color: #f3efe6;
   scroll-margin-top: 76px;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--gate-brass) 32%, transparent);
 }
 
-.gate-next-copy,
-.gate-next .gate-clone {
+.gate-next-grid {
   width: min(1120px, calc(100% - 48px));
-  margin-left: auto;
-  margin-right: auto;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 40px 48px;
+  align-items: end;
 }
 
 .gate-next .gate-kicker {
@@ -1297,11 +1315,11 @@ body:has(.gate)::after {
 }
 
 .gate-clone {
-  margin-top: 28px;
+  margin-top: 0;
   background: #1b1813;
   border: 1px solid #5c5546;
-  border-radius: 12px;
-  padding: 22px;
+  border-radius: 14px;
+  padding: 24px;
 }
 
 .gate-clone header {
@@ -1346,7 +1364,7 @@ body:has(.gate)::after {
 }
 
 .gate-colophon {
-  padding: 56px 0 12px;
+  padding: 64px 0 16px;
 }
 
 .gate-creator {
@@ -1354,7 +1372,7 @@ body:has(.gate)::after {
   letter-spacing: -0.05em;
   line-height: 1;
   margin: 0 0 10px;
-  background: linear-gradient(90deg, #8a6a28, var(--gate-brass), #f3efe6, var(--gate-brass), #8a6a28);
+  background: linear-gradient(90deg, #8a6a28, var(--gate-brass), #f0d48a, var(--gate-brass-2), #8a6a28);
   background-size: 220% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -1487,8 +1505,8 @@ body:has(.gate)::after {
 }
 
 @keyframes gate-line-in {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: none; }
+  from { transform: translateY(12px); }
+  to { transform: none; }
 }
 
 @keyframes gate-shine {
@@ -1588,7 +1606,19 @@ body:has(.gate[data-theme="night"])::after {
   color: #1a140c;
 }
 
-.gate[data-theme="night"] .gate-beats button,
+.gate[data-theme="night"] .gate-beats {
+  background: #16130e;
+  border-color: #3a352c;
+}
+
+.gate[data-theme="night"] .gate-beats li + li button {
+  border-left-color: #3a352c;
+}
+
+.gate[data-theme="night"] .gate-beats button:hover {
+  background: #1b1813;
+}
+
 .gate[data-theme="night"] .gate-flow-grid ol button {
   background: #16130e;
 }
@@ -1673,9 +1703,15 @@ body:has(.gate[data-theme="night"])::after {
   .gate-doors,
   .gate-colophon,
   .gate-foot,
-  .gate-next-copy,
-  .gate-next .gate-clone {
+  .gate-next-grid {
     width: calc(100% - 32px);
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .gate-beats li + li button {
+    border-left: 0;
+    border-top: 1px solid var(--gate-line);
   }
 
   .gate-live-pill {

@@ -888,34 +888,36 @@ export function HomePage({ user, onLogout }: HomePageProps) {
       </section>
 
       <section className="gate-next" id="next">
-        <div className="gate-next-copy">
-          <p className="gate-kicker">{t.nextKicker}</p>
-          <h2>{t.nextH2}</h2>
-          <p>{t.nextLead}</p>
-          <div className="gate-hero-cta">
-            <a className="gate-solid gate-lg" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
-              {user ? t.enterWs : t.signup}
-            </a>
-            {user && (
-              <button type="button" className="gate-ghost gate-lg" onClick={onLogout}>
-                {t.logout}
-              </button>
-            )}
+        <div className="gate-next-grid">
+          <div className="gate-next-copy">
+            <p className="gate-kicker">{t.nextKicker}</p>
+            <h2>{t.nextH2}</h2>
+            <p>{t.nextLead}</p>
+            <div className="gate-hero-cta">
+              <a className="gate-solid gate-lg" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
+                {user ? t.enterWs : t.signup}
+              </a>
+              {user && (
+                <button type="button" className="gate-ghost gate-lg" onClick={onLogout}>
+                  {t.logout}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="gate-clone">
-          <header>{t.clone}</header>
-          <code>{GITEE}</code>
-          <div className="gate-clone-actions">
-            <button type="button" onClick={() => void copy('gitee')}>
-              {copied === 'gitee' ? t.copiedGitee : t.copyGitee}
-            </button>
-            <button type="button" onClick={() => void copy('github')}>
-              {copied === 'github' ? t.copiedGithub : t.copyGithub}
-            </button>
-            <a href="https://github.com/Dujiang777/WebCodeAssistant" target="_blank" rel="noopener noreferrer">
-              GitHub
-            </a>
+          <div className="gate-clone">
+            <header>{t.clone}</header>
+            <code>{GITEE}</code>
+            <div className="gate-clone-actions">
+              <button type="button" onClick={() => void copy('gitee')}>
+                {copied === 'gitee' ? t.copiedGitee : t.copyGitee}
+              </button>
+              <button type="button" onClick={() => void copy('github')}>
+                {copied === 'github' ? t.copiedGithub : t.copyGithub}
+              </button>
+              <a href="https://github.com/Dujiang777/WebCodeAssistant" target="_blank" rel="noopener noreferrer">
+                GitHub
+              </a>
+            </div>
           </div>
         </div>
       </section>
