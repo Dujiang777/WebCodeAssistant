@@ -70,6 +70,7 @@ body:has(.gate)::after {
   overflow: hidden;
   pointer-events: none;
   z-index: -1;
+  opacity: 0.2;
 }
 
 .gate-orbs i {
@@ -116,6 +117,76 @@ body:has(.gate)::after {
   backdrop-filter: blur(20px);
   border-bottom: 1px solid color-mix(in srgb, var(--gate-line) 70%, transparent);
   box-shadow: 0 10px 30px -24px rgba(26, 20, 12, 0.28);
+  transition:
+    background 0.35s ease,
+    border-color 0.35s ease,
+    box-shadow 0.35s ease,
+    color 0.35s ease;
+}
+
+/* 滚在 hero 上时顶栏跟暗房同色，避免象牙 nav 压在银河上发灰 */
+.gate-nav.is-hero {
+  background: color-mix(in srgb, #0a0805 76%, transparent);
+  border-bottom-color: #26211a;
+  box-shadow: 0 14px 36px -22px rgba(0, 0, 0, 0.55);
+}
+
+.gate-nav.is-hero .gate-brand b,
+.gate-nav.is-hero .gate-brand i {
+  color: var(--gate-night-bone);
+}
+
+.gate-nav.is-hero .gate-brand i {
+  color: var(--gate-night-mute);
+}
+
+.gate-nav.is-hero .gate-links button {
+  color: var(--gate-night-mute);
+}
+
+.gate-nav.is-hero .gate-links button.on,
+.gate-nav.is-hero .gate-links button:hover {
+  color: var(--gate-gold);
+}
+
+.gate-nav.is-hero .gate-nav-rule {
+  background: #3a352c;
+}
+
+.gate-nav.is-hero .gate-lang-btn {
+  color: var(--gate-night-bone);
+}
+
+.gate-nav.is-hero .gate-lang-btn:hover,
+.gate-nav.is-hero .gate-lang-btn.on {
+  background: color-mix(in srgb, var(--gate-gold) 14%, transparent);
+}
+
+.gate-nav.is-hero .gate-who {
+  color: var(--gate-night-mute);
+}
+
+.gate-nav.is-hero .gate-ghost {
+  border-color: #3a352c;
+  color: var(--gate-night-bone);
+}
+
+.gate-nav.is-hero .gate-ghost:hover {
+  background: transparent;
+  border-color: var(--gate-gold);
+  color: var(--gate-gold);
+}
+
+.gate-nav.is-hero .gate-solid {
+  background: var(--gate-gold);
+  border-color: var(--gate-gold);
+  color: #1a1206;
+}
+
+.gate-nav.is-hero .gate-solid:hover {
+  background: #f0c46a;
+  border-color: #f0c46a;
+  color: #1a1206;
 }
 
 .gate-brand {
@@ -364,6 +435,13 @@ body:has(.gate)::after {
   margin: 0 auto;
 }
 
+.gate-band,
+.gate-embed,
+.gate-flow,
+.gate-doors {
+  border-top: 1px solid color-mix(in srgb, var(--gate-line) 55%, transparent);
+}
+
 .gate-hero {
   position: relative;
   width: 100%;
@@ -371,6 +449,18 @@ body:has(.gate)::after {
   background: #0a0805;
   color: var(--gate-night-bone);
   scroll-margin-top: 76px;
+}
+
+.gate-hero::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 128px;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 0%, var(--gate-bg) 92%);
 }
 
 .gate-hero-inner {
@@ -445,6 +535,13 @@ body:has(.gate)::after {
   left: 0;
   border-radius: 50%;
   background: transparent;
+}
+
+/* 稀疏远景星：压低亮度，让 band 银河带成为主角 */
+.gate-stars .s1,
+.gate-stars .s2,
+.gate-stars .s3 {
+  opacity: 0.34;
 }
 
 /* 银心密集星带：沿左下→右上对角线聚集，法线方向高斯衰减（种子 77031） */
@@ -607,10 +704,11 @@ body:has(.gate)::after {
 .gate-hero .gate-lead {
   color: #8f8674;
   max-width: 38rem;
+  margin-bottom: 40px;
 }
 
 .gate-pipe {
-  margin: 0 0 56px;
+  margin: 0 0 48px;
 }
 
 .gate-pipe-title {
@@ -1154,11 +1252,15 @@ body:has(.gate)::after {
 
 .gate-reveal {
   transform: translateY(16px);
-  transition: transform 0.6s ease;
+  opacity: 0.88;
+  transition:
+    transform 0.6s ease,
+    opacity 0.6s ease;
 }
 
 .gate-reveal.in {
   transform: none;
+  opacity: 1;
 }
 
 .gate-spine {
@@ -1221,9 +1323,11 @@ body:has(.gate)::after {
 
 .gate-spine h3 {
   margin: 0 0 8px;
-  font-size: 24px;
-  letter-spacing: -0.03em;
-  line-height: 1.25;
+  font-family: var(--gate-serif);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .gate-spine p {
@@ -1521,6 +1625,10 @@ body:has(.gate)::after {
   text-decoration: none;
   color: inherit;
   transition: background 0.2s ease, border-color 0.2s ease, padding-left 0.2s ease;
+}
+
+.gate-door-list a:last-child {
+  border-bottom: 1px solid var(--gate-line);
 }
 
 .gate-door-list a::after {
@@ -2016,6 +2124,10 @@ body:has(.gate[data-theme="night"])::after {
 
   .gate-galaxy {
     animation: none !important;
+  }
+
+  .gate-reveal {
+    opacity: 1;
   }
 
   .gate-meteor {

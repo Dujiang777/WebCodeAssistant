@@ -491,7 +491,7 @@ export function HomePage({ user, onLogout }: HomePageProps) {
         <i />
         <i />
       </div>
-      <header className="gate-nav">
+      <header className={`gate-nav${active === 'hero' ? ' is-hero' : ''}`}>
         <button type="button" className="gate-brand" onClick={() => scrollTo('hero')}>
           <span className="gate-mark">
             <TerminalMark size={15} />
@@ -611,6 +611,7 @@ export function HomePage({ user, onLogout }: HomePageProps) {
             <span className="gate-line">{t.h1a}</span>
             <span className="gate-line">{t.h1b}</span>
           </h1>
+          <p className="gate-lead">{t.lead}</p>
           <div className="gate-pipe">
             <span className="gate-pipe-title">{t.pipeTitle}</span>
             <ol className="gate-pipe-nodes">
@@ -626,7 +627,6 @@ export function HomePage({ user, onLogout }: HomePageProps) {
               ))}
             </ol>
           </div>
-          <p className="gate-lead">{t.lead}</p>
           <div className="gate-hero-cta">
             <a className="gate-solid gate-lg" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
               {user ? t.openWs : t.loginStart}
