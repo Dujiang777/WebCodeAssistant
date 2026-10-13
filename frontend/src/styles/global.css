@@ -10699,6 +10699,167 @@ body {
   background: var(--line);
 }
 
+.room-drawer {
+  position: fixed;
+  top: var(--topbar-h);
+  right: 16px;
+  bottom: calc(var(--statusbar-h) + 16px);
+  z-index: 40;
+  width: min(380px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--signal-line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-1) 94%, black);
+  box-shadow: var(--shadow-lift), 0 0 0 1px color-mix(in srgb, var(--signal) 12%, transparent);
+  overflow: hidden;
+}
+
+.room-head,
+.room-tabs,
+.room-compose {
+  flex: none;
+}
+
+.room-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.room-head b {
+  font-family: var(--font-display);
+  letter-spacing: 0.08em;
+  margin-right: 8px;
+}
+
+.room-head span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--signal);
+}
+
+.room-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.room-tabs button,
+.room-tabs select,
+.room-compose input {
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--fg-0);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.room-tabs button {
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.room-tabs button.on {
+  border-color: var(--signal-line);
+  color: var(--signal-soft);
+  background: var(--signal-dim);
+}
+
+.room-tabs select {
+  margin-left: auto;
+  max-width: 140px;
+  padding: 4px 6px;
+}
+
+.room-log {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.room-empty {
+  margin: 24px 0;
+  color: var(--fg-2);
+  font-size: 13px;
+}
+
+.room-log article {
+  max-width: 92%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+}
+
+.room-log article.mine {
+  align-self: flex-end;
+  border-color: var(--signal-line);
+  background: color-mix(in srgb, var(--signal) 10%, var(--bg-3));
+}
+
+.room-log header {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--fg-2);
+}
+
+.room-log code {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--signal-soft);
+}
+
+.room-log p {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.room-compose {
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.room-compose label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--fg-2);
+}
+
+.room-compose div {
+  display: flex;
+  gap: 8px;
+}
+
+.room-compose input[type='text'],
+.room-compose input:not([type]) {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+}
+
 .editor-tab-name {
   overflow: hidden;
   text-overflow: ellipsis;

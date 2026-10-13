@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -222,6 +223,23 @@ public class UserRepository {
                         !"ACTIVE".equals(rs.getString("status")),
                         rs.getLong("token_epoch")))
                 .optional();
+    }
+
+    /** 讨论室选私聊对象：只给 id 和用户名，不带邮箱。 */
+    public List<UserBrief> listActiveExcept(long excludeId, int limit) {
+        return jdbc.sql("""
+                        select id, username from users
+                        where id <> :id and status = 'ACTIVE'
+                        order by username
+                        limit :limit
+                        """)
+                .param("id", excludeId)
+                .param("limit", limit)
+                .query((rs, rowNum) -> new UserBrief(rs.getLong("id"), rs.getString("username")))
+                .list();
+    }
+
+    public record UserBrief(long id, String username) {
     }
 
     /**

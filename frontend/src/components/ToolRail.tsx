@@ -52,6 +52,7 @@ interface ToolRailProps {
   onToggleDesk: () => void;
   onToggleTree: () => void;
   onToggleChat: () => void;
+  onOpenRoom: () => void;
 }
 
 interface ItemProps {
@@ -99,6 +100,7 @@ export function ToolRail({
   onToggleDesk,
   onToggleTree,
   onToggleChat,
+  onOpenRoom,
 }: ToolRailProps) {
   return (
     <nav className="rail" aria-label="工具">
@@ -153,6 +155,12 @@ export function ToolRail({
       <div className="rail-sep" />
 
       <div className="rail-group">
+        <RailButton
+          label="讨论室"
+          hint="公屏和私聊 —— 和别人商量这段代码怎么改，不会写盘"
+          icon={<ChatIcon size={17} />}
+          onClick={onOpenRoom}
+        />
         <RailButton
           label="平行宇宙"
           hint="平行宇宙 What-if —— 在影子工作区里试改动，左右对比，默认不合并"

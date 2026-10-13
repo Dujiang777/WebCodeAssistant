@@ -1300,6 +1300,23 @@ export const api = {
     q.set('size', String(params.size ?? 20));
     return request<AdminAuditPage>(`/api/admin/audit?${q.toString()}`);
   },
+
+  roomPeople: () => request<RoomPerson[]>('/api/room/people'),
+
+  roomMessages: (peerId: number | null) => {
+    const q = peerId === null ? '' : `?peerId=${peerId}`;
+    return request<RoomMessage[]>(`/api/room/messages${q}`);
+  },
+
+  roomSend: (body: string, peerId: number | null, filePath: string | null) =>
+    request<RoomMessage>('/api/room/messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        body,
+        peerId,
+        filePath,
+      }),
+    }),
 };
 
 // ------------------------------------------------------------------ 功能 13-16 模型
@@ -1744,7 +1761,21 @@ export interface AdminTrendPoint {
   credits: number;
 }
 
-/** 管理端动作代码 → 人话。审计表里存的是代码，展示时翻译。 */
+export interface RoomPerson {
+  id: number;
+  username: string;
+}
+
+export interface RoomMessage {
+  id: number;
+  senderId: number;
+  senderName: string;
+  peerId: number | null;
+  body: string;
+  filePath: string | null;
+  createdAt: string;
+}
+
 export const ADMIN_ACTIONS: Record<string, string> = {
   USER_DISABLE: '停用账号',
   USER_ENABLE: '启用账号',

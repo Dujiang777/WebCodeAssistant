@@ -143,6 +143,7 @@ export function App() {
       <IdePage
         key={route.workspaceId}
         workspaceId={route.workspaceId}
+        userId={user.userId}
         username={user.username}
         onLogout={handleLogout}
       />

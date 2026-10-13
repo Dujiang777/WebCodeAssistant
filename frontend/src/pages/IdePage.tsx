@@ -60,6 +60,7 @@ import { ToolRail } from '../components/ToolRail';
 import { TopBar } from '../components/TopBar';
 import { WhatIfPanel } from '../components/WhatIfPanel';
 import { QuickOpen, flattenFiles } from '../components/QuickOpen';
+import { RoomPanel } from '../components/RoomPanel';
 import { TerminalMark, FolderIcon, PlusIcon, RefreshIcon, SearchIcon } from '../components/icons';
 
 /**
@@ -214,6 +215,7 @@ function autoExpand(root: FileNode | null): Set<string> {
 
 interface IdePageProps {
   workspaceId: number;
+  userId: number;
   username: string;
   onLogout: () => void;
 }
@@ -229,7 +231,7 @@ interface IdePageProps {
  */
 const lastSeqBySession = new Map<number, number>();
 
-export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
+export function IdePage({ workspaceId, userId, username, onLogout }: IdePageProps) {
   const toast = useToast();
 
   // 记下「最近干活的编辑器」：二级页顶栏的品牌区靠它一键回工作台。
@@ -334,6 +336,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
 
   // ------------------------------------------------- 功能 12：终端
   const [terminalOpen, setTerminalOpen] = useState(false);
+  const [roomOpen, setRoomOpen] = useState(false);
 
   // ------------------------------------------------- 功能 13：Agent 工位
   const [desk, setDesk] = useState<DeskView | null>(null);
@@ -2367,6 +2370,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           onToggleDesk={() => setDeskVisible((value) => !value)}
           onToggleTree={() => setTreeVisible((value) => !value)}
           onToggleChat={() => setChatVisible((value) => !value)}
+          onOpenRoom={() => setRoomOpen(true)}
         />
         {treeVisible && (
           <div className="pane">
@@ -2703,6 +2707,10 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
             void openCitation(path, line);
           }}
         />
+      )}
+
+      {roomOpen && (
+        <RoomPanel meId={userId} filePath={selectedPath} onClose={() => setRoomOpen(false)} />
       )}
 
       {quickOpen && (
