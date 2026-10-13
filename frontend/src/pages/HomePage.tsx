@@ -41,6 +41,17 @@ const I18N = {
     h1a: '模型会写。',
     h1b: '你来拍板。',
     lead: '左边真实文件树，中间 Monaco，右边对话。它只能出补丁卡；你没点应用，磁盘不会动。下面这张工作台正在把这一轮演一遍。',
+    heroMode: 'MODE: HITL_ENFORCED',
+    heroCheck: '[ SYS.CHECK: OK ]',
+    pipeTitle: 'HITL PIPELINE',
+    pipeWait: '▲ 等待人类确认',
+    pipeNodes: [
+      { m: '输入', s: 'INPUT' },
+      { m: '解析', s: 'READ' },
+      { m: '生成', s: 'DIFF' },
+      { m: '校验', s: 'REVIEW' },
+      { m: '写盘', s: 'LOCKED' },
+    ],
     openWs: '打开工作区',
     loginStart: '登录后开始',
     seeLoop: '看四步主循环',
@@ -147,6 +158,17 @@ const I18N = {
     h1a: 'The model writes.',
     h1b: 'You decide.',
     lead: 'Real file tree, real Monaco, real chat. It can only propose a patch. Disk does not move until you apply.',
+    heroMode: 'MODE: HITL_ENFORCED',
+    heroCheck: '[ SYS.CHECK: OK ]',
+    pipeTitle: 'HITL PIPELINE',
+    pipeWait: '▲ WAITING FOR HUMAN INPUT',
+    pipeNodes: [
+      { m: 'INPUT', s: 'YOU ASK' },
+      { m: 'PARSE', s: 'READ' },
+      { m: 'GENERATE', s: 'DIFF' },
+      { m: 'REVIEW', s: 'HOLD' },
+      { m: 'WRITE', s: 'LOCKED' },
+    ],
     openWs: 'Open workspaces',
     loginStart: 'Log in to start',
     seeLoop: 'Watch the four-step loop',
@@ -319,7 +341,6 @@ export function HomePage({ user, onLogout }: HomePageProps) {
   const desk = lastIdePath();
   const enter = user ? '/workspaces' : '/login';
   const t = I18N[lang];
-  const tape = useMemo(() => [...t.tape, ...t.tape], [t]);
   const creditTape = useMemo(() => {
     const items =
       lang === 'en'
@@ -568,12 +589,31 @@ export function HomePage({ user, onLogout }: HomePageProps) {
       </header>
 
       <section className="gate-hero" id="hero">
-        <div className="gate-hero-copy">
+        <div className="gate-hero-inner">
+          <div className="gate-hero-status" aria-hidden="true">
+            <span>{t.heroMode}</span>
+            <span>{t.heroCheck}</span>
+          </div>
           <p className="gate-kicker">{t.kicker}</p>
           <h1>
-            <span className="gate-line gate-line-ink">{t.h1a}</span>
-            <span className="gate-line gate-line-brass">{t.h1b}</span>
+            <span className="gate-line">{t.h1a}</span>
+            <span className="gate-line">{t.h1b}</span>
           </h1>
+          <div className="gate-pipe">
+            <span className="gate-pipe-title">{t.pipeTitle}</span>
+            <ol className="gate-pipe-nodes">
+              {t.pipeNodes.map((node, index) => (
+                <li
+                  key={node.m}
+                  className={index === 3 ? 'is-wait' : index === t.pipeNodes.length - 1 ? 'is-lock' : ''}
+                >
+                  <b>{node.m}</b>
+                  <i>{node.s}</i>
+                  {index === 3 && <em className="gate-pipe-wait">{t.pipeWait}</em>}
+                </li>
+              ))}
+            </ol>
+          </div>
           <p className="gate-lead">{t.lead}</p>
           <div className="gate-hero-cta">
             <a className="gate-solid gate-lg" href={appHref(enter)} target="_blank" rel="noopener noreferrer">
@@ -583,88 +623,10 @@ export function HomePage({ user, onLogout }: HomePageProps) {
               {t.seeLoop}
             </button>
           </div>
-          <ul className="gate-proof">
-            {t.tape.slice(0, 4).map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
-        <div className="gate-tape" aria-hidden="true">
-          <div className="gate-tape-track">
-            {tape.map((item, index) => (
-              <span key={`${item}-${index}`}>{item}</span>
-            ))}
+          <div className="gate-hero-ticker" aria-hidden="true">
+            {t.tape.join(' // ')}
           </div>
         </div>
-        <div
-          ref={orbitRef}
-          className="gate-desk-orbit"
-          onMouseMove={onTilt}
-          onMouseEnter={pauseLoop}
-          onMouseLeave={resumeLoop}
-        >
-          <span className="gate-live-pill">
-            <i />
-            {FLOW[play][lang].title}
-          </span>
-          <div className={`gate-desk is-beat-${play}`}>
-            <div className="gate-desk-bar">
-              <i />
-              <i />
-              <i />
-              <em>demo-java / UserService.java</em>
-              <small>
-                {FLOW[play][lang].title} · {clock}
-              </small>
-              <b className="gate-desk-progress" style={{ width: `${((play + 1) / FLOW.length) * 100}%` }} />
-            </div>
-            <div className="gate-desk-body">
-              <aside className="gate-pane gate-pane-tree">
-                <header>{t.files}</header>
-                <ul>
-                  <li>src</li>
-                  <li className="on nest">UserService.java</li>
-                  <li className="nest">UserRepository.java</li>
-                  <li>pom.xml</li>
-                </ul>
-              </aside>
-              <div className="gate-pane gate-pane-code">
-                <header>{play >= 2 ? t.preview : t.editor}</header>
-                <div className="gate-code-stack">
-                  <pre className="is-before">{BEFORE}</pre>
-                  <pre className="is-after">{AFTER}</pre>
-                  <span className="gate-scan" />
-                </div>
-              </div>
-              <aside className="gate-pane gate-pane-chat">
-                <header>{t.chat}</header>
-                <div className={`gate-bubble${play === 0 ? ' is-typing' : ''}`}>
-                  {t.bubble}
-                  {play === 0 && <i className="gate-caret" />}
-                </div>
-                <div className="gate-patch">
-                  <b>{t.patch}</b>
-                  <code>+ private final UserRepository repo;</code>
-                  <small>{t.impact}</small>
-                  <a href={appHref(enter)} target="_blank" rel="noopener noreferrer">
-                    {t.apply}
-                  </a>
-                </div>
-                <div className="gate-done">{t.applied}</div>
-              </aside>
-            </div>
-          </div>
-        </div>
-        <ol className="gate-beats">
-          {FLOW.map((item) => (
-            <li key={item.id}>
-              <button type="button" className={play === item.id ? 'on' : ''} onClick={() => pick(item.id)}>
-                <em>{item.no}</em>
-                {item[lang].title}
-              </button>
-            </li>
-          ))}
-        </ol>
       </section>
 
       <section className="gate-band gate-reveal" id="how">
@@ -766,6 +728,75 @@ export function HomePage({ user, onLogout }: HomePageProps) {
             </li>
           </ul>
         </div>
+        <div
+          ref={orbitRef}
+          className="gate-desk-orbit"
+          onMouseMove={onTilt}
+          onMouseEnter={pauseLoop}
+          onMouseLeave={resumeLoop}
+        >
+          <span className="gate-live-pill">
+            <i />
+            {FLOW[play][lang].title}
+          </span>
+          <div className={`gate-desk is-beat-${play}`}>
+            <div className="gate-desk-bar">
+              <i />
+              <i />
+              <i />
+              <em>demo-java / UserService.java</em>
+              <small>
+                {FLOW[play][lang].title} · {clock}
+              </small>
+              <b className="gate-desk-progress" style={{ width: `${((play + 1) / FLOW.length) * 100}%` }} />
+            </div>
+            <div className="gate-desk-body">
+              <aside className="gate-pane gate-pane-tree">
+                <header>{t.files}</header>
+                <ul>
+                  <li>src</li>
+                  <li className="on nest">UserService.java</li>
+                  <li className="nest">UserRepository.java</li>
+                  <li>pom.xml</li>
+                </ul>
+              </aside>
+              <div className="gate-pane gate-pane-code">
+                <header>{play >= 2 ? t.preview : t.editor}</header>
+                <div className="gate-code-stack">
+                  <pre className="is-before">{BEFORE}</pre>
+                  <pre className="is-after">{AFTER}</pre>
+                  <span className="gate-scan" />
+                </div>
+              </div>
+              <aside className="gate-pane gate-pane-chat">
+                <header>{t.chat}</header>
+                <div className={`gate-bubble${play === 0 ? ' is-typing' : ''}`}>
+                  {t.bubble}
+                  {play === 0 && <i className="gate-caret" />}
+                </div>
+                <div className="gate-patch">
+                  <b>{t.patch}</b>
+                  <code>+ private final UserRepository repo;</code>
+                  <small>{t.impact}</small>
+                  <a href={appHref(enter)} target="_blank" rel="noopener noreferrer">
+                    {t.apply}
+                  </a>
+                </div>
+                <div className="gate-done">{t.applied}</div>
+              </aside>
+            </div>
+          </div>
+        </div>
+        <ol className="gate-beats">
+          {FLOW.map((item) => (
+            <li key={item.id}>
+              <button type="button" className={play === item.id ? 'on' : ''} onClick={() => pick(item.id)}>
+                <em>{item.no}</em>
+                {item[lang].title}
+              </button>
+            </li>
+          ))}
+        </ol>
       </section>
 
       <section className="gate-flow gate-reveal" id="flow">
