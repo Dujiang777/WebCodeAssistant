@@ -10656,6 +10656,49 @@ body {
   border-bottom-color: var(--signal);
 }
 
+.editor-tools {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--signal) 6%, transparent), transparent 80%),
+    var(--bg-1);
+}
+
+.editor-tool {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--fg-1);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.editor-tool:hover:not(:disabled) {
+  color: var(--signal-soft);
+  border-color: var(--signal-line);
+  background: var(--signal-dim);
+}
+
+.editor-tool:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.editor-tool-sep {
+  width: 1px;
+  height: 12px;
+  margin: 0 4px;
+  background: var(--line);
+}
+
 .editor-tab-name {
   overflow: hidden;
   text-overflow: ellipsis;

@@ -8,6 +8,8 @@ import { clearIdeMarkers, setIdeMarkers, setupEditorIde } from '../lib/editorIde
 import type { Selection } from '../lib/chat';
 import { outlineOf } from '../lib/outline';
 import { TerminalMark, SaveIcon, CloseIcon, SearchIcon } from './icons';
+import { copyText } from '../lib/clipboard';
+import { useToast } from '../lib/toast';
 
 /** 诊断计数（状态栏显示用）。null = 当前没有可诊断的文件。 */
 export interface DiagnosticCounts {
@@ -113,6 +115,7 @@ export function EditorPane({
   onAskSelection,
   live = null,
 }: EditorPaneProps) {
+  const toast = useToast();
   const readOnly = !file || file.binary || file.truncated || Boolean(live);
   const [sel, setSel] = useState<Selection | null>(null);
   const outline = useMemo(
@@ -340,6 +343,57 @@ export function EditorPane({
               </button>
             );
           })}
+        </div>
+      )}
+
+      {file && !file.binary && (
+        <div className="editor-tools" role="toolbar" aria-label="编辑小工具">
+          <button
+            type="button"
+            className="editor-tool"
+            disabled={!sel || !onAskSelection}
+            title={sel ? `解释第 ${sel.startLine}–${sel.endLine} 行` : '先在编辑器里选一段代码'}
+            onClick={() => onAskSelection?.('explain')}
+          >
+            解释
+          </button>
+          <button
+            type="button"
+            className="editor-tool"
+            disabled={!sel || !onAskSelection}
+            title={sel ? '把选中的这段交给对话改' : '先在编辑器里选一段代码'}
+            onClick={() => onAskSelection?.('edit')}
+          >
+            改这段
+          </button>
+          <button
+            type="button"
+            className="editor-tool"
+            disabled={!sel || !onAskSelection}
+            title={sel ? '查这段还在哪些地方被用到' : '先在编辑器里选一段代码'}
+            onClick={() => onAskSelection?.('usages')}
+          >
+            谁在用
+          </button>
+          <span className="editor-tool-sep" aria-hidden="true" />
+          <button
+            type="button"
+            className="editor-tool"
+            title="复制当前文件路径"
+            onClick={() => {
+              void copyText(file.path).then((ok) => {
+                if (ok) toast.success(`已复制 ${file.path}`);
+                else toast.error('复制失败');
+              });
+            }}
+          >
+            复制路径
+          </button>
+          {onQuickOpen && (
+            <button type="button" className="editor-tool" title="快速打开文件（Ctrl/⌘ + P）" onClick={onQuickOpen}>
+              打开
+            </button>
+          )}
         </div>
       )}
 
