@@ -368,15 +368,105 @@ body:has(.gate)::after {
   position: relative;
   width: 100%;
   margin: 0;
-  background: var(--gate-night);
+  overflow: hidden;
+  background:
+    radial-gradient(46% 40% at 84% 6%, color-mix(in srgb, var(--gate-gold) 12%, transparent) 0%, transparent 62%),
+    radial-gradient(56% 52% at 6% 96%, rgba(52, 36, 84, 0.4) 0%, transparent 66%),
+    radial-gradient(42% 34% at 44% 42%, rgba(26, 22, 48, 0.55) 0%, transparent 72%),
+    linear-gradient(180deg, #0a0805 0%, #0b0910 52%, #0a0805 100%);
   color: var(--gate-night-bone);
   scroll-margin-top: 76px;
 }
 
 .gate-hero-inner {
+  position: relative;
+  z-index: 1;
   width: min(1180px, calc(100% - 48px));
   margin: 0 auto;
   padding: 72px 0 0;
+}
+
+/* 星野：三层视差星 + 双流星，全部 CSS，无 JS */
+.gate-stars {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.gate-stars i {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.gate-stars .s1 {
+  width: 1px;
+  height: 1px;
+  box-shadow: 2123px 388px rgba(216, 212, 232, 0.55), 1357px 879px rgba(216, 212, 232, 0.55), 1684px 609px rgba(216, 212, 232, 0.55), 1221px 1039px rgba(216, 212, 232, 0.55), 1695px 90px rgba(216, 212, 232, 0.55), 164px 1584px rgba(216, 212, 232, 0.55), 1200px 389px rgba(216, 212, 232, 0.55), 46px 46px rgba(216, 212, 232, 0.55), 1129px 673px rgba(216, 212, 232, 0.55), 248px 753px rgba(216, 212, 232, 0.55), 1327px 1386px rgba(216, 212, 232, 0.55), 1835px 696px rgba(216, 212, 232, 0.55), 1920px 1380px rgba(216, 212, 232, 0.55), 16px 982px rgba(216, 212, 232, 0.55), 1686px 348px rgba(216, 212, 232, 0.55), 476px 800px rgba(216, 212, 232, 0.55), 474px 347px rgba(216, 212, 232, 0.55), 654px 1409px rgba(216, 212, 232, 0.55), 150px 1265px rgba(216, 212, 232, 0.55), 1266px 822px rgba(216, 212, 232, 0.55), 6px 162px rgba(216, 212, 232, 0.55), 2149px 901px rgba(216, 212, 232, 0.55), 2383px 1586px rgba(216, 212, 232, 0.55), 495px 570px rgba(216, 212, 232, 0.55), 1714px 906px rgba(216, 212, 232, 0.55), 87px 767px rgba(216, 212, 232, 0.55), 875px 161px rgba(216, 212, 232, 0.55), -99px 1507px rgba(216, 212, 232, 0.55), 1382px 151px rgba(216, 212, 232, 0.55), 2140px 1257px rgba(216, 212, 232, 0.55), 830px 1386px rgba(216, 212, 232, 0.55), 2649px 695px rgba(216, 212, 232, 0.55), 2229px 952px rgba(216, 212, 232, 0.55), 2049px 408px rgba(216, 212, 232, 0.55), 2565px 275px rgba(216, 212, 232, 0.55), 2478px 1049px rgba(216, 212, 232, 0.55), 2441px 980px rgba(216, 212, 232, 0.55), 1088px 668px rgba(216, 212, 232, 0.55), 33px 224px rgba(216, 212, 232, 0.55), 1362px 1189px rgba(216, 212, 232, 0.55), 1677px 1097px rgba(216, 212, 232, 0.55), 2524px 132px rgba(216, 212, 232, 0.55), 312px 1168px rgba(216, 212, 232, 0.55), 301px 173px rgba(216, 212, 232, 0.55), 496px 531px rgba(216, 212, 232, 0.55), 841px 1594px rgba(216, 212, 232, 0.55), 2584px 1137px rgba(216, 212, 232, 0.55), 383px 275px rgba(216, 212, 232, 0.55), 178px 612px rgba(216, 212, 232, 0.55), 1869px 492px rgba(216, 212, 232, 0.55), 477px 1537px rgba(216, 212, 232, 0.55), 964px 780px rgba(216, 212, 232, 0.55), 1629px 659px rgba(216, 212, 232, 0.55), 1427px 1187px rgba(216, 212, 232, 0.55), 1738px 932px rgba(216, 212, 232, 0.55), 2356px 637px rgba(216, 212, 232, 0.55), 1447px 114px rgba(216, 212, 232, 0.55), 284px 1044px rgba(216, 212, 232, 0.55), 2409px 1467px rgba(216, 212, 232, 0.55), 683px 187px rgba(216, 212, 232, 0.55), 1136px 1077px rgba(216, 212, 232, 0.55), 6px 1019px rgba(216, 212, 232, 0.55), 2181px 1506px rgba(216, 212, 232, 0.55), 1769px 341px rgba(216, 212, 232, 0.55), 1100px 416px rgba(216, 212, 232, 0.55), 770px 1064px rgba(216, 212, 232, 0.55), 1066px 358px rgba(216, 212, 232, 0.55), 1366px 1096px rgba(216, 212, 232, 0.55), 721px 746px rgba(216, 212, 232, 0.55), 1148px 1180px rgba(216, 212, 232, 0.55), 380px 646px rgba(216, 212, 232, 0.55), 1108px 1014px rgba(216, 212, 232, 0.55), 1106px 1509px rgba(216, 212, 232, 0.55), 1092px 1447px rgba(216, 212, 232, 0.55), 1469px 837px rgba(216, 212, 232, 0.55), 613px 294px rgba(216, 212, 232, 0.55), 170px 959px rgba(216, 212, 232, 0.55), 2259px 858px rgba(216, 212, 232, 0.55), 2435px 1200px rgba(216, 212, 232, 0.55), 1709px 1100px rgba(216, 212, 232, 0.55), 1912px 547px rgba(216, 212, 232, 0.55), 739px 653px rgba(216, 212, 232, 0.55), 632px 364px rgba(216, 212, 232, 0.55), 2580px 541px rgba(216, 212, 232, 0.55), 1380px 727px rgba(216, 212, 232, 0.55), 873px 713px rgba(216, 212, 232, 0.55), 1173px 874px rgba(216, 212, 232, 0.55), 2491px 73px rgba(216, 212, 232, 0.55), 543px 647px rgba(216, 212, 232, 0.55), 445px 1417px rgba(216, 212, 232, 0.55), 1296px 1240px rgba(216, 212, 232, 0.55), 1666px 1461px rgba(216, 212, 232, 0.55), -99px 211px rgba(216, 212, 232, 0.55), 1460px 1319px rgba(216, 212, 232, 0.55), 906px 1594px rgba(216, 212, 232, 0.55), 1999px 877px rgba(216, 212, 232, 0.55), 2123px 1225px rgba(216, 212, 232, 0.55), -83px 1331px rgba(216, 212, 232, 0.55), 170px 49px rgba(216, 212, 232, 0.55), 911px 337px rgba(216, 212, 232, 0.55), 2565px 151px rgba(216, 212, 232, 0.55), 907px 186px rgba(216, 212, 232, 0.55), 365px 1301px rgba(216, 212, 232, 0.55), 1882px 882px rgba(216, 212, 232, 0.55), 1707px 1299px rgba(216, 212, 232, 0.55), 732px 827px rgba(216, 212, 232, 0.55), 1418px 1235px rgba(216, 212, 232, 0.55), 394px 1530px rgba(216, 212, 232, 0.55), 1824px 627px rgba(216, 212, 232, 0.55), 1021px 214px rgba(216, 212, 232, 0.55), 1716px 239px rgba(216, 212, 232, 0.55), 2574px 866px rgba(216, 212, 232, 0.55), 1800px 1288px rgba(216, 212, 232, 0.55), 1652px 1115px rgba(216, 212, 232, 0.55), 1386px 175px rgba(216, 212, 232, 0.55), 2505px 324px rgba(216, 212, 232, 0.55), 2px 1579px rgba(216, 212, 232, 0.55), 2421px 660px rgba(216, 212, 232, 0.55), 1024px 841px rgba(216, 212, 232, 0.55), 1945px 299px rgba(216, 212, 232, 0.55), 1030px 25px rgba(216, 212, 232, 0.55), 360px 886px rgba(216, 212, 232, 0.55), 1808px 393px rgba(216, 212, 232, 0.55), 2639px 58px rgba(216, 212, 232, 0.55), 1512px 79px rgba(216, 212, 232, 0.55), 264px 1130px rgba(216, 212, 232, 0.55), 1614px 373px rgba(216, 212, 232, 0.55), 1413px 1310px rgba(216, 212, 232, 0.55), 236px 1319px rgba(216, 212, 232, 0.55), 1069px 582px rgba(216, 212, 232, 0.55);
+  animation:
+    gate-twinkle 6.5s ease-in-out infinite,
+    gate-stars-drift 160s linear infinite alternate;
+}
+
+.gate-stars .s2 {
+  width: 2px;
+  height: 2px;
+  box-shadow: 384px 38px rgba(255, 243, 220, 0.8), -70px 876px rgba(255, 243, 220, 0.8), 2278px 160px rgba(255, 243, 220, 0.8), 1220px 903px rgba(255, 243, 220, 0.8), 2251px 1227px rgba(255, 243, 220, 0.8), 1405px 277px rgba(255, 243, 220, 0.8), 1681px 353px rgba(255, 243, 220, 0.8), 1889px 1031px rgba(255, 243, 220, 0.8), 2602px 669px rgba(255, 243, 220, 0.8), 2231px 711px rgba(255, 243, 220, 0.8), 2125px 961px rgba(255, 243, 220, 0.8), 204px 785px rgba(255, 243, 220, 0.8), 2586px 385px rgba(255, 243, 220, 0.8), 1493px 1286px rgba(255, 243, 220, 0.8), 1101px 156px rgba(255, 243, 220, 0.8), 699px 935px rgba(255, 243, 220, 0.8), 177px 608px rgba(255, 243, 220, 0.8), -71px 619px rgba(255, 243, 220, 0.8), -87px 991px rgba(255, 243, 220, 0.8), 1794px 950px rgba(255, 243, 220, 0.8), 2006px 690px rgba(255, 243, 220, 0.8), 398px 1311px rgba(255, 243, 220, 0.8), 1280px 1534px rgba(255, 243, 220, 0.8), 61px 644px rgba(255, 243, 220, 0.8), 1302px 1449px rgba(255, 243, 220, 0.8), 2200px 1125px rgba(255, 243, 220, 0.8), 2585px 1568px rgba(255, 243, 220, 0.8), 1425px 920px rgba(255, 243, 220, 0.8), 2411px 832px rgba(255, 243, 220, 0.8), 1468px 998px rgba(255, 243, 220, 0.8), 1331px 1081px rgba(255, 243, 220, 0.8), 251px 1211px rgba(255, 243, 220, 0.8), 1209px 1540px rgba(255, 243, 220, 0.8), 100px 428px rgba(255, 243, 220, 0.8), 477px 538px rgba(255, 243, 220, 0.8), 1659px 580px rgba(255, 243, 220, 0.8), 1906px 406px rgba(255, 243, 220, 0.8), 1766px 604px rgba(255, 243, 220, 0.8), 1053px 466px rgba(255, 243, 220, 0.8), 2619px 28px rgba(255, 243, 220, 0.8), 400px 283px rgba(255, 243, 220, 0.8), 708px 849px rgba(255, 243, 220, 0.8), 618px 939px rgba(255, 243, 220, 0.8), 1571px 192px rgba(255, 243, 220, 0.8), 2169px 696px rgba(255, 243, 220, 0.8), 1202px 775px rgba(255, 243, 220, 0.8), 35px 103px rgba(255, 243, 220, 0.8), 101px 143px rgba(255, 243, 220, 0.8), 735px 678px rgba(255, 243, 220, 0.8), 843px 862px rgba(255, 243, 220, 0.8), 2336px 1265px rgba(255, 243, 220, 0.8), 429px 277px rgba(255, 243, 220, 0.8), 632px 758px rgba(255, 243, 220, 0.8), 2578px 1156px rgba(255, 243, 220, 0.8), 729px 283px rgba(255, 243, 220, 0.8), 328px 995px rgba(255, 243, 220, 0.8), 1361px 883px rgba(255, 243, 220, 0.8), 1115px 549px rgba(255, 243, 220, 0.8), 951px 955px rgba(255, 243, 220, 0.8), 1264px 1422px rgba(255, 243, 220, 0.8), 876px 1524px rgba(255, 243, 220, 0.8), 1117px 1239px rgba(255, 243, 220, 0.8), 2273px 247px rgba(255, 243, 220, 0.8), 762px 1063px rgba(255, 243, 220, 0.8), 397px 942px rgba(255, 243, 220, 0.8), 103px 1592px rgba(255, 243, 220, 0.8), 2507px 719px rgba(255, 243, 220, 0.8), 263px 626px rgba(255, 243, 220, 0.8), 2606px 192px rgba(255, 243, 220, 0.8), 627px 1259px rgba(255, 243, 220, 0.8);
+  animation: gate-twinkle 8.5s ease-in-out -3s infinite;
+}
+
+.gate-stars .s3 {
+  width: 3px;
+  height: 3px;
+  box-shadow: 1586px 1416px rgba(255, 252, 244, 0.95), 2151px 1036px rgba(255, 252, 244, 0.95), 668px 1362px rgba(255, 252, 244, 0.95), 2521px 795px rgba(255, 252, 244, 0.95), 1613px 1167px rgba(255, 252, 244, 0.95), 1846px 1130px rgba(255, 252, 244, 0.95), 2451px 726px rgba(255, 252, 244, 0.95), 405px 1493px rgba(255, 252, 244, 0.95), 856px 668px rgba(255, 252, 244, 0.95), 754px 178px rgba(255, 252, 244, 0.95), 340px 494px rgba(255, 252, 244, 0.95), 1389px 1140px rgba(255, 252, 244, 0.95), 184px 256px rgba(255, 252, 244, 0.95), 1753px 130px rgba(255, 252, 244, 0.95), 1055px 80px rgba(255, 252, 244, 0.95), 888px 419px rgba(255, 252, 244, 0.95), 814px 1134px rgba(255, 252, 244, 0.95), 657px 751px rgba(255, 252, 244, 0.95), 268px 1271px rgba(255, 252, 244, 0.95), 1261px 18px rgba(255, 252, 244, 0.95), 454px 1306px rgba(255, 252, 244, 0.95), 14px 721px rgba(255, 252, 244, 0.95);
+  animation: gate-twinkle 11s ease-in-out -5s infinite;
+}
+
+.gate-stars .s3::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 1586px 1416px 10px 1px rgba(232, 180, 90, 0.5), 2151px 1036px 10px 1px rgba(232, 180, 90, 0.5), 668px 1362px 10px 1px rgba(232, 180, 90, 0.5), 2521px 795px 10px 1px rgba(232, 180, 90, 0.5), 1613px 1167px 10px 1px rgba(232, 180, 90, 0.5), 1846px 1130px 10px 1px rgba(232, 180, 90, 0.5), 2451px 726px 10px 1px rgba(232, 180, 90, 0.5), 405px 1493px 10px 1px rgba(232, 180, 90, 0.5), 856px 668px 10px 1px rgba(232, 180, 90, 0.5), 754px 178px 10px 1px rgba(232, 180, 90, 0.5), 340px 494px 10px 1px rgba(232, 180, 90, 0.5), 1389px 1140px 10px 1px rgba(232, 180, 90, 0.5), 184px 256px 10px 1px rgba(232, 180, 90, 0.5), 1753px 130px 10px 1px rgba(232, 180, 90, 0.5), 1055px 80px 10px 1px rgba(232, 180, 90, 0.5), 888px 419px 10px 1px rgba(232, 180, 90, 0.5), 814px 1134px 10px 1px rgba(232, 180, 90, 0.5), 657px 751px 10px 1px rgba(232, 180, 90, 0.5), 268px 1271px 10px 1px rgba(232, 180, 90, 0.5), 1261px 18px 10px 1px rgba(232, 180, 90, 0.5), 454px 1306px 10px 1px rgba(232, 180, 90, 0.5), 14px 721px 10px 1px rgba(232, 180, 90, 0.5);
+}
+
+.gate-meteor {
+  position: absolute;
+  top: 14%;
+  left: 82%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255, 252, 244, 0.95);
+  box-shadow: 0 0 8px 2px rgba(232, 180, 90, 0.55);
+  opacity: 0;
+  animation: gate-meteor 9s linear infinite;
+}
+
+.gate-meteor::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 150px;
+  height: 1.5px;
+  transform: translateY(-50%);
+  background: linear-gradient(90deg, rgba(255, 243, 220, 0.85), transparent);
+}
+
+.gate-meteor.m2 {
+  top: 36%;
+  left: 97%;
+  animation-delay: 5.4s;
+  animation-duration: 13s;
 }
 
 .gate-hero-status {
@@ -419,7 +509,7 @@ body:has(.gate)::after {
   font-size: clamp(56px, 9vw, 124px);
   line-height: 1.04;
   letter-spacing: -0.02em;
-  color: #7c5c34;
+  color: #876539;
   margin: 0 0 56px;
 }
 
@@ -1690,6 +1780,23 @@ body:has(.gate)::after {
   50% { transform: translateY(-8px); }
 }
 
+@keyframes gate-twinkle {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+@keyframes gate-stars-drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(-70px); }
+}
+
+@keyframes gate-meteor {
+  0%, 68% { opacity: 0; transform: translate(0, 0); }
+  71% { opacity: 1; }
+  86% { opacity: 1; }
+  90%, 100% { opacity: 0; transform: translate(-42vw, 13vh); }
+}
+
 body:has(.gate[data-theme="night"]) {
   background: #0c0b09;
   color: #f6f0e4;
@@ -1804,12 +1911,17 @@ body:has(.gate[data-theme="night"])::after {
   .gate-orbs i,
   .gate-live-pill,
   .gate-live-pill i,
+  .gate-stars i,
   .gate-spine article,
   .gate-door-list a::after {
     animation: none !important;
     transition: none !important;
     opacity: 1;
     transform: none;
+  }
+
+  .gate-meteor {
+    display: none;
   }
 
   .gate-desk.is-beat-2 pre.is-after,

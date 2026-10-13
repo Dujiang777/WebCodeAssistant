@@ -589,6 +589,13 @@ export function HomePage({ user, onLogout }: HomePageProps) {
       </header>
 
       <section className="gate-hero" id="hero">
+        <div className="gate-stars" aria-hidden="true">
+          <i className="s1" />
+          <i className="s2" />
+          <i className="s3" />
+          <b className="gate-meteor" />
+          <b className="gate-meteor m2" />
+        </div>
         <div className="gate-hero-inner">
           <div className="gate-hero-status" aria-hidden="true">
             <span>{t.heroMode}</span>
