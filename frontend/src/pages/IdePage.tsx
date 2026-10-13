@@ -2335,6 +2335,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         models={modelCatalog?.models ?? null}
         modelKey={modelKey}
         defaultModelKey={modelCatalog?.defaultModelKey ?? null}
+        showRec={Boolean(sending && turn && !turn.stopped)}
         onPickModel={(key) => {
           setModelKey(key);
           void (async () => {
@@ -2370,6 +2371,9 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         {treeVisible && (
           <div className="pane">
             <div className="pane-head">
+              <span className="pane-kicker" aria-hidden="true">
+                01
+              </span>
               <span className="pane-label">文件</span>
               {redzone.length > 0 && (
                 <span className="chip" title="这些路径 Agent 不能出补丁">

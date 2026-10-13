@@ -573,10 +573,11 @@ export function ChatPane({
   return (
     <div className="chat">
       <div className={`pane-head${sending && !turn?.stopped ? ' pane-head-live' : ''}`}>
-        <SearchIcon size={13} />
-        <span className="pane-label">
-          对话
+        <span className="pane-kicker" aria-hidden="true">
+          03
         </span>
+        <SearchIcon size={13} />
+        <span className="pane-label">对话</span>
         {sending && stage && !turn?.stopped && (
           <span className="pane-live" title={stage.detail || stage.label}>
             {stage.label}

@@ -249,15 +249,13 @@ export function EditorPane({
   return (
     <div className="pane">
       <div className="pane-head">
+        <span className="pane-kicker" aria-hidden="true">
+          02
+        </span>
+        <span className="pane-label">画板</span>
         <span
-          className="mono"
-          style={{
-            fontSize: 12,
-            color: file ? 'var(--fg-0)' : 'var(--fg-3)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
+          className="mono editor-path"
+          style={{ color: file ? undefined : 'var(--fg-3)' }}
           title={file?.path ?? ''}
         >
           {file?.path ?? '未打开文件'}

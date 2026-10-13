@@ -47,6 +47,8 @@ interface TopBarProps {
   defaultModelKey: string | null;
   /** 换模型：立刻用于下一轮，并写成账号默认。 */
   onPickModel: (modelKey: string | null) => void;
+  /** 当前会话在跑模型时顶栏闪 REC（暗房取景语义）。 */
+  showRec?: boolean;
 }
 
 export function TopBar({
@@ -67,6 +69,7 @@ export function TopBar({
   modelKey,
   defaultModelKey,
   onPickModel,
+  showRec = false,
 }: TopBarProps) {
   const modelReady = health?.modelConfigured ?? false;
 
@@ -111,6 +114,12 @@ export function TopBar({
       </div>
 
       <div className="topbar-spacer" />
+
+      {showRec && (
+        <span className="topbar-rec" aria-live="polite">
+          REC
+        </span>
+      )}
 
       {onOpenInboxItem && (
         <PendingInbox
