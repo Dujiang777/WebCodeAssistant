@@ -358,7 +358,10 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
     >
       <div className="room-sky" aria-hidden="true">
         <i className="room-galaxy" />
+        <i className="room-galaxy-rift" />
+        <i className="room-galaxy-core" />
         <i className="room-stars" />
+        <i className="room-stars band" />
         <i className="room-stars bright" />
       </div>
       <header
@@ -371,7 +374,7 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
       >
         <div>
           <b>讨论室</b>
-          <span>
+          <span className={user && status === 'open' ? 'room-live is-on' : 'room-live'}>
             {!user ? '未登录' : status === 'open' ? '实时' : status === 'closed' ? '未连接' : '连接中'}
             {tab === 'direct' && peerName ? ` · ${peerName}` : ''}
           </span>
