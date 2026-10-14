@@ -357,6 +357,9 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
       }}
     >
       <div className="room-sky" aria-hidden="true">
+        <i className="room-mist" />
+        <i className="room-dust" />
+        <i className="room-knot" />
         <i className="room-stars" />
         <i className="room-stars far" />
         <i className="room-stars bright" />
