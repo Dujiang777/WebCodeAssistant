@@ -1322,10 +1322,22 @@ export const api = {
 
   roomPeople: () => request<RoomPerson[]>('/api/room/people'),
 
-  roomMessages: (peerId: number | null) => {
-    const q = peerId === null ? '' : `?peerId=${peerId}`;
-    return request<RoomMessage[]>(`/api/room/messages${q}`);
+  roomMessages: (peerId: number | null, before?: number | null) => {
+    const q = new URLSearchParams();
+    if (peerId != null) q.set('peerId', String(peerId));
+    if (before != null) q.set('before', String(before));
+    const text = q.toString();
+    return request<RoomMessage[]>(`/api/room/messages${text ? `?${text}` : ''}`);
   },
+
+  roomSearch: (peerId: number | null, q: string) => {
+    const params = new URLSearchParams();
+    params.set('q', q);
+    if (peerId != null) params.set('peerId', String(peerId));
+    return request<RoomMessage[]>(`/api/room/search?${params.toString()}`);
+  },
+
+  roomThreads: () => request<RoomThread[]>('/api/room/threads'),
 
   roomSend: (
     body: string,
@@ -1334,18 +1346,23 @@ export const api = {
     excerpt: string | null,
     excerptStart: number | null,
     excerptEnd: number | null,
+    replyToId: number | null,
   ) =>
     request<RoomMessage>('/api/room/messages', {
       method: 'POST',
       body: JSON.stringify({
         body,
         peerId,
+        replyToId,
         filePath,
         excerpt,
         excerptStart,
         excerptEnd,
       }),
     }),
+
+  roomRetract: (id: number) =>
+    request<RoomMessage>(`/api/room/messages/${id}/retract`, { method: 'POST' }),
 
   roomNotices: () => request<RoomNotice[]>('/api/room/notices'),
 
@@ -1815,13 +1832,28 @@ export interface RoomMessage {
   excerptStart: number | null;
   excerptEnd: number | null;
   createdAt: string;
+  replyToId?: number | null;
+  replyName?: string | null;
+  replyPreview?: string | null;
+  replyRetracted?: boolean;
+  retracted?: boolean;
+}
+
+export interface RoomThread {
+  peerId: number;
+  username: string;
+  online?: boolean;
+  lastId: number;
+  preview: string;
+  lastAt: string;
+  unread: number;
 }
 
 export interface RoomNotice {
   id: number;
   userId: number;
   messageId: number;
-  kind: 'PUBLIC' | 'DIRECT';
+  kind: 'PUBLIC' | 'DIRECT' | 'MENTION';
   senderId: number;
   senderName: string;
   preview: string;

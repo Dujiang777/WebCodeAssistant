@@ -10764,8 +10764,8 @@ body {
 }
 
 .room-dock {
-  width: min(380px, calc(100vw - 32px));
-  height: min(520px, calc(100vh - 96px));
+  width: min(400px, calc(100vw - 32px));
+  height: min(640px, calc(100vh - 72px));
   display: flex;
   flex-direction: column;
   border: 1px solid rgba(255, 236, 210, 0.14);
@@ -11334,6 +11334,205 @@ body {
   font-size: 11px;
   letter-spacing: 0.02em;
   color: rgba(168, 155, 136, 0.9);
+}
+
+.room-peerbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 8px;
+  min-width: 0;
+}
+
+.room-peerbar b {
+  flex: none;
+  font-size: 13px;
+}
+
+.room-peerbar > button,
+.room-replying button,
+.room-mentions button,
+.room-older,
+.room-log header .room-act {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--room-gold-soft);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.room-peerbar i,
+.room-thread i {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6b6254;
+}
+
+.room-peerbar i.on,
+.room-thread i.on {
+  background: var(--room-gold);
+  box-shadow: 0 0 6px rgba(232, 180, 90, 0.8);
+}
+
+.room-find {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid rgba(232, 180, 90, 0.22);
+  border-radius: 999px;
+  background: rgba(7, 6, 10, 0.55);
+  color: var(--room-ink);
+  font-size: 12px;
+}
+
+.room-log > .room-find {
+  flex: none;
+}
+
+.room-find:focus {
+  outline: none;
+  border-color: rgba(232, 180, 90, 0.7);
+}
+
+.room-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.room-day {
+  align-self: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(7, 6, 10, 0.55);
+  color: var(--room-mute);
+  font-style: normal;
+  font-size: 11px;
+}
+
+.room-older {
+  align-self: center;
+}
+
+.room-older:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.room-log header .room-act {
+  margin-left: auto;
+}
+
+.room-log header .room-act + .room-act {
+  margin-left: 8px;
+}
+
+.room-log article.is-focus {
+  box-shadow: 0 0 0 1px rgba(232, 180, 90, 0.85), 0 8px 20px rgba(0, 0, 0, 0.28);
+}
+
+.room-quote {
+  margin: 0 0 6px;
+  padding: 4px 8px;
+  border-left: 2px solid rgba(232, 180, 90, 0.75);
+  color: var(--room-mute);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.room-gone {
+  color: var(--room-mute);
+  font-style: italic;
+}
+
+.room-at {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: rgba(232, 180, 90, 0.16);
+  color: var(--room-gold-soft);
+}
+
+.room-thread {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(232, 180, 90, 0.16);
+  background: rgba(8, 6, 12, 0.72);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.room-thread header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.room-thread b {
+  color: var(--room-ink);
+}
+
+.room-thread time {
+  margin-left: auto;
+  color: var(--room-mute);
+  font-size: 11px;
+}
+
+.room-thread em {
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--room-gold);
+  color: #1a140c;
+  font-style: normal;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.room-thread p {
+  margin: 4px 0 0;
+  color: var(--room-mute);
+  font-size: 12px;
+}
+
+.room-compose .room-replying,
+.room-compose .room-mentions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.room-replying span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--room-mute);
+  font-size: 12px;
+}
+
+.room-compose .room-mentions {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(12, 10, 16, 0.8);
+}
+
+.room-mentions button {
+  padding: 4px 8px;
+  text-align: left;
 }
 
 .editor-tab-name {

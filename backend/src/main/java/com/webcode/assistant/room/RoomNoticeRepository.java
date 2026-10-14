@@ -85,9 +85,18 @@ public class RoomNoticeRepository {
         return jdbc.sql("""
                         update room_notices
                         set read_at = now(6)
-                        where user_id = :user and read_at is null and kind = 'PUBLIC'
+                        where user_id = :user and read_at is null and kind in ('PUBLIC', 'MENTION')
                         """)
                 .param("user", userId)
+                .update();
+    }
+
+    public int dropUnread(long messageId) {
+        return jdbc.sql("""
+                        delete from room_notices
+                        where message_id = :message and read_at is null
+                        """)
+                .param("message", messageId)
                 .update();
     }
 

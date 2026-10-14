@@ -4,16 +4,27 @@ import com.webcode.assistant.common.ApiException;
 import com.webcode.assistant.security.UserRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class RoomService {
 
     private static final int HISTORY = 80;
     private static final int PEOPLE = 200;
+    private static final int THREADS = 40;
+    private static final int SEARCH = 40;
+    private static final int MENTION_CAP = 8;
     private static final long MIN_GAP_MS = 400;
+    private static final long OPEN_BEFORE = Long.MAX_VALUE;
+    private static final Pattern MENTION = Pattern.compile("(?<![A-Za-z0-9_.-])@([A-Za-z0-9_.-]{3,64})");
 
     private final RoomRepository repository;
     private final RoomNoticeRepository notices;
@@ -31,12 +42,42 @@ public class RoomService {
         this.hub = hub;
     }
 
-    public List<RoomNote> history(long userId, Long peerId) {
+    public List<RoomNote> history(long userId, Long peerId, Long beforeId) {
+        long before = before(beforeId);
         if (peerId == null) {
-            return repository.recentPublic(HISTORY);
+            return repository.pagePublic(before, HISTORY);
         }
         requirePeer(userId, peerId);
-        return repository.recentDirect(userId, peerId, HISTORY);
+        return repository.pageDirect(userId, peerId, before, HISTORY);
+    }
+
+    public List<RoomNote> search(long userId, Long peerId, String rawQuery) {
+        String query = rawQuery == null ? "" : rawQuery.trim();
+        if (query.isEmpty() || query.length() > 40) {
+            throw ApiException.badRequest("搜索词要在 1 到 40 字之间");
+        }
+        String like = like(query);
+        if (peerId == null) {
+            return repository.searchPublic(like, SEARCH);
+        }
+        requirePeer(userId, peerId);
+        return repository.searchDirect(userId, peerId, like, SEARCH);
+    }
+
+    public List<RoomThread> threads(long userId) {
+        var online = hub.onlineIds();
+        List<RoomThread> rows = new ArrayList<>();
+        for (RoomRepository.ThreadHead head : repository.threads(userId, THREADS)) {
+            rows.add(new RoomThread(
+                    head.peerId(),
+                    head.username(),
+                    online.contains(head.peerId()),
+                    head.lastId(),
+                    preview(head),
+                    head.lastAt(),
+                    head.unread()));
+        }
+        return rows;
     }
 
     public List<PersonPresence> people(long userId) {
@@ -82,7 +123,7 @@ public class RoomService {
         return emitter;
     }
 
-    public RoomNote send(long userId, Long peerId, String rawBody, String rawPath,
+    public RoomNote send(long userId, Long peerId, Long replyToId, String rawBody, String rawPath,
                          String rawExcerpt, Integer excerptStart, Integer excerptEnd) {
         String body = rawBody == null ? "" : rawBody.trim();
         if (body.isEmpty() || body.length() > 1000) {
@@ -108,6 +149,9 @@ public class RoomService {
         if (peerId != null) {
             requirePeer(userId, peerId);
         }
+        if (replyToId != null) {
+            requireReply(userId, peerId, replyToId);
+        }
         long now = System.currentTimeMillis();
         Long previous = lastSent.put(userId, now);
         if (previous != null && now - previous < MIN_GAP_MS) {
@@ -116,27 +160,109 @@ public class RoomService {
         long id = repository.insert(
                 userId,
                 peerId,
+                replyToId,
                 body,
                 path.isEmpty() ? null : path,
                 excerpt.isEmpty() ? null : excerpt,
                 excerptStart,
                 excerptEnd);
         RoomNote note = repository.require(id);
-        enqueue(userId, note);
+        enqueue(userId, note, peerId == null ? mentionedIds(body, userId) : Set.of());
         hub.publish(note);
         return note;
     }
 
-    private void enqueue(long senderId, RoomNote note) {
+    public RoomNote retract(long userId, long messageId) {
+        RoomNote note = repository.find(messageId).orElseThrow(() -> ApiException.notFound("消息不存在"));
+        if (!note.visibleTo(userId)) {
+            throw ApiException.notFound("消息不存在");
+        }
+        if (note.senderId() != userId) {
+            throw ApiException.forbidden("只能撤回自己的消息");
+        }
+        if (!note.retracted() && repository.retract(messageId, userId)) {
+            notices.dropUnread(messageId);
+            note = repository.require(messageId);
+            hub.publish(note);
+        }
+        return note;
+    }
+
+    private void enqueue(long senderId, RoomNote note, Set<Long> mentioned) {
         if (note.peerId() != null) {
             RoomNotice notice = notices.insert(note.peerId(), note, "DIRECT");
             hub.sendTo(note.peerId(), "notice", notice);
             return;
         }
+        Set<Long> seen = new LinkedHashSet<>();
         for (UserRepository.UserBrief person : users.listActiveExcept(senderId, PEOPLE)) {
-            RoomNotice notice = notices.insert(person.id(), note, "PUBLIC");
+            String kind = mentioned.contains(person.id()) ? "MENTION" : "PUBLIC";
+            RoomNotice notice = notices.insert(person.id(), note, kind);
             hub.sendTo(person.id(), "notice", notice);
+            seen.add(person.id());
         }
+        for (Long id : mentioned) {
+            if (seen.contains(id)) {
+                continue;
+            }
+            RoomNotice notice = notices.insert(id, note, "MENTION");
+            hub.sendTo(id, "notice", notice);
+        }
+    }
+
+    private Set<Long> mentionedIds(String body, long senderId) {
+        Matcher matcher = MENTION.matcher(body);
+        Set<String> names = new LinkedHashSet<>();
+        while (matcher.find() && names.size() < MENTION_CAP) {
+            names.add(matcher.group(1));
+        }
+        Set<Long> ids = new LinkedHashSet<>();
+        for (String name : names) {
+            users.findByUsername(name)
+                    .filter(account -> account.active() && account.id() != senderId)
+                    .ifPresent(account -> ids.add(account.id()));
+        }
+        return ids;
+    }
+
+    private void requireReply(long userId, Long peerId, long replyToId) {
+        RoomNote target = repository.find(replyToId).orElseThrow(() -> ApiException.badRequest("回复的消息不存在"));
+        if (!target.visibleTo(userId)) {
+            throw ApiException.badRequest("不能回复这条消息");
+        }
+        boolean samePublic = peerId == null && target.peerId() == null;
+        boolean sameDirect = peerId != null && target.peerId() != null && target.visibleTo(peerId) && target.visibleTo(userId)
+                && (target.senderId() == peerId || target.peerId() == peerId);
+        if (!samePublic && !sameDirect) {
+            throw ApiException.badRequest("只能回复当前这段对话里的消息");
+        }
+    }
+
+    private static long before(Long beforeId) {
+        if (beforeId == null) {
+            return OPEN_BEFORE;
+        }
+        if (beforeId < 1) {
+            throw ApiException.badRequest("历史位置不对");
+        }
+        return beforeId;
+    }
+
+    private static String like(String query) {
+        return "%" + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+    }
+
+    private static String preview(RoomRepository.ThreadHead head) {
+        if (head.retracted()) {
+            return "已撤回";
+        }
+        String text = head.body() == null ? "" : head.body().trim();
+        boolean code = head.excerpt() != null && !head.excerpt().isBlank();
+        if (text.isEmpty()) {
+            return code ? "附带一段代码" : "";
+        }
+        String clipped = text.length() > 80 ? text.substring(0, 80) : text;
+        return code ? "代码 · " + clipped : clipped;
     }
 
     private void announce(long userId, String username, boolean online) {
@@ -144,6 +270,17 @@ public class RoomService {
     }
 
     public record PersonPresence(long id, String username, boolean online) {
+    }
+
+    public record RoomThread(
+            long peerId,
+            String username,
+            boolean online,
+            long lastId,
+            String preview,
+            Instant lastAt,
+            int unread
+    ) {
     }
 
     private void requirePeer(long userId, long peerId) {

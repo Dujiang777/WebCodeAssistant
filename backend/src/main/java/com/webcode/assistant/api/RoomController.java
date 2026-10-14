@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,8 +42,20 @@ public class RoomController {
     }
 
     @GetMapping("/messages")
-    public List<RoomNote> messages(@RequestParam(value = "peerId", required = false) Long peerId) {
-        return roomService.history(currentUser.requireId(), peerId);
+    public List<RoomNote> messages(@RequestParam(value = "peerId", required = false) Long peerId,
+                                   @RequestParam(value = "before", required = false) Long beforeId) {
+        return roomService.history(currentUser.requireId(), peerId, beforeId);
+    }
+
+    @GetMapping("/search")
+    public List<RoomNote> search(@RequestParam(value = "peerId", required = false) Long peerId,
+                                 @RequestParam("q") String query) {
+        return roomService.search(currentUser.requireId(), peerId, query);
+    }
+
+    @GetMapping("/threads")
+    public List<RoomService.RoomThread> threads() {
+        return roomService.threads(currentUser.requireId());
     }
 
     @GetMapping("/notices")
@@ -61,11 +74,17 @@ public class RoomController {
         return roomService.send(
                 currentUser.requireId(),
                 request.peerId(),
+                request.replyToId(),
                 request.body(),
                 request.filePath(),
                 request.excerpt(),
                 request.excerptStart(),
                 request.excerptEnd());
+    }
+
+    @PostMapping("/messages/{id}/retract")
+    public RoomNote retract(@PathVariable("id") long id) {
+        return roomService.retract(currentUser.requireId(), id);
     }
 
     @GetMapping(value = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -79,6 +98,7 @@ public class RoomController {
 
     public record SendRequest(
             Long peerId,
+            Long replyToId,
             @NotBlank @Size(max = 1000) String body,
             @Size(max = 240) String filePath,
             @Size(max = 2000) String excerpt,

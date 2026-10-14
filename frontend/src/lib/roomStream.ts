@@ -64,8 +64,8 @@ export function openRoomStream(options: OpenRoomStreamOptions): { close(): void 
       });
       return;
     }
-    if (typeof record.id === 'number' && record.id > lastId && typeof record.body === 'string') {
-      lastId = record.id;
+    if (typeof record.id === 'number' && typeof record.body === 'string') {
+      if (record.id > lastId) lastId = record.id;
       options.onEvent({ name: 'message', message: record as unknown as RoomMessage });
     }
   };

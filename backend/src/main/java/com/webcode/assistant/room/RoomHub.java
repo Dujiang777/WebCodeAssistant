@@ -40,10 +40,24 @@ public class RoomHub {
     public void publish(RoomNote note) {
         List<Subscriber> targets;
         synchronized (this) {
-            while (buffer.size() >= BUFFER) {
-                buffer.removeFirst();
+            Deque<RoomNote> next = new ArrayDeque<>();
+            boolean replaced = false;
+            for (RoomNote existing : buffer) {
+                if (existing.id() == note.id()) {
+                    next.addLast(note);
+                    replaced = true;
+                } else {
+                    next.addLast(existing);
+                }
             }
-            buffer.addLast(note);
+            if (!replaced) {
+                while (next.size() >= BUFFER) {
+                    next.removeFirst();
+                }
+                next.addLast(note);
+            }
+            buffer.clear();
+            buffer.addAll(next);
             targets = new ArrayList<>();
             for (Subscriber subscriber : subscribers) {
                 if (note.visibleTo(subscriber.userId)) {
