@@ -5,7 +5,7 @@ import type { AuthUser, HealthInfo, Workspace } from '../lib/api';
 import { messageOf } from '../lib/chat';
 import { lastIdeWorkspaceId, navigate } from '../lib/router';
 import { AvatarMenu } from '../components/AvatarMenu';
-import { TerminalMark, FolderOpenIcon, PlusIcon, RefreshIcon, TrashIcon } from '../components/icons';
+import { TerminalMark, FolderOpenIcon, PlusIcon, RefreshIcon, TrashIcon, EditIcon } from '../components/icons';
 
 /**
  * 工作区列表 + 创建工作区。
@@ -36,8 +36,11 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [renamingId, setRenamingId] = useState<number | null>(null);
+  const [renameDraft, setRenameDraft] = useState('');
   const [progress, setProgress] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const renameLock = useRef(false);
 
   const load = async () => {
     setLoading(true);
@@ -89,6 +92,23 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
     } finally {
       setBusy(false);
       setProgress(null);
+    }
+  };
+
+  const renameWorkspace = async (workspace: Workspace) => {
+    if (renameLock.current) return;
+    renameLock.current = true;
+    const next = renameDraft.trim();
+    setRenamingId(null);
+    try {
+      if (!next || next === workspace.name) return;
+      setError(null);
+      const saved = await api.renameWorkspace(workspace.id, next);
+      setWorkspaces((list) => list.map((item) => (item.id === saved.id ? saved : item)));
+    } catch (err) {
+      setError(messageOf(err));
+    } finally {
+      renameLock.current = false;
     }
   };
 
@@ -352,13 +372,46 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
                   <FolderOpenIcon size={17} />
                 </span>
                 <div className="workspace-row-body">
-                  <div className="workspace-name">{workspace.name}</div>
+                  {renamingId === workspace.id ? (
+                    <input
+                      className="ws-rename"
+                      value={renameDraft}
+                      autoFocus
+                      aria-label="工作区名称"
+                      maxLength={120}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => setRenameDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        event.stopPropagation();
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          void renameWorkspace(workspace);
+                        }
+                        if (event.key === 'Escape') setRenamingId(null);
+                      }}
+                      onBlur={() => void renameWorkspace(workspace)}
+                    />
+                  ) : (
+                    <div className="workspace-name">{workspace.name}</div>
+                  )}
                   {workspace.id === lastId && <span className="ws-recent-tag">上次打开</span>}
                   <div className="workspace-meta">
                     {workspace.gitUrl ?? '本地导入'} · {formatBytes(workspace.sizeBytes)}
                   </div>
                   <div className="ws-card-time">创建于 {new Date(workspace.createdAt).toLocaleString()}</div>
                 </div>
+                <button
+                  type="button"
+                  className="icon-btn ws-card-delete"
+                  title="给这个工作区改名"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setRenamingId(workspace.id);
+                    setRenameDraft(workspace.name);
+                  }}
+                >
+                  <EditIcon size={14} />
+                </button>
                 <button
                   type="button"
                   className="icon-btn ws-card-delete"

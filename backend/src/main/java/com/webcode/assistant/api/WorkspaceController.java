@@ -5,6 +5,7 @@ import com.webcode.assistant.build.TestRunResult;
 import com.webcode.assistant.common.ApiException;
 import com.webcode.assistant.common.ErrorCode;
 import com.webcode.assistant.constitution.ConstitutionService;
+import com.webcode.assistant.constitution.ProfileService;
 import com.webcode.assistant.map.SpringMapService;
 import com.webcode.assistant.agent.ChatSessionService;
 import com.webcode.assistant.agent.PatchService;
@@ -49,6 +50,7 @@ public class WorkspaceController {
     private final WorkspaceService workspaceService;
     private final WorkspaceFileService fileService;
     private final ConstitutionService constitutionService;
+    private final ProfileService profileService;
     private final SpringMapService springMapService;
     private final BuildService buildService;
     private final CurrentUser currentUser;
@@ -62,6 +64,7 @@ public class WorkspaceController {
     public WorkspaceController(WorkspaceService workspaceService,
                                WorkspaceFileService fileService,
                                ConstitutionService constitutionService,
+                               ProfileService profileService,
                                SpringMapService springMapService,
                                BuildService buildService,
                                CurrentUser currentUser,
@@ -74,6 +77,7 @@ public class WorkspaceController {
         this.workspaceService = workspaceService;
         this.fileService = fileService;
         this.constitutionService = constitutionService;
+        this.profileService = profileService;
         this.springMapService = springMapService;
         this.buildService = buildService;
         this.currentUser = currentUser;
@@ -128,6 +132,15 @@ public class WorkspaceController {
         return ApiModels.WorkspaceView.of(workspaceService.require(currentUser.requireId(), id));
     }
 
+    @PutMapping("/{id}")
+    public ApiModels.WorkspaceView rename(@PathVariable long id, @RequestBody RenameRequest request) {
+        String name = request == null ? null : request.name();
+        return ApiModels.WorkspaceView.of(workspaceService.rename(currentUser.requireId(), id, name));
+    }
+
+    public record RenameRequest(String name) {
+    }
+
     /** 这个工作区所有会话里还没处理的补丁，点开再跳回那张卡。 */
     @GetMapping("/{id}/pending-patches")
     public List<ApiModels.PendingInboxView> pendingPatches(@PathVariable long id) {
@@ -175,6 +188,19 @@ public class WorkspaceController {
 
     /** 保存宪法请求体。 */
     public record ConstitutionSaveRequest(String content) {
+    }
+
+    @GetMapping("/{id}/profile")
+    public ProfileService.ProfileView profile(@PathVariable long id) {
+        return profileService.read(requireWorkspace(id));
+    }
+
+    @PutMapping("/{id}/profile")
+    public ProfileService.ProfileView saveProfile(@PathVariable long id, @RequestBody ConstitutionSaveRequest request) {
+        if (request == null) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "缺少项目说明");
+        }
+        return profileService.save(requireWorkspace(id), request.content());
     }
 
     public record RedzoneView(List<String> paths) {

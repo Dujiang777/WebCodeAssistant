@@ -70,6 +70,14 @@ public class WorkspaceRepository {
                 .optional();
     }
 
+    public void renameOwned(long id, long userId, String name) {
+        jdbc.sql("update workspaces set name = :name where id = :id and user_id = :userId")
+                .param("name", name)
+                .param("id", id)
+                .param("userId", userId)
+                .update();
+    }
+
     public void updateSize(long id, long sizeBytes) {
         jdbc.sql("update workspaces set size_bytes = :sizeBytes where id = :id")
                 .param("sizeBytes", sizeBytes)

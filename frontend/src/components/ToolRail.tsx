@@ -9,6 +9,7 @@ import {
   MapIcon,
   PanelLeftIcon,
   ScrollDocIcon,
+  BookIcon,
   SearchIcon,
   TerminalIcon,
   TerminalMark,
@@ -37,12 +38,14 @@ import {
 
 interface ToolRailProps {
   constitutionExists: boolean;
+  profileExists: boolean;
   deskVisible: boolean;
   treeVisible: boolean;
   chatVisible: boolean;
   /** 此刻有几步正被拦下等人放行 —— 工位图标上要能一眼看见。 */
   activeGates: number;
   onOpenConstitution: () => void;
+  onOpenProfile: () => void;
   onOpenSpringMap: () => void;
   onOpenTests: () => void;
   onOpenSnapshots: () => void;
@@ -86,11 +89,13 @@ function RailButton({ label, hint, icon, active, alert, muted, badge, onClick }:
 
 export function ToolRail({
   constitutionExists,
+  profileExists,
   deskVisible,
   treeVisible,
   chatVisible,
   activeGates,
   onOpenConstitution,
+  onOpenProfile,
   onOpenSpringMap,
   onOpenTests,
   onOpenSnapshots,
@@ -119,6 +124,17 @@ export function ToolRail({
           muted={!constitutionExists}
           icon={<ScrollDocIcon size={17} />}
           onClick={onOpenConstitution}
+        />
+        <RailButton
+          label="项目说明"
+          hint={
+            profileExists
+              ? '查看 / 编辑项目说明（已注入每次对话）'
+              : '写这个仓库希望模型怎么干活。宪法仍是硬规则，说明管口径和习惯'
+          }
+          muted={!profileExists}
+          icon={<BookIcon size={17} />}
+          onClick={onOpenProfile}
         />
         <RailButton
           label="组件地图"

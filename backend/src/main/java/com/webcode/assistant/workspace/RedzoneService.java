@@ -34,9 +34,10 @@ public class RedzoneService {
     private static final int MAX_RULES = 80;
     private static final int MAX_PATH = 512;
 
-    /** 永远禁：宪法和禁区名单自己不能被补丁改掉。 */
+    /** 永远禁：宪法、项目说明和禁区名单自己不能被补丁改掉。 */
     private static final List<String> ALWAYS = List.of(
             ".wca/constitution.md",
+            ".wca/profile.md",
             ".wca/redzone"
     );
 
@@ -74,7 +75,7 @@ public class RedzoneService {
             throw new ApiException(ErrorCode.BAD_REQUEST, "路径不合法");
         }
         if (ALWAYS.contains(path)) {
-            throw new ApiException(ErrorCode.FORBIDDEN, "宪法和禁区名单本身不能移出禁区");
+            throw new ApiException(ErrorCode.FORBIDDEN, "宪法、项目说明和禁区名单本身不能移出禁区");
         }
         LinkedHashSet<String> rules = new LinkedHashSet<>(readRules(workspace));
         if (rules.contains(path)) {

@@ -69,6 +69,23 @@ public class WorkspaceService {
         return workspaceRepository.findAllByUser(userId);
     }
 
+    /** 只改显示名，磁盘目录不动。 */
+    public Workspace rename(long userId, long workspaceId, String requested) {
+        require(userId, workspaceId);
+        if (requested == null || requested.isBlank()) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "工作区要有名字");
+        }
+        String name = requested.trim().replaceAll("\\s+", " ");
+        if (name.indexOf('\n') >= 0 || name.indexOf('\r') >= 0) {
+            throw new ApiException(ErrorCode.BAD_REQUEST, "工作区名字不能换行");
+        }
+        if (name.length() > 120) {
+            name = name.substring(0, 120);
+        }
+        workspaceRepository.renameOwned(workspaceId, userId, name);
+        return require(userId, workspaceId);
+    }
+
     /** 读取并做归属校验；查不到一律 404，不泄露「存在但不属于你」。 */
     @Transactional(readOnly = true)
     public Workspace require(long userId, long workspaceId) {

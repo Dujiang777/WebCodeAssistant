@@ -1430,6 +1430,19 @@ a.link:hover,
   color: var(--fg-2);
 }
 
+button.crumbs-rename {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+button.crumbs-rename:hover {
+  color: var(--signal);
+}
+
 .crumbs-file {
   color: var(--fg-0);
   overflow: hidden;
@@ -10607,6 +10620,16 @@ body {
   align-self: center;
   opacity: 0;
   color: var(--fg-3);
+}
+
+.ws-rename {
+  width: 100%;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: inherit;
+  font: inherit;
 }
 
 .ws-card:hover .ws-card-delete,

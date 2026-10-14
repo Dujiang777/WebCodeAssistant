@@ -2,6 +2,7 @@ package com.webcode.assistant.context;
 
 import com.webcode.assistant.agent.AgentRequest;
 import com.webcode.assistant.constitution.ConstitutionService;
+import com.webcode.assistant.constitution.ProfileService;
 import com.webcode.assistant.llm.LlmProperties;
 import com.webcode.assistant.workspace.FileContent;
 import com.webcode.assistant.workspace.RedzoneService;
@@ -39,21 +40,25 @@ public class ContextAssembler {
 
     /** 宪法注入 prompt 的字符预算：约束要全文生效，超长只能截断并明示。 */
     private static final int CONSTITUTION_BUDGET = 6000;
+    private static final int PROFILE_BUDGET = 4000;
 
     private final WorkspaceFileService fileService;
     private final ProjectProbe projectProbe;
     private final ConstitutionService constitutionService;
+    private final ProfileService profileService;
     private final RedzoneService redzoneService;
     private final LlmProperties llmProperties;
 
     public ContextAssembler(WorkspaceFileService fileService,
                             ProjectProbe projectProbe,
                             ConstitutionService constitutionService,
+                            ProfileService profileService,
                             RedzoneService redzoneService,
                             LlmProperties llmProperties) {
         this.fileService = fileService;
         this.projectProbe = projectProbe;
         this.constitutionService = constitutionService;
+        this.profileService = profileService;
         this.redzoneService = redzoneService;
         this.llmProperties = llmProperties;
     }
@@ -68,6 +73,7 @@ public class ContextAssembler {
 
         appendProjectSection(prompt, summary);
         appendConstitutionSection(prompt, workspace);
+        appendProfileSection(prompt, workspace);
         appendRedzoneSection(prompt, workspace);
         appendRulesSection(prompt, summary);
         appendOpenFileSection(prompt, workspace, request);
@@ -119,11 +125,31 @@ public class ContextAssembler {
         }
     }
 
+    /** 项目说明：口径和习惯，地位低于宪法。 */
+    private void appendProfileSection(StringBuilder prompt, Workspace workspace) {
+        ProfileService.ProfileView view = profileService.read(workspace);
+        if (!view.exists() || view.content() == null || view.content().isBlank()) {
+            return;
+        }
+        String text = view.content();
+        boolean clipped = text.length() > PROFILE_BUDGET;
+        if (clipped) {
+            text = text.substring(0, PROFILE_BUDGET);
+        }
+        prompt.append("\n## 项目说明（这个仓库希望你怎么干活）\n\n");
+        prompt.append("下面是用户为本仓库写的工作方式。遵守它，但和仓库宪法冲突时以宪法为准。\n\n");
+        prompt.append("```markdown\n").append(text).append("\n```\n");
+        if (clipped) {
+            prompt.append("\n> 注意：项目说明已超过 ").append(PROFILE_BUDGET)
+                    .append(" 字符被截断。请提醒用户精简。\n");
+        }
+    }
+
     private void appendRedzoneSection(StringBuilder prompt, Workspace workspace) {
         List<String> paths = redzoneService.list(workspace);
         prompt.append("\n## 禁区（硬拒绝，不是建议）\n\n");
         prompt.append("propose_patch 命中下列路径会被系统直接拒绝，不会生成补丁卡：\n");
-        prompt.append("- `.wca/CONSTITUTION.md`、`.wca/REDZONE`（系统内置）\n");
+        prompt.append("- `.wca/CONSTITUTION.md`、`.wca/PROFILE.md`、`.wca/REDZONE`（系统内置）\n");
         if (paths.isEmpty()) {
             prompt.append("用户还没有额外划禁区。不要建议用户去改上述系统文件。\n");
             return;

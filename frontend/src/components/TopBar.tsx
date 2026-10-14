@@ -27,6 +27,8 @@ interface TopBarProps {
   health: HealthInfo | null;
   username: string;
   onBack: () => void;
+  /** 给工作区改名。不传时名字只是文字。 */
+  onRenameWorkspace?: () => void;
   onLogout: () => void;
   pendingInbox: PendingInboxItem[];
   currentSessionId: number | null;
@@ -58,6 +60,7 @@ export function TopBar({
   health,
   username,
   onBack,
+  onRenameWorkspace,
   onLogout,
   pendingInbox,
   currentSessionId,
@@ -103,7 +106,13 @@ export function TopBar({
       </button>
 
       <div className="crumbs">
-        <span className="crumbs-ws">{workspaceName}</span>
+        {onRenameWorkspace ? (
+          <button type="button" className="crumbs-ws crumbs-rename" title="给这个工作区改名" onClick={onRenameWorkspace}>
+            {workspaceName}
+          </button>
+        ) : (
+          <span className="crumbs-ws">{workspaceName}</span>
+        )}
         {filePath ? (
           <>
             <span className="crumbs-sep">/</span>

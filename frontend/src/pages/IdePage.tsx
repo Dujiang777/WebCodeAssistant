@@ -43,6 +43,7 @@ import { useToast } from '../lib/toast';
 import { ChatPane } from '../components/ChatPane';
 import { AgentDesk } from '../components/AgentDesk';
 import { ConstitutionModal } from '../components/ConstitutionModal';
+import { ProfileModal } from '../components/ProfileModal';
 import { EditorPane } from '../components/EditorPane';
 import type { LivePreviewShow, RevealTarget, DiagnosticCounts } from '../components/EditorPane';
 import { FileTree } from '../components/FileTree';
@@ -322,6 +323,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   // ------------------------------------------------- 功能 5-8：宪法 / 地图 / 测试
   const [constitution, setConstitution] = useState<ConstitutionView | null>(null);
   const [constitutionOpen, setConstitutionOpen] = useState(false);
+  const [profile, setProfile] = useState<ConstitutionView | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [springMapOpen, setSpringMapOpen] = useState(false);
   const [testsOpen, setTestsOpen] = useState(false);
 
@@ -564,6 +567,21 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         if (!cancelled) setConstitution(view);
       } catch {
         // 宪法是增强能力，拉取失败不打断主流程
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const view = await api.profile(workspaceId);
+        if (!cancelled) setProfile(view);
+      } catch {
+        // 项目说明拉不到时轨道显示成未配置，不打断工作台
       }
     })();
     return () => {
@@ -2337,6 +2355,17 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         health={health}
         username={username}
         onBack={() => navigate('/workspaces')}
+        onRenameWorkspace={() => {
+          const current = workspace?.name ?? '';
+          const next = window.prompt('工作区名称', current);
+          if (next == null) return;
+          const name = next.trim();
+          if (!name || name === current) return;
+          void api
+            .renameWorkspace(workspaceId, name)
+            .then((saved) => setWorkspace(saved))
+            .catch((error) => toast.error(error instanceof Error ? error.message : '改名失败'));
+        }}
         onLogout={onLogout}
         pendingInbox={inbox}
         currentSessionId={sessionId}
@@ -2366,11 +2395,13 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       <div className="workbench" style={{ gridTemplateColumns: columns }}>
         <ToolRail
           constitutionExists={constitution?.exists ?? false}
+          profileExists={profile?.exists ?? false}
           deskVisible={deskVisible}
           treeVisible={treeVisible}
           chatVisible={chatVisible}
           activeGates={gates.length}
           onOpenConstitution={() => setConstitutionOpen(true)}
+          onOpenProfile={() => setProfileOpen(true)}
           onOpenSpringMap={() => setSpringMapOpen(true)}
           onOpenTests={() => setTestsOpen(true)}
           onOpenSnapshots={() => setSnapshotsOpen(true)}
@@ -2653,6 +2684,14 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           workspaceId={workspaceId}
           onClose={() => setConstitutionOpen(false)}
           onSaved={(view) => setConstitution(view)}
+        />
+      )}
+
+      {profileOpen && (
+        <ProfileModal
+          workspaceId={workspaceId}
+          onClose={() => setProfileOpen(false)}
+          onSaved={(view) => setProfile(view)}
         />
       )}
 

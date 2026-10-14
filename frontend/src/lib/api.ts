@@ -893,6 +893,12 @@ export const api = {
   deleteWorkspace: (workspaceId: number) =>
     request<void>(`/api/workspaces/${workspaceId}`, { method: 'DELETE' }),
 
+  renameWorkspace: (workspaceId: number, name: string) =>
+    request<Workspace>(`/api/workspaces/${workspaceId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name }),
+    }),
+
   createWorkspaceFromGit: (name: string, gitUrl: string) =>
     request<Workspace>('/api/workspaces', {
       method: 'POST',
@@ -1032,6 +1038,15 @@ export const api = {
   /** 保存仓库宪法（内容写进 .wca/CONSTITUTION.md，Agent 不可修改）。 */
   saveConstitution: (workspaceId: number, content: string) =>
     request<ConstitutionView>(`/api/workspaces/${workspaceId}/constitution`, {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    }),
+
+  profile: (workspaceId: number) =>
+    request<ConstitutionView>(`/api/workspaces/${workspaceId}/profile`),
+
+  saveProfile: (workspaceId: number, content: string) =>
+    request<ConstitutionView>(`/api/workspaces/${workspaceId}/profile`, {
       method: 'PUT',
       body: JSON.stringify({ content }),
     }),
