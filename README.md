@@ -6,7 +6,7 @@ AI 能读你的项目、能按正则搜代码，但**它没有任何写盘权限
 
 <div align="center">
   <img src="docs/media/03-ai-film-chat.gif" alt="三栏 IDE：文件树、Monaco 标签页、右侧 AI 对话与可点引用" width="800" />
-  <p><sub>当前版本的工作台：左边文件树（含禁区），中间标签页编辑器，右边真实模型回答——路径行号都是可点的证据。</sub></p>
+  <p><sub>当前版本的工作台：左边文件树（禁区、问 / 改），中间标签页编辑器，右边对话与待确认补丁卡。右下角是讨论室。</sub></p>
 </div>
 
 在此之上，它把「凭什么信它」这件事做成了可见的东西：
@@ -30,6 +30,13 @@ AI 能读你的项目、能按正则搜代码，但**它没有任何写盘权限
 - **积分中心是自助的**：余额 / 套餐 / 下单 / 支付 / 流水 / 一键对账全在一个页面，
   支付走幂等回调（重试不会重复到账），对账按钮当场把「账本累加值」和「账户余额」摆在一起给你比。
 - **模型配置能自己试通**：平台模型点卡片即设为默认；自带 Key 点预设填地址，拉目录、手动加模型名、再「试一句」确认真能补全（不走积分）。
+- **讨论室**：登录用户之间的公屏和私聊，用来商量这段怎么改。**不写盘、不调模型**。可以回复、撤回、改自己的消息、公屏 @、附上选中的代码；私聊有输入中和已读；提醒能一条条关掉；草稿记在这一次标签里。
+- **项目说明**：`.wca/PROFILE.md` 由你来写，每轮对话接在宪法后面注入。Agent 没有写它的工具。宪法、项目说明、禁区清单这三项永远锁死。
+- **工作区可以改名**：只改显示名，磁盘路径 `{workspaceRoot}/{userId}/{uuid}-{slug}/` 不动。
+- **树上问 / 改**：文件树每一行悬停就能解释这个文件，或把路径填进输入框等你说怎么改。
+- **待确认收件箱**：顶栏列出这个工作区所有会话里还没点的补丁，点一行跳回去并在编辑器里回放。
+- **本地 Git**：底栏能看见当前分支和未提交文件，按已应用补丁写说明并提交。只落本地，不 push。
+- **停止本轮**：协作式取消——当前工具跑完即停，半截回答保留，预扣全额退回。
 
 工作区是**服务器磁盘上的真实目录**（`git clone` 或 zip 导入），不是浏览器里的虚拟文件系统。
 
@@ -78,12 +85,35 @@ AI 能读你的项目、能按正则搜代码，但**它没有任何写盘权限
   AI 消息 = 无框编辑排版 + 金铭牌头；引用 chip 做成**金底线脚注**的样子，不抢正文；
 - **登录是两栏工作室，不是一张居中小表单**：左边把 HITL 流程在终端里打一遍，
   右边才是登录 / 注册 / 找回密码。主标题是「把仓库放进浏览器 / 让 AI 读懂它再动手。」
-- **工作台是工具轨道，不是按钮墙**：宪法、地图、测试、快照、检索、终端、平行宇宙、工位、
+- **工作台是工具轨道，不是按钮墙**：宪法、项目说明、地图、测试、快照、检索、终端、讨论室、平行宇宙、工位、
   以及显隐文件树 / 对话，收进左侧一条竖排图标轨道（`ToolRail`），按性质分三组。
-  **悬停飘出两行卡片**：中文名 + 一句话「什么时候该用它」。顶栏因此只剩工作区、模型、积分、头像；
+  **悬停飘出两行卡片**：中文名 + 一句话「什么时候该用它」。顶栏因此只剩工作区（可改名）、待确认收件箱、模型、积分、头像；
 - Monaco 主题 `wca-dark` 与外壳取**同一套 CSS 变量值**，编辑器和外壳不会像两个产品拼起来。
 
 > 类名是**自检契约**：自检脚本按 `title` 文案和类名找元素。改样式可以，改类名会让断言失效。
+
+---
+
+## 功能一览
+
+按用户会走到的路径排。下面每一条都已经在线上，不是路线图。
+
+| 你在哪 | 能做什么 |
+| --- | --- |
+| **产品首页** `/#/` | 象牙纸 × 黄铜；中英 / 日夜；把「提问 → 出卡 → 看着改 → 应用」演一遍。进工作区开新标签，这一页留着。右下角讨论室（登录后才能说话）。 |
+| **登录 / 注册** `/#/login` | 两栏工作室。图形验证码、一键演示账号、找回密码、邮箱验证。连续失败 5 次锁 15 分钟。 |
+| **工作区列表** `/#/workspaces` | 内置示例 / Git 浅克隆 / ZIP。搜索、打开、**改名**、删除。每个工作区是服务器上的真实目录。 |
+| **三栏工作台** `/#/ide/:id` | 左文件树（禁区盾牌、问 / 改、补丁痕迹），中 Monaco 标签页（Ctrl+P），右 AI 对话（引用可点、补丁卡、停止本轮）。 |
+| **工具轨道** | 仓库宪法、项目说明、组件地图、测试套件、快照回滚、语义检索、工作区终端、讨论室、平行宇宙、Agent 工位，以及显隐文件树 / 对话。 |
+| **补丁闭环** | 模型只出 unified diff。卡片上有影响面、PR 预演、看着改、应用并验收 / 只写盘。应用前干跑，磁盘变了就标「底片已变」。应用后自动编译，失败喂回去。 |
+| **待确认收件箱** | 顶栏跨会话列出没点的卡，点一行跳回那张卡并在编辑器回放。 |
+| **讨论室** | 公屏 / 私聊 / 提醒。不写盘、不调模型。回复、撤回、编辑、@、代码摘录、输入中、已读。草稿只活在这一次标签。 |
+| **项目说明** | `.wca/PROFILE.md`，注入对话（宪法之后）。和宪法、禁区清单一起永远锁死，Agent 改不了。 |
+| **本地 Git** | 底栏看分支和未提交文件；按已应用补丁写说明并 `commit`。不 push。 |
+| **模型服务** `/#/models` | 平台模型点卡片即默认；BYOK 六家预设，「试一句」不走积分。 |
+| **积分中心** `/#/credits` | 余额 / 套餐 / 下单 / 模拟支付 / 流水 / 一键对账。每轮预扣再按 token 多退少补。 |
+| **账号与安全** `/#/account` | 邮箱状态、改密（踢掉其他设备）、登录设备列表。 |
+| **管理后台** `/#/admin` | 仅 ADMIN。用户列表与详情、调分、改角色、解锁、撤会话、订单退款、审计。 |
 
 ---
 
@@ -93,7 +123,7 @@ AI 能读你的项目、能按正则搜代码，但**它没有任何写盘权限
 | --- | --- |
 | **模型只能出补丁，不能写文件** | 工具集里没有任何写盘方法。`propose_patch` 只落库 + 推事件，写盘发生在用户点「应用」触发的 `PatchService.apply` 里。这是「人在环上」的落地方式，不是靠 prompt 约束。 |
 | **补丁在生成时就做干跑校验** | 后端会用**完整文件内容**（不是截断后的）试应用一次。所以前端展示出来的补丁「保证可应用」，不会出现点了应用才报冲突。应用前还会再干跑一遍：磁盘已经变了就标「底片已变」，按钮直接禁用。 |
-| **禁区是写盘硬门，不是 ignore 文件** | `.wca/REDZONE` 一路径一行。命中的路径在 `propose_patch` 和 `apply` 两处都会被拒绝；`.wca/constitution.md` 与 `.wca/redzone` 本身永远锁死。宪法仍只作用于 prompt，禁区才动刀。 |
+| **禁区是写盘硬门，不是 ignore 文件** | `.wca/REDZONE` 一路径一行。命中的路径在 `propose_patch` 和 `apply` 两处都会被拒绝；`.wca/constitution.md`、`.wca/profile.md` 与 `.wca/redzone` 本身永远锁死。宪法仍只作用于 prompt，禁区才动刀。 |
 | **回写必须整文件读** | `readFullText` 超限直接报错而不是截断 —— 用半截内容应用补丁会写出残缺文件，这是能真正损坏用户代码的一类错误。 |
 | **前端不支持截断文件的保存** | 浏览上限 512 KB，超过就只读。否则一次保存就等于把大文件截断覆盖。 |
 | **两个通道分开** | `POST /messages` 立刻返回 `messageId`（不等模型）；事件走 `GET /events` 这条 SSE 长连接。断线重连时带 `afterId` 可以回放漏掉的事件。 |
@@ -116,7 +146,8 @@ AI 能读你的项目、能按正则搜代码，但**它没有任何写盘权限
 ```
 浏览器 (React + Vite + Monaco，hash 路由)
   ├── 产品首页 /#/ 与 /#/home：象牙纸 + 黄铜，进产品开新标签
-  ├── 工作台 /#/ide/:id：工具轨道（按性质分三组）+ 三栏：文件树（禁区/痕迹）/ 标签页编辑器（Ctrl+P）/ 对话
+  ├── 工作台 /#/ide/:id：工具轨道（宪法 / 项目说明 / 地图 / 测试 / 快照 / 检索 / 终端 / 讨论室 / 平行宇宙 / 工位）+ 三栏
+  ├── 讨论室：全站悬浮框（公屏 / 私聊 / 提醒），SSE 独立于对话事件流
   ├── 二级页：工作区列表 / 模型服务 / 积分中心 / 账号与安全 / 管理后台 / 邮箱验证 / 重置密码
   ├── 会话层：双令牌（access 内存 + refresh 落盘），401 自动静默刷新（单例 Promise 防并发）
   ├── Monaco：自定义 wca-dark 主题（本地 bundle，不依赖 CDN）
@@ -128,19 +159,20 @@ Spring Boot 3.5 (Java 21, 虚拟线程)
   ├── security/   双令牌鉴权（refresh 轮换 + 重放检测）、BCrypt、失败锁定、登录审计、防账号枚举
   ├── credit/     积分账户 / 只增账本 / 定价 / 套餐 / 订单 / 支付提供方（mock 可替换 → 真实网关）
   ├── mail/       邮件通道（dev 不发信 + smtp 真发），承载邮箱验证与找回密码
-  ├── workspace/  路径解析（三层防越界）、文件读写（原子替换）、配额、快照与回滚、禁区 REDZONE
+  ├── workspace/  路径解析（三层防越界）、文件读写（原子替换）、配额、快照与回滚、禁区 REDZONE、工作区改名
   │     └── diff/   unified diff 解析 + 应用（上下文逐字符匹配，容忍行号漂移）
-  ├── scm/         JGit 浅克隆（depth=1 + 超时）、zip 导入（zip slip / zip bomb 防护）
+  ├── scm/         JGit 浅克隆（depth=1 + 超时）、zip 导入（zip slip / zip bomb 防护）、本地 git 状态/init/commit
+  ├── room/        讨论室（公屏 / 私聊 / 提醒 / 已读 / 输入中）。不碰磁盘，不走模型
   ├── agent/       Agent 编排、工具集（含工具级闸门）、补丁生命周期、工位状态、影响面、PR 预演、SSE 事件中心
   ├── build/       编译验证 + 测试运行（构建工具检测 → 跑构建 → 解析诊断 / 失败用例 / 编译诊断）
   ├── terminal/    网页终端（受控 run_command，模型没有任何命令执行工具）
   ├── semantic/    语义检索（切块 + embedding + 向量检索，与正则 grep 互补）
-  ├── constitution/ 仓库宪法（.wca/CONSTITUTION.md 读写 + 模板）
+  ├── constitution/ 仓库宪法（.wca/CONSTITUTION.md）+ 项目说明（.wca/PROFILE.md）
   ├── map/         Spring 组件地图（Bean / 端点 / 依赖注入扫描）
-  ├── context/     system prompt 组装（项目画像 / 规则文件 / 引用规则 / 当前模式）+ 引用校验
+  ├── context/     system prompt 组装（宪法 / 项目说明 / 规则文件 / 引用规则 / 当前模式）+ 引用校验
   └── llm/         模型目录 + BYOK、LangChain4j 流式、限流与配额、对话与 embedding 可分源
         │
-        ├── MySQL 8（Flyway 管迁移：V1→V9，17 张表）
+        ├── MySQL 8（Flyway 管迁移：V1→V15，20 张表）
         └── Redis 7（限流 / 配额，可降级）
                   │
                   ▼
@@ -315,14 +347,16 @@ node tools/mock-llm/server.mjs --port 8787
 
 | 动图 | 演示内容 |
 |---|---|
+| ![产品首页](docs/media/00-gate-home.gif) | **产品首页**：象牙纸面、黄铜点缀；主循环「一张补丁怎么落到磁盘上」；工作台就是浏览器里的仓库 |
 | ![登录页](docs/media/01-login-flare.gif) | **登录页**：两栏工作室——左终端回放 HITL，右登录卡；可切到注册 / 验证码 / 一键演示账号 |
-| ![工作区](docs/media/02-film-library.gif) | **工作区列表**：内置示例 / Git 克隆 / ZIP 平铺，搜索工作区，片盒卡片可打开可删 |
-| ![AI 对话流](docs/media/03-ai-film-chat.gif) | **AI 对话流**：空态芯片 → 打开 `UserService` → 真实模型回答，引用可点、会话自动改名 |
+| ![工作区](docs/media/02-film-library.gif) | **工作区列表**：内置示例 / Git 克隆 / ZIP，卡片可打开可改名可删 |
+| ![AI 对话流](docs/media/03-ai-film-chat.gif) | **三栏工作台**：文件树（问 / 改 / 禁区）、Monaco、右侧对话与待确认补丁卡 |
 | ![编辑器](docs/media/04-editor-smart.gif) | **编辑器**：标签页 + Ctrl/⌘+P 快速打开，树上看禁区盾牌，当前文件 chip 跟着走 |
 | ![三主题](docs/media/05-themes.gif) | **三主题巡览**：暗房黄铜 / 墨玉翡翠 / 暖纸墨字 —— 换肤只换色相、不换材质 |
 | ![积分中心](docs/media/06-credits-meter.gif) | **积分中心**：余额卡、三档套餐、核对账本（余额与账本累加值当场对比） |
+| ![讨论室](docs/media/07-discussion-room.gif) | **讨论室**：提醒收件箱 → 公屏（回复 / 撤回 / @ / 代码摘录）→ 私聊名单。不写盘、不调模型 |
 
-> 动图是对着当前线上界面实拍的（登录 → 建内置示例 → 发「解释一下这个类」→ 换肤 / 积分中心），不是设计稿，也不是旧版扫描光带。
+> 动图是对着当前线上界面实拍的，不是设计稿，也不是旧版扫描光带。登录 / 主题 / 积分沿用同一套暗房外壳；首页、工作区、工作台、讨论室按现网 `/?v=118` 重拍。
 
 按顺序走一遍，每一步都写清了「应该看到什么」。这也正是 `tools/e2e-smoke.mjs` 自动跑的那条路径。
 
@@ -415,21 +449,21 @@ node tools/mock-llm/server.mjs --port 8787
 > 「为什么读这个文件」，讲清改法的取舍与风险；交付模式则直接给结果 + 一段可粘进 commit 的
 > 提交说明。两种模式都仍然遵守引用规则。
 
-**11｜仓库宪法（顶栏「宪法」）**
-点顶栏 **宪法** → 编辑器里是模板（一例：一律构造器注入、禁止字段 `@Autowired`）→ 保存。
+**11｜仓库宪法（工具轨道「仓库宪法」）**
+点左侧工具轨道 **仓库宪法** → 编辑器里是模板（一例：一律构造器注入、禁止字段 `@Autowired`）→ 保存。
 
 > 预期：顶栏按钮的「未配置」态消失；之后每轮对话它都注入 system prompt 顶部，
 > Agent 的回答与补丁会遵守这些条款。置空保存 = 撤回，文件从磁盘删除。
 
-**12｜Spring 组件地图（顶栏「地图」）**
-点顶栏 **地图**。
+**12｜Spring 组件地图（工具轨道「组件地图」）**
+点左侧工具轨道 **组件地图**。
 
 > 预期：面板按 CONTROLLER / SERVICE / REPOSITORY 分组列出 Bean，每个 Controller
 > 挂着拼好类级前缀的 HTTP 端点（`GET /api/users` …），Service 到 Repository 的
 > 构造器注入关系以边的形式呈现，点 Bean 可跳到源码行。
 
-**13｜测试运行（顶栏「测试」）**
-点顶栏 **测试**。
+**13｜测试运行（工具轨道「测试套件」）**
+点左侧工具轨道 **测试套件**。
 
 > 预期：自动在工作区里跑项目自己的测试命令，结果条区分 `测试通过 / 测试失败 / 超时 / 未执行`。
 > 失败时逐条列出失败用例（类.方法:行号 + 断言原文）；若是测试代码**编译不过**
@@ -481,6 +515,26 @@ node tools/mock-llm/server.mjs --port 8787
 > 「我的 Key」空着时，DeepSeek / OpenAI / Kimi / 通义 / 硅基流动 / Groq 六家预设点一下就填好地址。
 > 对话框里可以拉模型列表、全选、手动加一个目录没有的名字，再试一句。
 > 密钥只回显尾号，编辑时留空 = 不改。
+
+**19｜讨论室（右下角气泡 / 工具轨道「讨论室」）**
+点右下角 **讨论** 或轨道上的讨论室。不要指望它改代码——它只是人和人说话。
+
+> 预期：先看到提醒收件箱（可一条条关掉，不必「全部已读」）。切到 **公屏** 能回复、撤回、改自己的上一条、@ 某人（点 @ 会开私聊，名单里没有这个人就提示一下）。
+> 输入框提示是「回车发送，Shift+回车换行，↑ 改上一条」。草稿刷新这一次标签还在。
+> **私聊** 最新一条自己的消息下面会出现「已读」（对方读到这里）。对方正在输入时有一行「对方正在输入」。
+> 公屏可以带上编辑器里选中的代码，路径只当标题——对方打不开你的文件。
+> 讨论室不写工作区磁盘，也不走模型。
+
+**20｜项目说明（工具轨道「项目说明」）**
+点轨道 **项目说明**，写这个仓库希望模型怎么干活（口径、目录习惯、回答要多细），保存。
+
+> 预期：内容写进 `.wca/PROFILE.md`，之后每轮对话接在宪法后面注入。置空保存 = 撤回。
+> 和宪法冲突时以宪法为准。Agent 没有写它的工具；禁区清单里永远包含宪法、项目说明、禁区文件本身。
+
+**21｜工作区改名（列表铅笔 / 顶栏工作区名）**
+在工作区列表悬停卡片点铅笔，或在工作台顶栏点工作区名。
+
+> 预期：只改显示名（去首尾空白、压掉换行、最长 120）。磁盘路径不变，刷新后新名字还在。
 
 ### 自动跑一遍（不用开浏览器）
 
@@ -634,6 +688,7 @@ MOCK_LLM_STEP_DELAY_MS=2500 node tools/mock-llm/server.mjs --port 8787
 | `GET` | `/workspaces` | 当前用户的工作区列表 |
 | `POST` | `/workspaces` | `{ name?, gitUrl }` 克隆，或 `{ sample: true }` 用内置示例 |
 | `POST` | `/workspaces` | `multipart/form-data` + `file` 上传 zip |
+| `PUT` | `/workspaces/{id}` | **改名** `{ name }`。只改显示名，磁盘路径不动 |
 | `GET` | `/workspaces/{id}/pending-patches` | 工作区待确认收件箱（跨会话，不含 diff） |
 | `GET` | `/workspaces/{id}/tree` | 完整文件树（受条目上限保护） |
 | `GET` | `/workspaces/{id}/files?path=` | 读文件（超限截断并标记） |
@@ -655,6 +710,9 @@ MOCK_LLM_STEP_DELAY_MS=2500 node tools/mock-llm/server.mjs --port 8787
 | `GET` | `/workspaces/{id}/constitution` | **仓库宪法**：`{ exists, content }` |
 | `PUT` | `/workspaces/{id}/constitution` | 保存（`content` 为空串 = 撤回并删除文件） |
 | `GET` | `/workspaces/{id}/constitution/template` | 宪法模板 |
+| `GET` | `/workspaces/{id}/profile` | **项目说明** `.wca/PROFILE.md`：`{ exists, content }` |
+| `PUT` | `/workspaces/{id}/profile` | 保存项目说明（空串 = 撤回并删除文件） |
+| `GET` · `PUT` | `/workspaces/{id}/redzone` | 禁区清单；`POST .../redzone/toggle` 按路径开关 |
 | `GET` | `/workspaces/{id}/spring-map` | **Spring 地图**：Bean / 端点 / 依赖注入边（只读扫描） |
 | `POST` | `/workspaces/{id}/test-run` | **测试运行**：跑项目自己的 `test` goal，返回统计 / 失败用例 / 编译诊断 |
 | `GET` | `/patches/{patchId}/pr-preview` | **PR 预演**：标题 / 分支建议 / 审查清单（含宪法条款），纯派生只读 |
@@ -686,6 +744,27 @@ MOCK_LLM_STEP_DELAY_MS=2500 node tools/mock-llm/server.mjs --port 8787
 | `POST` | `/workspaces/{id}/semantic/index` | 重建语义索引 |
 | `POST` | `/workspaces/{id}/semantic/search` | 向量检索（与正则 grep 互补） |
 | `POST` | `/workspaces/{id}/terminal/run` | **网页终端**：跑一条命令。只给登录用户用，模型没有任何命令执行工具 |
+| `GET` | `/workspaces/{id}/git` | **本地 Git 状态**：分支、是否干净、未提交文件 |
+| `POST` | `/workspaces/{id}/git/init` | 在工作区里 `git init` |
+| `POST` | `/workspaces/{id}/git/commit` | `{ message }` 提交。只落本地，不 push |
+
+**讨论室**（`/api/room`，不碰工作区磁盘，不走模型）
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/room/people` | 当前在线的人 |
+| `GET` | `/room/messages?peerId=&before=` | 公屏（`peerId` 空）或与某人的私聊历史 |
+| `GET` | `/room/search?q=&peerId=` | 搜这一段对话 |
+| `GET` | `/room/threads` | 私聊会话列表 |
+| `GET` | `/room/notices` | 提醒（公屏 / 私聊 / @） |
+| `POST` | `/room/notices/read` | 按 kind / peer 整组已读 |
+| `POST` | `/room/notices/{id}/read` | **关掉这一条提醒** |
+| `GET` | `/room/receipt?peerId=` | 对方读到了哪一条（私聊） |
+| `POST` | `/room/typing` | 报「正在输入」，约 500ms 合并 |
+| `POST` | `/room/messages` | 发一条。正文 1–1000 字；公屏 @ 最多 8 人；约 400ms 限速 |
+| `POST` | `/room/messages/{id}/edit` | 改自己的消息 |
+| `POST` | `/room/messages/{id}/retract` | 撤回自己的消息 |
+| `GET` | `/room/events` | **SSE**（`TEXT_PLAIN` / `text/event-stream`）。`note` / `typing` / `receipt` / `notice` |
 
 **积分与计费**
 
@@ -708,12 +787,20 @@ MOCK_LLM_STEP_DELAY_MS=2500 node tools/mock-llm/server.mjs --port 8787
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `GET` | `/admin/accounts/{username}` | 查账号：余额 / 角色 / 锁定状态 / 邮箱状态 / 账本累计值 / 两者是否一致 |
-| `POST` | `/admin/credits/adjust` | `{ userId, amount, reason }` 手工调分。可正可负，负数超余额会被拒；**理由原样进流水**，操作人一并记下 |
+| `GET` | `/admin/stats` · `/admin/trend` | 总览数字与用量趋势 |
+| `GET` | `/admin/users` | 用户分页列表（关键词 / 角色 / 状态 / 是否验证） |
+| `GET` | `/admin/users/{userId}` | 用户详情：账本最近几笔、登录设备 |
+| `POST` | `/admin/users/{userId}/status` · `/unlock` · `/role` | 停用 / 解锁 / 改角色 |
+| `POST` | `/admin/users/{userId}/reset-password` · `/revoke-sessions` | 重置密码、踢掉全部会话 |
+| `POST` | `/admin/users/{userId}/credits` · `/reconcile` | 按用户调分 / 把余额对齐账本 |
+| `GET` | `/admin/orders` | 全站订单 |
+| `POST` | `/admin/orders/{orderNo}/cancel` · `/refund` | 取消待支付 / 已支付退款 |
+| `GET` | `/admin/audit` | 管理审计（只增不改） |
+| `GET` | `/admin/accounts/{username}` | 按用户名查账号：余额 / 角色 / 锁定 / 邮箱 / 账本累计值 |
+| `POST` | `/admin/credits/adjust` | `{ userId, amount, reason }` 手工调分。负数超余额会被拒；**理由原样进流水** |
 | `POST` | `/admin/accounts/{username}/reconcile` | **对账修正**：把账户余额对齐成账本累计值 |
 
-> 这里刻意**没有「分页列出全部用户」** 这个接口 —— 一旦有，它就变成导出全站用户数据的口子。
-> 需要谁的数据就按用户名查谁。角色与锁定没有独立开关接口，改角色/解锁走数据库或后续按需再加。
+> 每次管理操作都从数据库重读角色，不信任 access token 里带的。用户列表给运营查账号用，不是导出全站的口子（有分页、关键词，没有「一页倒出全部」）。
 
 ### SSE 事件协议
 
@@ -746,12 +833,12 @@ data: {"seq":20,"type":"canceled"}
 
 ## 6. 数据模型
 
-由 Flyway 自动迁移（`backend/src/main/resources/db/migration/`，V1 → V9）：
+由 Flyway 自动迁移（`backend/src/main/resources/db/migration/`，V1 → V15）：
 
 | 表 / 迁移 | 作用 | 关键点 |
 | --- | --- | --- |
 | `users` · V1/V4 | 账号 | BCrypt 哈希；V4 扩了邮箱、`email_verified`、`role`、`status`、`failed_attempts`、`locked_until`、`last_login_at`，并加 `uk_users_email` |
-| `workspaces` · V1 | 工作区 | 存磁盘 `root_path`；接口层**不下发**这个字段 |
+| `workspaces` · V1 | 工作区 | 存磁盘 `root_path`；接口层**不下发**这个字段。`PUT /workspaces/{id}` 只改显示名 |
 | `chat_sessions` · V1 | 会话 | 外键到工作区 |
 | `chat_messages` · V1 | 消息 | `meta` 存模型名、token 用量、本轮补丁 id 列表 |
 | `patches` · V1/V7 | 补丁 | `status` 用带条件的 UPDATE 做 CAS，保证只被应用/拒绝一次；V7 加 `summary`（模型写的变更说明） |
@@ -767,6 +854,9 @@ data: {"seq":20,"type":"canceled"}
 | `llm_providers` · V6 | 模型服务商 | `PLATFORM` 用环境变量里的 Key、扣积分；`USER` 是自带 Key（AES-GCM 存库），不扣积分 |
 | `llm_models` · V6 | 模型目录 | 单价挂在模型上，贵模型多扣、便宜模型少扣 |
 | `admin_audit` · V6 | 管理审计 | 停用账号、改角色、动别人的钱，只增不改 |
+| `room_messages` · V10/V12–V14 | 讨论室消息 | `peer_id` 空是公屏；V12 代码摘录，V13 回复/撤回，V14 编辑 |
+| `room_notices` · V11 | 讨论室提醒 | `PUBLIC` / `DIRECT` / `MENTION`；可一条条关掉 |
+| `room_reads` · V15 | 私聊已读 | `(user_id, peer_id) → last_read_id` |
 
 核心关系一句话：**`credit_ledger` 是事实，`credit_accounts` 只是它的缓存**。
 余额永远能由账本重算出来，所以「对账」这个动作才有意义 —— 两个数不一致就是真出事了。
@@ -943,6 +1033,11 @@ refresh 落库换来的是这两件事都成立了：
 - [x] **模型目录与自带 Key** —— 平台模型点卡片即默认；BYOK 加密存库，「试一句」不走积分
 - [x] **产品首页** —— `/#/` 永远先到介绍页；中英 / 日夜；进产品开新标签；页尾创作者与仓库地址
 - [x] **停止本轮** —— 协作式取消：当前工具跑完即停，半截回答保留，预扣全额退回
+- [x] **讨论室** —— 登录用户之间的公屏和私聊。不写盘、不调模型。回复 / 撤回 / 编辑 / @ / 摘录 / 输入中 / 已读
+- [x] **项目说明** —— `.wca/PROFILE.md` 注入对话（宪法之后）。Agent 没有写它的工具
+- [x] **工作区改名** —— 只改显示名，磁盘路径不动
+- [x] **树上问 / 改** + **待确认收件箱** —— 悬停文件就能问或改；别的会话里没点的卡也能跳回去
+- [x] **本地 Git** —— 底栏看分支和未提交，按已应用补丁写说明并提交（不 push）
 
 **还没做（明确推迟）**
 
@@ -951,7 +1046,6 @@ refresh 落库换来的是这两件事都成立了：
 - [ ] **Java LSP / 调试器**（跳转、诊断、补全）—— 现在 Monaco 只做语法着色
 - [ ] **对接真实支付网关**（微信 / 支付宝）+ 回调验签、金额比对、异步通知重试
 - [ ] **IP 维度限流** —— 注册已有图形验证码，账号锁定仍只按用户名计，挡不住横向撞库
-- [ ] 每工作区的 profile / 系统提示词覆盖（现在只有 `.wca/CONSTITUTION.md` 与 `.coding-rules.md`）
 - [ ] 多人同时改同一工作区、自动开 PR（现在 git 提交只落本地，不 push）
 
 ---
@@ -968,23 +1062,24 @@ web-code-assistant/
 │   │   ├── build/                 编译验证 + 测试运行（构建工具检测、诊断/失败用例解析、超时与输出裁剪）
 │   │   ├── common/                错误码与统一异常处理
 │   │   ├── config/                配置属性、线程池、启动检查
-│   │   ├── constitution/          仓库宪法（.wca/CONSTITUTION.md 读写 + 模板）
-│   │   ├── context/               system prompt 组装（引用规则 / 宪法 / 双模式）+ 引用校验
+│   │   ├── constitution/          仓库宪法（.wca/CONSTITUTION.md）+ 项目说明（.wca/PROFILE.md）
+│   │   ├── context/               system prompt 组装（引用规则 / 宪法 / 项目说明 / 双模式）+ 引用校验
+│   │   ├── room/                  讨论室（公屏 / 私聊 / 提醒 / 已读 / SSE）
 │   │   ├── credit/                积分：账户、只增账本、定价、套餐、订单、支付提供方（mock 可替换）
 │   │   ├── llm/                   模型目录 + BYOK、LangChain4j 流式、限流配额
 │   │   ├── mail/                  邮件通道：dev（不发信、回显令牌）/ smtp（真发）
 │   │   ├── map/                   Spring 组件地图（Bean / 端点 / 依赖注入扫描）
-│   │   ├── scm/                   Git 克隆、zip 导入、内置示例
+│   │   ├── scm/                   Git 克隆、zip 导入、内置示例、工作区本地 commit
 │   │   ├── security/              双令牌鉴权、刷新轮换与重放检测、失败锁定、登录审计
 │   │   ├── semantic/              语义检索（切块 + embedding + 向量检索）
 │   │   ├── terminal/              网页终端（受控 run_command）
-│   │   └── workspace/             路径解析、文件读写、diff 解析与应用、快照与回滚、禁区 REDZONE
+│   │   └── workspace/             路径解析、文件读写、diff 解析与应用、快照与回滚、禁区 REDZONE、改名
 │   └── src/main/resources/
-│       ├── db/migration/          Flyway SQL（V1 初始化 → V9 每周额度）
+│       ├── db/migration/          Flyway SQL（V1 初始化 → V15 讨论室已读）
 │       └── samples/demo-java/     内置演示项目（带一个待重构点）
 ├── frontend/                      React + Vite 前端
 │   └── src/
-│       ├── components/            工具轨道 / 文件树 / 标签页编辑器 / 快速打开 / 对话 / 补丁卡片 / 工位 / 闸门 / What-if …
+│       ├── components/            工具轨道 / 文件树 / 标签页编辑器 / 快速打开 / 对话 / 补丁卡片 / 讨论室 / 项目说明 / 工位 / 闸门 / What-if …
 │       ├── lib/                   API 客户端（双令牌+静默刷新）、hash 路由、SSE 客户端、diff 工具、Monaco 主题
 │       ├── pages/                 产品首页 / 登录注册 / 邮箱验证 / 重置密码 / 工作区列表 / IDE / 模型服务 / 积分中心 / 账号安全 / 管理后台
 │       └── styles/
@@ -993,6 +1088,7 @@ web-code-assistant/
 ├── deploy/
 │   ├── docker-compose.yml         全栈一键起（变量从根目录 .env.example 拷过来）
 │   └── sandbox/                   沙箱设计（未实现）
+├── docs/media/                    README 用的动图（对着现网实拍）
 ├── docs/self-test/                自检截图与日志，按版本分目录（v2 … v6-accounts）
 └── tools/
     ├── mock-llm/server.mjs        OpenAI 兼容 mock 模型，离线自测用（带行号剥离 + 真实行号引用）
