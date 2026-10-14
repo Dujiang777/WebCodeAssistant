@@ -11224,6 +11224,7 @@ body {
 
 .room-log header {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: baseline;
   margin-bottom: 4px;
@@ -11231,7 +11232,7 @@ body {
   color: var(--fg-2);
 }
 
-.room-log code {
+.room-log .room-path {
   display: block;
   margin-bottom: 4px;
   font-family: var(--font-mono);
@@ -11426,24 +11427,88 @@ body {
 }
 
 .room-log header .room-act {
-  margin-left: auto;
+  margin-left: 8px;
 }
 
-.room-log header .room-act + .room-act {
-  margin-left: 8px;
+.room-log header .room-act:first-of-type {
+  margin-left: auto;
 }
 
 .room-log article.is-focus {
   box-shadow: 0 0 0 1px rgba(232, 180, 90, 0.85), 0 8px 20px rgba(0, 0, 0, 0.28);
 }
 
-.room-quote {
+button.room-quote {
+  display: block;
+  width: 100%;
   margin: 0 0 6px;
   padding: 4px 8px;
+  border: 0;
   border-left: 2px solid rgba(232, 180, 90, 0.75);
+  background: transparent;
   color: var(--room-mute);
+  font: inherit;
   font-size: 12px;
   line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.room-quote:disabled {
+  cursor: default;
+}
+
+.room-edited,
+.room-new {
+  font-style: normal;
+}
+
+.room-edited {
+  color: var(--room-mute);
+}
+
+.room-new {
+  align-self: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(232, 180, 90, 0.16);
+  color: var(--room-gold-soft);
+  font-size: 11px;
+}
+
+.room-body a {
+  color: var(--room-gold-soft);
+  text-underline-offset: 2px;
+  word-break: break-all;
+}
+
+.room-body code {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(7, 6, 10, 0.72);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.room-fence {
+  margin: 0 0 6px;
+  padding: 8px;
+  max-height: 140px;
+  overflow: auto;
+  border-radius: 8px;
+  background: rgba(7, 6, 10, 0.72);
+  border: 1px solid rgba(232, 180, 90, 0.16);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre;
+}
+
+.room-fence code {
+  display: block;
+  padding: 0;
+  background: none;
+  font: inherit;
 }
 
 .room-gone {

@@ -1364,9 +1364,15 @@ export const api = {
   roomRetract: (id: number) =>
     request<RoomMessage>(`/api/room/messages/${id}/retract`, { method: 'POST' }),
 
+  roomEdit: (id: number, body: string) =>
+    request<RoomMessage>(`/api/room/messages/${id}/edit`, {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    }),
+
   roomNotices: () => request<RoomNotice[]>('/api/room/notices'),
 
-  roomRead: (kind: 'PUBLIC' | 'DIRECT', peerId: number | null) =>
+  roomRead: (kind: 'PUBLIC' | 'DIRECT' | 'ALL', peerId: number | null) =>
     request<{ marked: number }>('/api/room/notices/read', {
       method: 'POST',
       body: JSON.stringify({ kind, peerId }),
@@ -1837,6 +1843,7 @@ export interface RoomMessage {
   replyPreview?: string | null;
   replyRetracted?: boolean;
   retracted?: boolean;
+  edited?: boolean;
 }
 
 export interface RoomThread {

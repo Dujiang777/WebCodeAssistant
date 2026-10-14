@@ -82,6 +82,11 @@ public class RoomController {
                 request.excerptEnd());
     }
 
+    @PostMapping("/messages/{id}/edit")
+    public RoomNote edit(@PathVariable("id") long id, @Valid @RequestBody EditRequest request) {
+        return roomService.edit(currentUser.requireId(), id, request.body());
+    }
+
     @PostMapping("/messages/{id}/retract")
     public RoomNote retract(@PathVariable("id") long id) {
         return roomService.retract(currentUser.requireId(), id);
@@ -105,6 +110,9 @@ public class RoomController {
             Integer excerptStart,
             Integer excerptEnd
     ) {
+    }
+
+    public record EditRequest(@NotBlank @Size(max = 1000) String body) {
     }
 
     public record ReadRequest(

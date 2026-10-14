@@ -100,6 +100,9 @@ public class RoomService {
     }
 
     public int markRead(long userId, String kind, Long peerId) {
+        if ("ALL".equals(kind)) {
+            return notices.markAll(userId);
+        }
         if (!"PUBLIC".equals(kind) && !"DIRECT".equals(kind)) {
             throw ApiException.badRequest("提醒类型不对");
         }
@@ -168,6 +171,39 @@ public class RoomService {
                 excerptEnd);
         RoomNote note = repository.require(id);
         enqueue(userId, note, peerId == null ? mentionedIds(body, userId) : Set.of());
+        hub.publish(note);
+        return note;
+    }
+
+    public RoomNote edit(long userId, long messageId, String rawBody) {
+        String body = rawBody == null ? "" : rawBody.trim();
+        if (body.isEmpty() || body.length() > 1000) {
+            throw ApiException.badRequest("消息要在 1 到 1000 字之间");
+        }
+        RoomNote note = repository.find(messageId).orElseThrow(() -> ApiException.notFound("消息不存在"));
+        if (!note.visibleTo(userId)) {
+            throw ApiException.notFound("消息不存在");
+        }
+        if (note.senderId() != userId) {
+            throw ApiException.forbidden("只能修改自己的消息");
+        }
+        if (note.retracted()) {
+            throw ApiException.badRequest("撤回的消息不能再改");
+        }
+        if (body.equals(note.body())) {
+            return note;
+        }
+        long now = System.currentTimeMillis();
+        Long previous = lastSent.put(userId, now);
+        if (previous != null && now - previous < MIN_GAP_MS) {
+            throw ApiException.badRequest("发得太快了，稍等一下");
+        }
+        if (!repository.edit(messageId, userId, body)) {
+            throw ApiException.badRequest("这条消息改不了");
+        }
+        note = repository.require(messageId);
+        String preview = body.length() > 180 ? body.substring(0, 180) : body;
+        notices.rewritePreview(messageId, preview);
         hub.publish(note);
         return note;
     }

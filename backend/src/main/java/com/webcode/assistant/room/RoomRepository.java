@@ -16,7 +16,7 @@ public class RoomRepository {
     private static final String SELECT_NOTE = """
             select m.id, m.sender_id, u.username, m.peer_id, m.body, m.file_path,
                    m.excerpt, m.excerpt_start, m.excerpt_end, m.created_at,
-                   m.reply_to_id, m.retracted_at,
+                   m.reply_to_id, m.retracted_at, m.edited_at,
                    ru.username as reply_name,
                    case
                        when r.id is null or r.retracted_at is not null then null
@@ -32,6 +32,7 @@ public class RoomRepository {
 
     private static final RowMapper<RoomNote> MAPPER = (rs, rowNum) -> {
         boolean retracted = rs.getTimestamp("retracted_at") != null;
+        boolean edited = rs.getTimestamp("edited_at") != null;
         Long replyToId = rs.getObject("reply_to_id") == null ? null : rs.getLong("reply_to_id");
         return new RoomNote(
                 rs.getLong("id"),
@@ -48,7 +49,8 @@ public class RoomRepository {
                 replyToId == null ? null : rs.getString("reply_name"),
                 replyToId == null ? null : rs.getString("reply_preview"),
                 replyToId != null && rs.getInt("reply_retracted") == 1,
-                retracted);
+                retracted,
+                edited && !retracted);
     };
 
     private static final RowMapper<ThreadHead> THREADS = (rs, rowNum) -> new ThreadHead(
@@ -100,6 +102,19 @@ public class RoomRepository {
 
     public RoomNote require(long id) {
         return find(id).orElseThrow(() -> new IllegalStateException("讨论消息不存在: " + id));
+    }
+
+    public boolean edit(long id, long senderId, String body) {
+        int updated = jdbc.sql("""
+                        update room_messages
+                        set body = :body, edited_at = now(6)
+                        where id = :id and sender_id = :sender and retracted_at is null
+                        """)
+                .param("id", id)
+                .param("sender", senderId)
+                .param("body", body)
+                .update();
+        return updated > 0;
     }
 
     public boolean retract(long id, long senderId) {

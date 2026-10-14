@@ -18,7 +18,8 @@ public record RoomNote(
         String replyName,
         String replyPreview,
         boolean replyRetracted,
-        boolean retracted
+        boolean retracted,
+        boolean edited
 ) {
     public boolean visibleTo(long userId) {
         return peerId == null || senderId == userId || peerId == userId;

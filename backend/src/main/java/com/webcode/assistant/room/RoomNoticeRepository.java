@@ -71,6 +71,27 @@ public class RoomNoticeRepository {
                 .list();
     }
 
+    public int markAll(long userId) {
+        return jdbc.sql("""
+                        update room_notices
+                        set read_at = now(6)
+                        where user_id = :user and read_at is null
+                        """)
+                .param("user", userId)
+                .update();
+    }
+
+    public int rewritePreview(long messageId, String preview) {
+        return jdbc.sql("""
+                        update room_notices
+                        set preview = :preview
+                        where message_id = :message and read_at is null
+                        """)
+                .param("message", messageId)
+                .param("preview", preview)
+                .update();
+    }
+
     public int markRead(long userId, String kind, Long peerId) {
         if ("DIRECT".equals(kind)) {
             return jdbc.sql("""
