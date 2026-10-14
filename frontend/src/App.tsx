@@ -4,6 +4,7 @@ import { RoomDock } from './components/RoomDock';
 import { api, clearSession, loadRefreshToken, loadUser, patchUser, subscribeSession } from './lib/api';
 import type { AuthUser } from './lib/api';
 import { navigate, previousPath, useRoute } from './lib/router';
+import { consumeRoomLogin, openRoomDock, peekRoomLogin, rememberRoomLogin } from './lib/roomDock';
 import { initTheme } from './lib/theme';
 import { AccountPage } from './pages/AccountPage';
 import { AdminPage } from './pages/AdminPage';
@@ -70,8 +71,17 @@ export function App() {
   useEffect(() => {
     if (!user && !ANONYMOUS_ROUTES.has(route.name)) {
       navigate('/login');
-    } else if (user && route.name === 'login') {
-      navigate('/workspaces');
+      return;
+    }
+    if (user && route.name === 'login') {
+      // replace：别把登录页留在历史里，否则回退会立刻被弹回工作区，介绍页就回不去了
+      if (peekRoomLogin()) navigate('/', { replace: true });
+      else navigate('/workspaces', { replace: true });
+      return;
+    }
+    if (user && (route.name === 'home' || route.name === 'root') && peekRoomLogin()) {
+      consumeRoomLogin();
+      openRoomDock();
     }
   }, [user, route.name]);
 
@@ -86,7 +96,17 @@ export function App() {
   const withRoom = (node: ReactNode) => (
     <>
       {node}
-      <RoomDock user={user} onLogin={() => navigate('/login')} />
+      <RoomDock
+        user={user}
+        onLogin={() => {
+          if (loadUser()) {
+            openRoomDock();
+            return;
+          }
+          rememberRoomLogin();
+          navigate('/login');
+        }}
+      />
     </>
   );
 

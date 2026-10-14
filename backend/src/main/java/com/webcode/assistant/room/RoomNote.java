@@ -10,6 +10,9 @@ public record RoomNote(
         Long peerId,
         String body,
         String filePath,
+        String excerpt,
+        Integer excerptStart,
+        Integer excerptEnd,
         Instant createdAt
 ) {
     public boolean visibleTo(long userId) {

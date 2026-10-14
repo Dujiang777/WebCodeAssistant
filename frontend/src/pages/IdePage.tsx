@@ -60,7 +60,7 @@ import { ToolRail } from '../components/ToolRail';
 import { TopBar } from '../components/TopBar';
 import { WhatIfPanel } from '../components/WhatIfPanel';
 import { QuickOpen, flattenFiles } from '../components/QuickOpen';
-import { setRoomFilePath, openRoomDock } from '../lib/roomDock';
+import { EMPTY_CODE, openRoomDock, setRoomCode } from '../lib/roomDock';
 import { TerminalMark, FolderIcon, PlusIcon, RefreshIcon, SearchIcon } from '../components/icons';
 
 /**
@@ -336,9 +336,17 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   // ------------------------------------------------- 功能 12：终端
   const [terminalOpen, setTerminalOpen] = useState(false);
   useEffect(() => {
-    setRoomFilePath(selectedPath);
-    return () => setRoomFilePath(null);
-  }, [selectedPath]);
+    const raw = selection?.text ?? '';
+    const clipped = raw.length > 2000;
+    setRoomCode({
+      path: selectedPath,
+      excerpt: raw.length === 0 ? null : clipped ? raw.slice(0, 2000) : raw,
+      startLine: selection && raw.length > 0 ? selection.startLine : null,
+      endLine: selection && raw.length > 0 ? selection.endLine : null,
+      clipped,
+    });
+    return () => setRoomCode(EMPTY_CODE);
+  }, [selectedPath, selection]);
 
   // ------------------------------------------------- 功能 13：Agent 工位
   const [desk, setDesk] = useState<DeskView | null>(null);

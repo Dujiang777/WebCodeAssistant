@@ -58,7 +58,14 @@ public class RoomController {
 
     @PostMapping("/messages")
     public RoomNote send(@Valid @RequestBody SendRequest request) {
-        return roomService.send(currentUser.requireId(), request.peerId(), request.body(), request.filePath());
+        return roomService.send(
+                currentUser.requireId(),
+                request.peerId(),
+                request.body(),
+                request.filePath(),
+                request.excerpt(),
+                request.excerptStart(),
+                request.excerptEnd());
     }
 
     @GetMapping(value = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -73,7 +80,10 @@ public class RoomController {
     public record SendRequest(
             Long peerId,
             @NotBlank @Size(max = 1000) String body,
-            @Size(max = 240) String filePath
+            @Size(max = 240) String filePath,
+            @Size(max = 2000) String excerpt,
+            Integer excerptStart,
+            Integer excerptEnd
     ) {
     }
 

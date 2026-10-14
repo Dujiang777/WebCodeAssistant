@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type Pointe
 
 import { api } from '../lib/api';
 import type { AuthUser, RoomMessage, RoomNotice, RoomPerson } from '../lib/api';
-import { getRoomFileSnapshot, subscribeRoomFile, subscribeRoomOpen } from '../lib/roomDock';
+import { getRoomCodeSnapshot, subscribeRoomFile, subscribeRoomOpen } from '../lib/roomDock';
 import { openRoomStream } from '../lib/roomStream';
 import type { RoomStreamStatus } from '../lib/roomStream';
 import { useToast } from '../lib/toast';
@@ -64,7 +64,7 @@ function upsertPerson(list: RoomPerson[], person: RoomPerson): RoomPerson[] {
  */
 export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: () => void }) {
   const toast = useToast();
-  const file = useSyncExternalStore(subscribeRoomFile, getRoomFileSnapshot);
+  const code = useSyncExternalStore(subscribeRoomFile, getRoomCodeSnapshot);
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<Tab>('inbox');
   const [people, setPeople] = useState<RoomPerson[]>([]);
@@ -279,7 +279,10 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
       const saved = await api.roomSend(
         text,
         tab === 'direct' ? peerId : null,
-        attachFile && file.path ? file.path : null,
+        attachFile && code.excerpt ? code.path : null,
+        attachFile && code.excerpt ? code.excerpt : null,
+        attachFile && code.excerpt ? code.startLine : null,
+        attachFile && code.excerpt ? code.endLine : null,
       );
       setDraft('');
       setMessages((current) => (current.some((item) => item.id === saved.id) ? current : [...current, saved]));
@@ -428,7 +431,20 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
                     <b>{message.senderId === meId ? '我' : message.senderName}</b>
                     <time>{clock(message.createdAt)}</time>
                   </header>
-                  {message.filePath && <code>{message.filePath}</code>}
+                  {message.excerpt ? (
+                    <figure className="room-code">
+                      <figcaption>
+                        {message.filePath ?? '选中的代码'}
+                        {message.excerptStart != null && message.excerptEnd != null
+                          ? ` · 第 ${message.excerptStart}–${message.excerptEnd} 行`
+                          : ''}
+                        {' · 只能看这段'}
+                      </figcaption>
+                      <pre>{message.excerpt}</pre>
+                    </figure>
+                  ) : (
+                    message.filePath && <code>{message.filePath}</code>
+                  )}
                   <p>{message.body}</p>
                 </article>
               ))}
@@ -445,11 +461,13 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
               <label>
                 <input
                   type="checkbox"
-                  checked={attachFile && Boolean(file.path)}
-                  disabled={!file.path}
+                  checked={attachFile && Boolean(code.excerpt)}
+                  disabled={!code.excerpt}
                   onChange={(event) => setAttachFile(event.target.checked)}
                 />
-                {file.path ? `带上 ${file.path.split('/').pop()}` : '未打开文件'}
+                {code.excerpt
+                  ? `带上第 ${code.startLine}–${code.endLine} 行${code.clipped ? '（前 2000 字）' : ''}`
+                  : '先选中一段代码再带上'}
               </label>
               <div>
                 <input

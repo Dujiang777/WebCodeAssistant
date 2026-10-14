@@ -82,14 +82,28 @@ public class RoomService {
         return emitter;
     }
 
-    public RoomNote send(long userId, Long peerId, String rawBody, String rawPath) {
+    public RoomNote send(long userId, Long peerId, String rawBody, String rawPath,
+                         String rawExcerpt, Integer excerptStart, Integer excerptEnd) {
         String body = rawBody == null ? "" : rawBody.trim();
         if (body.isEmpty() || body.length() > 1000) {
             throw ApiException.badRequest("消息要在 1 到 1000 字之间");
         }
+        String excerpt = rawExcerpt == null || rawExcerpt.isBlank() ? "" : rawExcerpt;
+        if (excerpt.length() > 2000) {
+            throw ApiException.badRequest("附上的代码不能超过 2000 字");
+        }
         String path = rawPath == null ? "" : rawPath.trim();
         if (path.length() > 240 || path.indexOf('\n') >= 0 || path.indexOf('\r') >= 0) {
             throw ApiException.badRequest("文件路径不合法");
+        }
+        // 没有代码原文时，路径对别的工作区没有意义，不存
+        if (excerpt.isEmpty()) {
+            path = "";
+            excerptStart = null;
+            excerptEnd = null;
+        } else if (excerptStart == null || excerptEnd == null || excerptStart < 1 || excerptEnd < excerptStart) {
+            excerptStart = null;
+            excerptEnd = null;
         }
         if (peerId != null) {
             requirePeer(userId, peerId);
@@ -99,7 +113,14 @@ public class RoomService {
         if (previous != null && now - previous < MIN_GAP_MS) {
             throw ApiException.badRequest("发得太快了，稍等一下");
         }
-        long id = repository.insert(userId, peerId, body, path.isEmpty() ? null : path);
+        long id = repository.insert(
+                userId,
+                peerId,
+                body,
+                path.isEmpty() ? null : path,
+                excerpt.isEmpty() ? null : excerpt,
+                excerptStart,
+                excerptEnd);
         RoomNote note = repository.require(id);
         enqueue(userId, note);
         hub.publish(note);

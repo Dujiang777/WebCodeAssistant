@@ -56,9 +56,17 @@ export function parseRoute(hash: string): Route {
   return { name: 'workspaces' };
 }
 
-export function navigate(path: string): void {
+export function navigate(path: string, options?: { replace?: boolean }): void {
   const target = path.startsWith('/') ? path : `/${path}`;
-  if (window.location.hash === `#${target}`) return;
+  const hash = `#${target}`;
+  const current = window.location.hash;
+  if (current === hash || (target === '/' && (current === '' || current === '#' || current === '#/'))) return;
+  if (options?.replace) {
+    const url = new URL(window.location.href);
+    url.hash = hash;
+    window.location.replace(url.toString());
+    return;
+  }
   window.location.hash = target;
 }
 

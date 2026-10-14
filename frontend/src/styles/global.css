@@ -10942,7 +10942,32 @@ body {
   margin-bottom: 4px;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--signal-soft);
+  color: var(--fg-2);
+}
+
+.room-code {
+  margin: 0 0 6px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--bg-0);
+  border: 1px solid var(--line);
+}
+
+.room-code figcaption {
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-2);
+}
+
+.room-code pre {
+  margin: 0;
+  max-height: 160px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre;
 }
 
 .room-log p {

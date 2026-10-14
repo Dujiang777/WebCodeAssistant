@@ -201,8 +201,27 @@ function emit(user: AuthUser | null): void {
 export function subscribeSession(listener: SessionListener): () => void {
   listeners.add(listener);
   listener(loadUser());
+  // 介绍页的「登录」开的是新标签。登录落在那个标签里，这一页不会自己刷新，
+  // 不听 storage / focus 的话，讨论室会一直停在「未登录」。
+  const sync = (event?: StorageEvent) => {
+    if (event && event.key !== null && event.key !== USER_KEY) return;
+    const next = readStoredUser();
+    const prev = cached === undefined ? undefined : cached;
+    if (prev === next) return;
+    if (prev && next && prev.userId === next.userId && prev.username === next.username && prev.role === next.role) {
+      return;
+    }
+    if (!prev && !next) return;
+    emit(next);
+  };
+  const onStorage = (event: StorageEvent) => sync(event);
+  const onFocus = () => sync();
+  window.addEventListener('storage', onStorage);
+  window.addEventListener('focus', onFocus);
   return () => {
     listeners.delete(listener);
+    window.removeEventListener('storage', onStorage);
+    window.removeEventListener('focus', onFocus);
   };
 }
 
@@ -1308,13 +1327,23 @@ export const api = {
     return request<RoomMessage[]>(`/api/room/messages${q}`);
   },
 
-  roomSend: (body: string, peerId: number | null, filePath: string | null) =>
+  roomSend: (
+    body: string,
+    peerId: number | null,
+    filePath: string | null,
+    excerpt: string | null,
+    excerptStart: number | null,
+    excerptEnd: number | null,
+  ) =>
     request<RoomMessage>('/api/room/messages', {
       method: 'POST',
       body: JSON.stringify({
         body,
         peerId,
         filePath,
+        excerpt,
+        excerptStart,
+        excerptEnd,
       }),
     }),
 
@@ -1782,6 +1811,9 @@ export interface RoomMessage {
   peerId: number | null;
   body: string;
   filePath: string | null;
+  excerpt: string | null;
+  excerptStart: number | null;
+  excerptEnd: number | null;
   createdAt: string;
 }
 
