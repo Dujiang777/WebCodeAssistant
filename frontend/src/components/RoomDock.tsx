@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type Pointe
 
 import { api } from '../lib/api';
 import type { AuthUser, RoomMessage, RoomNotice, RoomPerson } from '../lib/api';
+import { copyText } from '../lib/clipboard';
 import { getRoomCodeSnapshot, subscribeRoomFile, subscribeRoomOpen } from '../lib/roomDock';
 import { openRoomStream } from '../lib/roomStream';
 import type { RoomStreamStatus } from '../lib/roomStream';
@@ -266,6 +267,14 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
   );
   const publicUnread = notices.filter((item) => item.kind === 'PUBLIC').length;
   const directUnread = notices.filter((item) => item.kind === 'DIRECT').length;
+  const peerName = people.find((person) => person.id === peerId)?.username ?? '';
+
+  const copyExcerpt = (text: string) => {
+    void copyText(text).then((ok) => {
+      if (ok) toast.info('这段代码已复制');
+      else toast.error('复制失败');
+    });
+  };
 
   const send = async () => {
     const text = draft.trim();
@@ -343,7 +352,15 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
       style={spot}
       role="dialog"
       aria-label="讨论室"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') setExpanded(false);
+      }}
     >
+      <div className="room-sky" aria-hidden="true">
+        <i className="room-galaxy" />
+        <i className="room-stars" />
+        <i className="room-stars bright" />
+      </div>
       <header
         className="room-head"
         title="拖动标题可以挪开"
@@ -354,7 +371,10 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
       >
         <div>
           <b>讨论室</b>
-          <span>{!user ? '未登录' : status === 'open' ? '实时' : status === 'closed' ? '未连接' : '连接中'}</span>
+          <span>
+            {!user ? '未登录' : status === 'open' ? '实时' : status === 'closed' ? '未连接' : '连接中'}
+            {tab === 'direct' && peerName ? ` · ${peerName}` : ''}
+          </span>
         </div>
         <button type="button" className="icon-btn" onClick={() => setExpanded(false)} title="收起">
           ×
@@ -434,11 +454,15 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
                   {message.excerpt ? (
                     <figure className="room-code">
                       <figcaption>
-                        {message.filePath ?? '选中的代码'}
-                        {message.excerptStart != null && message.excerptEnd != null
-                          ? ` · 第 ${message.excerptStart}–${message.excerptEnd} 行`
-                          : ''}
-                        {' · 只能看这段'}
+                        <span>
+                          {message.filePath ?? '选中的代码'}
+                          {message.excerptStart != null && message.excerptEnd != null
+                            ? ` · 第 ${message.excerptStart}–${message.excerptEnd} 行`
+                            : ''}
+                        </span>
+                        <button type="button" onClick={() => copyExcerpt(message.excerpt ?? '')}>
+                          复制
+                        </button>
                       </figcaption>
                       <pre>{message.excerpt}</pre>
                     </figure>
@@ -470,16 +494,24 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
                   : '先选中一段代码再带上'}
               </label>
               <div>
-                <input
+                <textarea
                   value={draft}
+                  rows={2}
                   maxLength={1000}
                   placeholder={tab === 'public' ? '公屏：这段怎么改' : '私聊：只发给对方'}
                   onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      void send();
+                    }
+                  }}
                 />
                 <button type="submit" className="btn btn-primary btn-sm" disabled={sending || !draft.trim()}>
                   发送
                 </button>
               </div>
+              <p className="room-hint">回车发送，Shift+回车换行</p>
             </form>
           )}
         </>

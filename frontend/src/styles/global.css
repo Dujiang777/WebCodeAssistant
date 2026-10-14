@@ -10703,16 +10703,38 @@ body {
 .room-dock {
   position: fixed;
   z-index: 70;
+  --room-ink: #f6f1e6;
+  --room-mute: #a89b88;
+  --room-gold: #e8b45a;
+  --room-gold-soft: #f2cd8f;
+  --room-line: rgba(232, 180, 90, 0.28);
+  --bg-0: #08060a;
+  --bg-1: #100e14;
+  --bg-2: rgba(16, 14, 20, 0.72);
+  --bg-3: rgba(22, 18, 28, 0.78);
+  --fg-0: var(--room-ink);
+  --fg-2: var(--room-mute);
+  --line: var(--room-line);
+  --signal: var(--room-gold);
+  --signal-soft: var(--room-gold-soft);
+  --signal-line: rgba(232, 180, 90, 0.46);
+  --signal-dim: rgba(232, 180, 90, 0.16);
+  color: var(--room-ink);
 }
 
 .room-fab {
   width: 52px;
   height: 52px;
-  border: 1px solid var(--signal-line);
+  border: 1px solid var(--room-line);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-1) 88%, black);
-  color: var(--signal-soft);
-  box-shadow: var(--shadow-lift);
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 248, 230, 0.42), transparent 36%),
+    radial-gradient(circle at 70% 72%, rgba(232, 180, 90, 0.38), transparent 58%),
+    #0b0908;
+  color: var(--room-gold-soft);
+  box-shadow:
+    0 0 0 1px rgba(232, 180, 90, 0.28),
+    0 14px 32px rgba(0, 0, 0, 0.48);
   font-family: var(--font-display);
   letter-spacing: 0.08em;
   cursor: grab;
@@ -10732,8 +10754,8 @@ body {
   height: 18px;
   padding: 0 4px;
   border-radius: 999px;
-  background: var(--signal);
-  color: var(--bg-0);
+  background: var(--room-gold);
+  color: #1a140c;
   font-style: normal;
   font-family: var(--font-mono);
   font-size: 10px;
@@ -10745,11 +10767,121 @@ body {
   height: min(520px, calc(100vh - 96px));
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--signal-line);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--bg-1) 94%, black);
-  box-shadow: var(--shadow-lift), 0 0 0 1px color-mix(in srgb, var(--signal) 12%, transparent);
+  border: 1px solid var(--room-line);
+  border-radius: 16px;
+  background:
+    radial-gradient(70% 42% at 8% 100%, rgba(52, 36, 84, 0.55), transparent 70%),
+    linear-gradient(180deg, #0a0805 0%, #0c0a12 48%, #0a0805 100%);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(232, 180, 90, 0.12);
   overflow: hidden;
+}
+
+.room-sky {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.room-galaxy {
+  position: absolute;
+  top: 12%;
+  left: -30%;
+  width: 170%;
+  height: 62%;
+  transform: rotate(-18deg);
+  background:
+    radial-gradient(ellipse 6% 18% at 54% 48%, rgba(255, 250, 236, 0.85), transparent 70%),
+    radial-gradient(ellipse 22% 46% at 52% 50%, rgba(255, 236, 196, 0.62), transparent 72%),
+    radial-gradient(ellipse 48% 38% at 48% 52%, rgba(232, 180, 90, 0.48), transparent 74%),
+    radial-gradient(ellipse 72% 50% at 42% 58%, rgba(140, 120, 210, 0.42), transparent 76%),
+    radial-gradient(ellipse 90% 60% at 60% 46%, rgba(80, 70, 140, 0.28), transparent 78%);
+  filter: blur(8px);
+  animation: room-galaxy 16s ease-in-out infinite;
+}
+
+.room-stars,
+.room-stars.bright {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.room-stars {
+  box-shadow:
+    24px 36px rgba(255, 243, 220, 0.95),
+    70px 88px rgba(200, 212, 255, 0.8),
+    128px 22px rgba(255, 243, 220, 0.9),
+    186px 64px rgba(232, 180, 90, 0.85),
+    240px 18px rgba(255, 248, 232, 1),
+    310px 52px rgba(255, 243, 220, 0.85),
+    348px 96px rgba(200, 212, 255, 0.75),
+    42px 150px rgba(255, 243, 220, 0.75),
+    96px 190px rgba(232, 180, 90, 0.7),
+    168px 140px rgba(255, 243, 220, 0.8),
+    220px 210px rgba(200, 212, 255, 0.65),
+    290px 168px rgba(255, 243, 220, 0.75),
+    340px 230px rgba(255, 248, 232, 0.7),
+    18px 280px rgba(232, 180, 90, 0.6),
+    80px 320px rgba(255, 243, 220, 0.6),
+    150px 360px rgba(200, 212, 255, 0.55),
+    260px 300px rgba(255, 243, 220, 0.65),
+    330px 390px rgba(255, 248, 232, 0.6),
+    48px 420px rgba(255, 243, 220, 0.7),
+    190px 450px rgba(200, 212, 255, 0.6),
+    300px 470px rgba(255, 248, 232, 0.75),
+    360px 160px rgba(255, 243, 220, 0.8),
+    12px 70px rgba(255, 248, 232, 0.7),
+    260px 90px rgba(214, 222, 255, 0.7);
+  animation: room-twinkle 7s ease-in-out infinite;
+}
+
+.room-stars.bright {
+  width: 2px;
+  height: 2px;
+  box-shadow:
+    54px 48px rgba(255, 250, 240, 0.95),
+    200px 40px rgba(255, 248, 232, 0.95),
+    300px 120px rgba(255, 243, 220, 0.9),
+    120px 250px rgba(214, 222, 255, 0.8),
+    250px 420px rgba(255, 248, 232, 0.75);
+  animation: room-twinkle 11s ease-in-out -4s infinite;
+}
+
+@keyframes room-galaxy {
+  0%,
+  100% { opacity: 0.78; }
+  50% { opacity: 1; }
+}
+
+@keyframes room-twinkle {
+  0%,
+  100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .room-galaxy,
+  .room-stars,
+  .room-stars.bright {
+    animation: none;
+  }
+}
+
+.room-head,
+.room-tabs,
+.room-people,
+.room-log,
+.room-compose {
+  position: relative;
+  z-index: 1;
 }
 
 .room-head,
@@ -10792,7 +10924,8 @@ body {
 
 .room-tabs button,
 .room-tabs select,
-.room-compose input {
+.room-compose input,
+.room-compose textarea {
   border: 1px solid var(--line);
   background: var(--bg-2);
   color: var(--fg-0);
@@ -10917,15 +11050,16 @@ body {
 .room-log article {
   max-width: 92%;
   padding: 8px 10px;
-  border-radius: 10px;
-  background: var(--bg-3);
-  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(10, 8, 12, 0.62);
+  border: 1px solid rgba(232, 180, 90, 0.16);
+  backdrop-filter: blur(8px);
 }
 
 .room-log article.mine {
   align-self: flex-end;
-  border-color: var(--signal-line);
-  background: color-mix(in srgb, var(--signal) 10%, var(--bg-3));
+  border-color: rgba(232, 180, 90, 0.42);
+  background: rgba(42, 30, 14, 0.72);
 }
 
 .room-log header {
@@ -10954,10 +11088,23 @@ body {
 }
 
 .room-code figcaption {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   margin-bottom: 6px;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--fg-2);
+  color: var(--room-mute, var(--fg-2));
+}
+
+.room-code figcaption button {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--room-gold-soft, var(--signal-soft));
+  font: inherit;
+  cursor: pointer;
 }
 
 .room-code pre {
@@ -10996,14 +11143,25 @@ body {
 
 .room-compose div {
   display: flex;
+  align-items: flex-end;
   gap: 8px;
 }
 
+.room-compose textarea,
 .room-compose input[type='text'],
 .room-compose input:not([type]) {
   flex: 1;
   min-width: 0;
   padding: 8px 10px;
+  resize: none;
+  font: inherit;
+  line-height: 1.45;
+}
+
+.room-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--room-mute);
 }
 
 .editor-tab-name {
