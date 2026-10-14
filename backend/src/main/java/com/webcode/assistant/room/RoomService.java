@@ -23,6 +23,7 @@ public class RoomService {
     private static final int SEARCH = 40;
     private static final int MENTION_CAP = 8;
     private static final long MIN_GAP_MS = 400;
+    private static final long TYPE_GAP_MS = 500;
     private static final long OPEN_BEFORE = Long.MAX_VALUE;
     private static final Pattern MENTION = Pattern.compile("(?<![A-Za-z0-9_.-])@([A-Za-z0-9_.-]{3,64})");
 
@@ -31,6 +32,7 @@ public class RoomService {
     private final UserRepository users;
     private final RoomHub hub;
     private final Map<Long, Long> lastSent = new ConcurrentHashMap<>();
+    private final Map<Long, Long> lastTyped = new ConcurrentHashMap<>();
 
     public RoomService(RoomRepository repository,
                        RoomNoticeRepository notices,
@@ -109,7 +111,40 @@ public class RoomService {
         if ("DIRECT".equals(kind) && peerId == null) {
             throw ApiException.badRequest("私聊提醒要带上对方");
         }
-        return notices.markRead(userId, kind, peerId);
+        int marked = notices.markRead(userId, kind, peerId);
+        if ("DIRECT".equals(kind) && peerId != null) {
+            long last = repository.latestDirectId(userId, peerId);
+            repository.rememberRead(userId, peerId, last);
+            hub.sendTo(peerId, "receipt", new ReadCursor(userId, last));
+        }
+        return marked;
+    }
+
+    public long peerReceipt(long userId, long peerId) {
+        requirePeer(userId, peerId);
+        return repository.readCursor(peerId, userId);
+    }
+
+    public int dismiss(long userId, long noticeId) {
+        return notices.markOne(userId, noticeId);
+    }
+
+    public void typing(long userId, String username, Long peerId) {
+        if (peerId != null) {
+            requirePeer(userId, peerId);
+        }
+        long now = System.currentTimeMillis();
+        Long previous = lastTyped.get(userId);
+        if (previous != null && now - previous < TYPE_GAP_MS) {
+            return;
+        }
+        lastTyped.put(userId, now);
+        TypingPulse pulse = new TypingPulse(userId, username, peerId);
+        if (peerId == null) {
+            hub.broadcast("typing", pulse);
+            return;
+        }
+        hub.sendTo(peerId, "typing", pulse);
     }
 
     public org.springframework.web.servlet.mvc.method.annotation.SseEmitter open(long userId, String username, Long afterId) {
@@ -317,6 +352,12 @@ public class RoomService {
             Instant lastAt,
             int unread
     ) {
+    }
+
+    public record ReadCursor(long userId, long lastReadId) {
+    }
+
+    public record TypingPulse(long userId, String username, Long peerId) {
     }
 
     private void requirePeer(long userId, long peerId) {

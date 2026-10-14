@@ -69,6 +69,22 @@ public class RoomController {
         return new Marked(marked);
     }
 
+    @PostMapping("/notices/{id}/read")
+    public Marked dismiss(@PathVariable("id") long id) {
+        return new Marked(roomService.dismiss(currentUser.requireId(), id));
+    }
+
+    @GetMapping("/receipt")
+    public ReceiptValue receipt(@RequestParam("peerId") long peerId) {
+        return new ReceiptValue(roomService.peerReceipt(currentUser.requireId(), peerId));
+    }
+
+    @PostMapping("/typing")
+    public void typing(@RequestBody(required = false) TypingRequest request) {
+        var me = currentUser.require();
+        roomService.typing(me.userId(), me.username(), request == null ? null : request.peerId());
+    }
+
     @PostMapping("/messages")
     public RoomNote send(@Valid @RequestBody SendRequest request) {
         return roomService.send(
@@ -122,5 +138,11 @@ public class RoomController {
     }
 
     public record Marked(int marked) {
+    }
+
+    public record ReceiptValue(long lastReadId) {
+    }
+
+    public record TypingRequest(Long peerId) {
     }
 }

@@ -83,7 +83,23 @@ function quoteText(message: RoomMessage): string {
   return message.excerpt ? '一段代码' : '这条消息';
 }
 
-function MessageBody({ text }: { text: string }) {
+const DRAFT_PREFIX = 'wca.room.draft.';
+
+function channelParts(channel: string): { tab: Tab; peerId: number | null } {
+  if (channel === 'public') return { tab: 'public', peerId: null };
+  if (channel.startsWith('d:')) {
+    const raw = channel.slice(2);
+    return { tab: 'direct', peerId: raw === 'x' ? null : Number(raw) };
+  }
+  return { tab: 'inbox', peerId: null };
+}
+
+function draftStoreKey(tab: Tab, peerId: number | null): string {
+  if (tab === 'direct') return `${DRAFT_PREFIX}direct.${peerId ?? 'new'}`;
+  return `${DRAFT_PREFIX}${tab}`;
+}
+
+function MessageBody({ text, onMention }: { text: string; onMention?: (username: string) => void }) {
   const blocks = splitFences(text);
   return (
     <div className="room-body">
@@ -93,7 +109,7 @@ function MessageBody({ text }: { text: string }) {
             <code>{block.text}</code>
           </pre>
         ) : (
-          <p key={index}>{inlineNodes(block.text, index)}</p>
+          <p key={index}>{inlineNodes(block.text, index, onMention)}</p>
         ),
       )}
     </div>
@@ -114,7 +130,7 @@ function splitFences(text: string): Array<{ kind: 'text' | 'code'; text: string 
   return blocks.filter((block) => block.kind === 'code' || block.text.length > 0);
 }
 
-function inlineNodes(text: string, block: number) {
+function inlineNodes(text: string, block: number, onMention?: (username: string) => void) {
   const nodes: Array<string | ReactNode> = [];
   const pattern = /(`[^`\n]+`|https?:\/\/[^\s<]+|@[A-Za-z0-9_.-]{3,64})/g;
   let last = 0;
@@ -126,10 +142,11 @@ function inlineNodes(text: string, block: number) {
     if (token.startsWith('`') && token.endsWith('`') && token.length > 2) {
       nodes.push(<code key={key}>{token.slice(1, -1)}</code>);
     } else if (token.startsWith('@')) {
+      const username = token.slice(1);
       nodes.push(
-        <mark key={key} className="room-at">
+        <button key={key} type="button" className="room-at" onClick={() => onMention?.(username)}>
           {token}
-        </mark>,
+        </button>,
       );
     } else {
       const href = token.replace(/[.,;:!?)。，、]+$/u, '');
@@ -167,6 +184,8 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
   const [reply, setReply] = useState<RoomMessage | null>(null);
   const [editing, setEditing] = useState<RoomMessage | null>(null);
   const [freshIds, setFreshIds] = useState<number[]>([]);
+  const [typing, setTyping] = useState<Array<{ id: number; name: string; peerId: number | null; until: number }>>([]);
+  const [receipts, setReceipts] = useState<Record<number, number>>({});
   const [attachFile, setAttachFile] = useState(true);
   const [status, setStatus] = useState<RoomStreamStatus>(user ? 'connecting' : 'closed');
   const [sending, setSending] = useState(false);
@@ -183,6 +202,12 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
   const pinBottom = useRef(true);
   const holdScroll = useRef(false);
   const freshKey = useRef('');
+  const draftRef = useRef('');
+  const draftChannel = useRef('inbox');
+  const draftReady = useRef(false);
+  const typingSent = useRef(0);
+  draftRef.current = draft;
+  const channelKey = tab === 'direct' ? `d:${peerId ?? 'x'}` : tab;
   const meId = user?.userId ?? 0;
   cornerRef.current = corner;
 
@@ -306,6 +331,18 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
           if (event.notice.kind === 'DIRECT') loadThreads();
           return;
         }
+        if (event.name === 'typing') {
+          if (event.userId === userId) return;
+          setTyping((current) => [
+            ...current.filter((item) => item.id !== event.userId),
+            { id: event.userId, name: event.username, peerId: event.peerId, until: Date.now() + 2800 },
+          ]);
+          return;
+        }
+        if (event.name === 'receipt') {
+          setReceipts((current) => ({ ...current, [event.userId]: event.lastReadId }));
+          return;
+        }
         setMessages((current) => {
           const preview = event.message.body.trim().slice(0, 80);
           return mergeMessages(current, [event.message]).map((item) => {
@@ -344,6 +381,56 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
     pinBottom.current = !holdScroll.current;
     holdScroll.current = false;
   }, [tab, peerId]);
+
+  useEffect(() => {
+    if (!draftReady.current) {
+      draftReady.current = true;
+      draftChannel.current = channelKey;
+      setDraft(sessionStorage.getItem(draftStoreKey(tab, peerId)) ?? '');
+      return;
+    }
+    const previous = draftChannel.current;
+    if (previous !== channelKey) {
+      const from = channelParts(previous);
+      if (!editing) sessionStorage.setItem(draftStoreKey(from.tab, from.peerId), draftRef.current);
+      draftChannel.current = channelKey;
+      const to = channelParts(channelKey);
+      setDraft(sessionStorage.getItem(draftStoreKey(to.tab, to.peerId)) ?? '');
+      return;
+    }
+    if (!editing) sessionStorage.setItem(draftStoreKey(tab, peerId), draft);
+  }, [channelKey, draft, editing, tab, peerId]);
+
+  useEffect(() => {
+    if (!user || tab !== 'direct' || peerId == null) return;
+    let cancelled = false;
+    void api
+      .roomReceipt(peerId)
+      .then((row) => {
+        if (!cancelled) setReceipts((current) => ({ ...current, [peerId]: row.lastReadId }));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, tab, peerId]);
+
+  useEffect(() => {
+    const composing = tab === 'public' || (tab === 'direct' && peerId != null);
+    if (!user || !composing || editing || !draft.trim()) return;
+    const now = Date.now();
+    if (now - typingSent.current < 1400) return;
+    typingSent.current = now;
+    void api.roomTyping(tab === 'direct' ? peerId : null).catch(() => undefined);
+  }, [draft, user, editing, tab, peerId]);
+
+  useEffect(() => {
+    if (typing.length === 0) return;
+    const timer = window.setTimeout(() => {
+      setTyping((current) => current.filter((item) => item.until > Date.now()));
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [typing]);
 
   useEffect(() => {
     if (!user || !expanded || tab === 'inbox') return;
@@ -525,7 +612,7 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
       setSending(true);
       try {
         const saved = await api.roomEdit(editing.id, text);
-        setDraft('');
+        setDraft(sessionStorage.getItem(draftStoreKey(tab, peerId)) ?? '');
         setEditing(null);
         setMessages((current) =>
           current.map((item) => {
@@ -597,9 +684,31 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
   const beginReply = (message: RoomMessage) => {
     if (editing) {
       setEditing(null);
-      setDraft('');
+      setDraft(sessionStorage.getItem(draftStoreKey(tab, peerId)) ?? '');
     }
     setReply(message);
+  };
+
+  const openPerson = (username: string) => {
+    if (!user || username === user.username) return;
+    const known = people.find((person) => person.username === username);
+    const thread = threads.find((item) => item.username === username);
+    const id = known?.id ?? thread?.peerId;
+    if (id == null) {
+      toast.info('这个账号不在最近的列表里');
+      return;
+    }
+    setPeerId(id);
+    setTab('direct');
+  };
+
+  const dismiss = async (id: number) => {
+    setNotices((current) => current.filter((item) => item.id !== id));
+    try {
+      await api.roomDismiss(id);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '这条提醒没能清掉');
+    }
   };
 
   const jumpTo = async (id: number | null | undefined) => {
@@ -659,6 +768,22 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
     }
     setTab('public');
   };
+
+  const typingHere = typing.filter((item) =>
+    tab === 'direct' ? item.id === peerId && item.peerId === meId : item.peerId == null,
+  );
+  const typingLabel =
+    typingHere.length === 0
+      ? ''
+      : `${typingHere
+          .slice(0, 3)
+          .map((item) => item.name)
+          .join('、')} 正在输入`;
+  const readMarkId =
+    tab === 'direct' && peerId != null
+      ? [...visibleMessages].reverse().find((item) => item.senderId === meId && !item.retracted)?.id
+      : undefined;
+  const peerCursor = peerId != null ? (receipts[peerId] ?? 0) : 0;
 
   const renderMessage = (message: RoomMessage) => (
     <article
@@ -727,7 +852,8 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
           ) : (
             message.filePath && <code className="room-path">{message.filePath}</code>
           )}
-          <MessageBody text={message.body} />
+          <MessageBody text={message.body} onMention={openPerson} />
+          {message.id === readMarkId && readMarkId <= peerCursor && <i className="room-read">已读</i>}
         </>
       )}
     </article>
@@ -780,7 +906,7 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
         if (event.key !== 'Escape') return;
         if (editing) {
           setEditing(null);
-          setDraft('');
+          setDraft(sessionStorage.getItem(draftStoreKey(tab, peerId)) ?? '');
           return;
         }
         if (reply) {
@@ -850,14 +976,19 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
               )}
               {notices.length === 0 && <p className="room-empty">没有未读。别人发来的公屏、点名和私聊会堆在这里。</p>}
               {notices.map((notice) => (
-                <button key={notice.id} type="button" className="room-notice" onClick={() => openNotice(notice)}>
-                  <header>
-                    <b>{notice.senderName}</b>
-                    <time>{clock(notice.createdAt)}</time>
-                    <span>{noticeLabel(notice.kind)}</span>
-                  </header>
-                  <p>{notice.preview}</p>
-                </button>
+                <div key={notice.id} className="room-notice">
+                  <button type="button" onClick={() => openNotice(notice)}>
+                    <header>
+                      <b>{notice.senderName}</b>
+                      <time>{clock(notice.createdAt)}</time>
+                      <span>{noticeLabel(notice.kind)}</span>
+                    </header>
+                    <p>{notice.preview}</p>
+                  </button>
+                  <button type="button" className="room-dismiss" aria-label="忽略这条提醒" onClick={() => void dismiss(notice.id)}>
+                    ×
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -951,6 +1082,7 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
               })}
             </div>
           )}
+          {canCompose && typingLabel && <p className="room-typing">{typingLabel}</p>}
           {canCompose && (
             <form
               className="room-compose"
@@ -966,7 +1098,7 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
                     type="button"
                     onClick={() => {
                       setEditing(null);
-                      setDraft('');
+                      setDraft(sessionStorage.getItem(draftStoreKey(tab, peerId)) ?? '');
                     }}
                   >
                     取消

@@ -1377,6 +1377,17 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ kind, peerId }),
     }),
+
+  roomDismiss: (id: number) =>
+    request<{ marked: number }>(`/api/room/notices/${id}/read`, { method: 'POST' }),
+
+  roomReceipt: (peerId: number) => request<{ lastReadId: number }>(`/api/room/receipt?peerId=${peerId}`),
+
+  roomTyping: (peerId: number | null) =>
+    request<void>('/api/room/typing', {
+      method: 'POST',
+      body: JSON.stringify({ peerId }),
+    }),
 };
 
 // ------------------------------------------------------------------ 功能 13-16 模型

@@ -6,7 +6,9 @@ export type RoomStreamStatus = 'connecting' | 'open' | 'reconnecting' | 'closed'
 export type RoomStreamEvent =
   | { name: 'message'; message: RoomMessage }
   | { name: 'notice'; notice: RoomNotice }
-  | { name: 'presence'; person: RoomPerson };
+  | { name: 'presence'; person: RoomPerson }
+  | { name: 'typing'; userId: number; username: string; peerId: number | null }
+  | { name: 'receipt'; userId: number; lastReadId: number };
 
 interface OpenRoomStreamOptions {
   afterId: number;
@@ -62,6 +64,19 @@ export function openRoomStream(options: OpenRoomStreamOptions): { close(): void 
           online: Boolean(record.online),
         },
       });
+      return;
+    }
+    if (name === 'typing' && typeof record.userId === 'number' && typeof record.username === 'string') {
+      options.onEvent({
+        name: 'typing',
+        userId: record.userId,
+        username: record.username,
+        peerId: typeof record.peerId === 'number' ? record.peerId : null,
+      });
+      return;
+    }
+    if (name === 'receipt' && typeof record.userId === 'number' && typeof record.lastReadId === 'number') {
+      options.onEvent({ name: 'receipt', userId: record.userId, lastReadId: record.lastReadId });
       return;
     }
     if (typeof record.id === 'number' && typeof record.body === 'string') {

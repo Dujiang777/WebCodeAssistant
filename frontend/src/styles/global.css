@@ -11142,7 +11142,9 @@ body {
 }
 
 .room-notice {
-  display: block;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   width: 100%;
   text-align: left;
   padding: 8px 10px;
@@ -11150,7 +11152,37 @@ body {
   border: 1px solid var(--line);
   background: var(--bg-3);
   color: inherit;
+}
+
+.room-notice > button:first-child {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
   cursor: pointer;
+  font: inherit;
+}
+
+.room-dismiss {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-2);
+  cursor: pointer;
+  font: inherit;
+  line-height: 22px;
+}
+
+.room-dismiss:hover {
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .room-notice header {
@@ -11516,10 +11548,29 @@ button.room-quote:disabled {
   font-style: italic;
 }
 
-.room-at {
+button.room-at {
   padding: 0 2px;
+  border: 0;
   border-radius: 4px;
   background: rgba(232, 180, 90, 0.16);
+  color: var(--room-gold-soft);
+  font: inherit;
+  cursor: pointer;
+}
+
+.room-typing {
+  flex: none;
+  margin: 0 12px 6px;
+  font-size: 12px;
+  color: var(--room-gold-soft);
+}
+
+.room-read {
+  display: block;
+  margin-top: 4px;
+  font-style: normal;
+  font-size: 11px;
+  text-align: right;
   color: var(--room-gold-soft);
 }
 

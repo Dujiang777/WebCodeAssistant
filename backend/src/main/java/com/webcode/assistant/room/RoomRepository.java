@@ -214,6 +214,44 @@ public class RoomRepository {
                 .list();
     }
 
+    public long latestDirectId(long a, long b) {
+        Long id = jdbc.sql("""
+                        select coalesce(max(id), 0)
+                        from room_messages
+                        where (sender_id = :a and peer_id = :b)
+                           or (sender_id = :b and peer_id = :a)
+                        """)
+                .param("a", a)
+                .param("b", b)
+                .query(Long.class)
+                .single();
+        return id == null ? 0L : id;
+    }
+
+    public void rememberRead(long userId, long peerId, long lastReadId) {
+        jdbc.sql("""
+                        insert into room_reads (user_id, peer_id, last_read_id)
+                        values (:user, :peer, :last)
+                        on duplicate key update last_read_id = greatest(last_read_id, :last)
+                        """)
+                .param("user", userId)
+                .param("peer", peerId)
+                .param("last", lastReadId)
+                .update();
+    }
+
+    public long readCursor(long readerId, long peerId) {
+        return jdbc.sql("""
+                        select last_read_id from room_reads
+                        where user_id = :reader and peer_id = :peer
+                        """)
+                .param("reader", readerId)
+                .param("peer", peerId)
+                .query(Long.class)
+                .optional()
+                .orElse(0L);
+    }
+
     private static List<RoomNote> reversed(List<RoomNote> rows) {
         return rows.reversed();
     }

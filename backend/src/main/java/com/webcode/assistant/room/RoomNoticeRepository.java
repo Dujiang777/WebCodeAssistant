@@ -112,6 +112,17 @@ public class RoomNoticeRepository {
                 .update();
     }
 
+    public int markOne(long userId, long noticeId) {
+        return jdbc.sql("""
+                        update room_notices
+                        set read_at = now(6)
+                        where id = :id and user_id = :user and read_at is null
+                        """)
+                .param("id", noticeId)
+                .param("user", userId)
+                .update();
+    }
+
     public int dropUnread(long messageId) {
         return jdbc.sql("""
                         delete from room_notices
