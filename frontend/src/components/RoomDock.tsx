@@ -357,11 +357,8 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
       }}
     >
       <div className="room-sky" aria-hidden="true">
-        <i className="room-galaxy" />
-        <i className="room-galaxy-rift" />
-        <i className="room-galaxy-core" />
         <i className="room-stars" />
-        <i className="room-stars band" />
+        <i className="room-stars far" />
         <i className="room-stars bright" />
       </div>
       <header

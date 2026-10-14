@@ -10725,38 +10725,21 @@ body {
 .room-fab {
   width: 52px;
   height: 52px;
-  border: 1px solid rgba(232, 180, 90, 0.55);
+  border: 1px solid rgba(232, 180, 90, 0.34);
   border-radius: 999px;
   background:
-    radial-gradient(circle at 32% 28%, rgba(255, 248, 230, 0.55), transparent 28%),
-    radial-gradient(ellipse 80% 28% at 50% 62%, rgba(232, 180, 90, 0.55), transparent 70%),
-    radial-gradient(circle at 70% 80%, rgba(90, 70, 150, 0.45), transparent 55%),
+    radial-gradient(circle at 30% 26%, rgba(255, 244, 220, 0.22), transparent 32%),
+    radial-gradient(ellipse 90% 40% at 48% 58%, rgba(232, 180, 90, 0.22), transparent 72%),
+    radial-gradient(circle at 72% 78%, rgba(72, 58, 120, 0.35), transparent 60%),
     #0b0908;
   color: var(--room-gold-soft);
   box-shadow:
-    inset 0 1px 0 rgba(255, 244, 220, 0.35),
-    0 0 0 1px rgba(232, 180, 90, 0.2),
-    0 0 22px rgba(232, 180, 90, 0.28),
+    inset 0 1px 0 rgba(255, 244, 220, 0.16),
     0 14px 32px rgba(0, 0, 0, 0.48);
   font-family: var(--font-display);
   letter-spacing: 0.08em;
   cursor: grab;
   touch-action: none;
-}
-
-.room-fab::before {
-  content: '';
-  position: absolute;
-  width: 2px;
-  height: 2px;
-  border-radius: 50%;
-  background: transparent;
-  box-shadow:
-    10px 12px rgba(255, 248, 232, 0.95),
-    34px 16px rgba(255, 243, 220, 0.8),
-    22px 36px rgba(200, 212, 255, 0.75),
-    40px 30px rgba(232, 180, 90, 0.9);
-  pointer-events: none;
 }
 
 .room-fab.is-dragging,
@@ -10785,7 +10768,7 @@ body {
   height: min(520px, calc(100vh - 96px));
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(232, 180, 90, 0.38);
+  border: 1px solid rgba(255, 236, 210, 0.14);
   border-radius: 18px;
   background:
     radial-gradient(70% 36% at 0% 100%, rgba(52, 36, 84, 0.5), transparent 70%),
@@ -10803,60 +10786,14 @@ body {
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
-}
-
-.room-galaxy,
-.room-galaxy-rift,
-.room-galaxy-core {
-  position: absolute;
-  top: 36%;
-  left: -55%;
-  width: 210%;
-  height: 16%;
-  transform: rotate(-24deg);
-  pointer-events: none;
-}
-
-.room-galaxy {
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(88, 70, 150, 0.4) 6%,
-    rgba(232, 180, 90, 0.55) 18%,
-    rgba(255, 246, 224, 0.82) 32%,
-    rgba(255, 250, 236, 0.9) 50%,
-    rgba(255, 246, 224, 0.82) 68%,
-    rgba(232, 180, 90, 0.5) 82%,
-    rgba(110, 90, 180, 0.38) 94%,
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 42%, #000 58%, transparent 100%);
-  mask-image: linear-gradient(180deg, transparent 0%, #000 42%, #000 58%, transparent 100%);
-  filter: blur(5px);
-  animation: room-galaxy 16s ease-in-out infinite;
-}
-
-.room-galaxy-rift {
-  background: linear-gradient(90deg, transparent 6%, rgba(4, 2, 2, 0.78) 50%, transparent 94%);
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 46%, #000 58%, transparent 100%);
-  mask-image: linear-gradient(180deg, transparent 0%, #000 46%, #000 58%, transparent 100%);
-  filter: blur(3px);
-}
-
-.room-galaxy-core {
-  background: linear-gradient(
-    90deg,
-    transparent 8%,
-    rgba(255, 250, 236, 0.95) 22%,
-    rgba(255, 250, 236, 0.95) 78%,
-    transparent 92%
-  );
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 46%, #000 54%, transparent 100%);
-  mask-image: linear-gradient(180deg, transparent 0%, #000 46%, #000 54%, transparent 100%);
-  filter: blur(1px);
+  background:
+    radial-gradient(70% 46% at 18% 78%, rgba(72, 56, 120, 0.28), transparent 68%),
+    radial-gradient(55% 40% at 78% 22%, rgba(232, 180, 90, 0.07), transparent 62%),
+    radial-gradient(40% 28% at 48% 46%, rgba(255, 236, 200, 0.05), transparent 70%);
 }
 
 .room-stars,
+.room-stars.far,
 .room-stars.bright {
   position: absolute;
   top: 0;
@@ -10868,71 +10805,84 @@ body {
 }
 
 .room-stars {
-  opacity: 0.55;
   box-shadow:
-    18px 28px rgba(255, 243, 220, 0.9),
-    64px 70px rgba(200, 212, 255, 0.7),
-    140px 24px rgba(255, 248, 232, 0.85),
-    248px 46px rgba(232, 180, 90, 0.75),
-    332px 88px rgba(255, 243, 220, 0.8),
-    36px 160px rgba(214, 222, 255, 0.6),
-    300px 200px rgba(255, 243, 220, 0.55),
-    88px 430px rgba(255, 248, 232, 0.6),
-    210px 470px rgba(200, 212, 255, 0.5),
-    352px 390px rgba(232, 180, 90, 0.55);
-  animation: room-twinkle 7s ease-in-out infinite;
+    28px 46px rgba(255, 243, 220, 0.72),
+    74px 22px rgba(200, 212, 255, 0.4),
+    121px 68px rgba(255, 248, 232, 0.55),
+    168px 31px rgba(232, 180, 90, 0.35),
+    214px 84px rgba(255, 243, 220, 0.62),
+    263px 19px rgba(214, 222, 255, 0.38),
+    309px 73px rgba(255, 248, 232, 0.5),
+    351px 41px rgba(255, 243, 220, 0.44),
+    47px 128px rgba(200, 212, 255, 0.32),
+    96px 156px rgba(255, 243, 220, 0.58),
+    149px 118px rgba(232, 180, 90, 0.3),
+    203px 171px rgba(255, 248, 232, 0.46),
+    257px 139px rgba(214, 222, 255, 0.36),
+    318px 164px rgba(255, 243, 220, 0.5),
+    19px 206px rgba(255, 243, 220, 0.28),
+    81px 238px rgba(200, 212, 255, 0.42),
+    137px 194px rgba(255, 248, 232, 0.66),
+    186px 247px rgba(232, 180, 90, 0.34),
+    241px 211px rgba(255, 243, 220, 0.52),
+    294px 259px rgba(214, 222, 255, 0.3),
+    346px 188px rgba(255, 248, 232, 0.48),
+    36px 304px rgba(255, 243, 220, 0.26),
+    92px 348px rgba(200, 212, 255, 0.34),
+    154px 286px rgba(255, 248, 232, 0.6),
+    211px 332px rgba(232, 180, 90, 0.28),
+    268px 301px rgba(255, 243, 220, 0.44),
+    329px 356px rgba(214, 222, 255, 0.32),
+    362px 274px rgba(255, 248, 232, 0.4),
+    58px 412px rgba(255, 243, 220, 0.24),
+    124px 456px rgba(200, 212, 255, 0.3),
+    183px 398px rgba(255, 248, 232, 0.36),
+    246px 441px rgba(232, 180, 90, 0.22),
+    301px 408px rgba(255, 243, 220, 0.32),
+    349px 472px rgba(214, 222, 255, 0.26);
 }
 
-.room-stars.band {
+.room-stars.far {
+  opacity: 0.55;
   box-shadow:
-    16px 392px rgba(255, 243, 220, 0.85),
-    48px 368px rgba(232, 180, 90, 0.8),
-    78px 350px rgba(255, 248, 232, 0.95),
-    112px 328px rgba(200, 212, 255, 0.75),
-    146px 308px rgba(255, 243, 220, 0.9),
-    178px 286px rgba(255, 248, 232, 1),
-    210px 268px rgba(232, 180, 90, 0.85),
-    242px 248px rgba(255, 243, 220, 0.95),
-    274px 226px rgba(214, 222, 255, 0.8),
-    308px 206px rgba(255, 248, 232, 0.9),
-    340px 184px rgba(232, 180, 90, 0.8),
-    366px 164px rgba(255, 243, 220, 0.85),
-    92px 340px rgba(255, 243, 220, 0.55),
-    160px 300px rgba(232, 180, 90, 0.5),
-    230px 258px rgba(255, 248, 232, 0.6),
-    300px 214px rgba(200, 212, 255, 0.5);
-  animation: room-twinkle 9s ease-in-out -2s infinite;
+    16px 88px rgba(216, 212, 232, 0.7),
+    53px 196px rgba(216, 212, 232, 0.55),
+    109px 42px rgba(216, 212, 232, 0.6),
+    177px 112px rgba(216, 212, 232, 0.45),
+    226px 64px rgba(216, 212, 232, 0.5),
+    279px 108px rgba(216, 212, 232, 0.4),
+    334px 96px rgba(216, 212, 232, 0.55),
+    41px 268px rgba(216, 212, 232, 0.35),
+    118px 312px rgba(216, 212, 232, 0.45),
+    172px 364px rgba(216, 212, 232, 0.3),
+    233px 288px rgba(216, 212, 232, 0.4),
+    287px 392px rgba(216, 212, 232, 0.35),
+    341px 318px rgba(216, 212, 232, 0.45),
+    24px 446px rgba(216, 212, 232, 0.3),
+    88px 492px rgba(216, 212, 232, 0.35),
+    198px 478px rgba(216, 212, 232, 0.28),
+    312px 454px rgba(216, 212, 232, 0.32);
 }
 
 .room-stars.bright {
-  width: 2px;
-  height: 2px;
+  width: 1.5px;
+  height: 1.5px;
   box-shadow:
-    168px 292px 0 0 rgba(255, 250, 240, 1),
-    168px 292px 6px 1px rgba(232, 180, 90, 0.45),
-    250px 242px 0 0 rgba(255, 248, 232, 0.95),
-    250px 242px 8px 1px rgba(255, 236, 196, 0.35),
-    86px 358px rgba(214, 222, 255, 0.9),
-    330px 188px rgba(255, 248, 232, 0.9);
-  animation: room-twinkle 11s ease-in-out -4s infinite;
-}
-
-@keyframes room-galaxy {
-  0%,
-  100% { opacity: 0.78; }
-  50% { opacity: 1; }
+    104px 176px 0 0 rgba(255, 250, 240, 0.9),
+    104px 176px 0 1px rgba(255, 236, 200, 0.35),
+    196px 142px 0 0 rgba(255, 248, 232, 0.85),
+    262px 228px 0 0 rgba(214, 222, 255, 0.8),
+    318px 118px 0 0 rgba(255, 243, 220, 0.75);
+  animation: room-twinkle 9s ease-in-out infinite;
 }
 
 @keyframes room-twinkle {
   0%,
-  100% { opacity: 0.55; }
+  100% { opacity: 0.65; }
   50% { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .room-galaxy,
-  .room-stars,
-  .room-stars.band,
   .room-stars.bright {
     animation: none;
   }
