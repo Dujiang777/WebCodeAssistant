@@ -224,7 +224,7 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
   const [sending, setSending] = useState(false);
   const [hasOlder, setHasOlder] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
-  const [historyReady, setHistoryReady] = useState(true);
+  const [readyChannel, setReadyChannel] = useState<string | null>(null);
   const [pendingRetract, setPendingRetract] = useState<number | null>(null);
   const [focusId, setFocusId] = useState<number | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -245,6 +245,13 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
   const typingSent = useRef(0);
   draftRef.current = draft;
   const channelKey = tab === 'direct' ? `d:${peerId ?? 'x'}` : tab;
+  const historyChannel =
+    user && expanded && tab === 'public'
+      ? 'public'
+      : user && expanded && tab === 'direct' && peerId != null
+        ? `direct:${peerId}`
+        : null;
+  const historyReady = historyChannel != null && readyChannel === historyChannel;
   const meId = user?.userId ?? 0;
   cornerRef.current = corner;
   sizeRef.current = boxSize;
@@ -519,28 +526,26 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
   }, [typing]);
 
   useEffect(() => {
-    if (!user || !expanded || tab === 'inbox') return;
-    if (tab === 'direct' && peerId === null) return;
+    if (historyChannel == null) return;
     let cancelled = false;
     setHasOlder(false);
-    setHistoryReady(false);
     void api
       .roomMessages(tab === 'direct' ? peerId : null)
       .then((rows) => {
         if (cancelled) return;
         setHasOlder(rows.length >= PAGE);
         setMessages((current) => mergeMessages(current, rows));
-        setHistoryReady(true);
+        setReadyChannel(historyChannel);
       })
       .catch(() => {
         if (cancelled) return;
-        setHistoryReady(true);
+        setReadyChannel(historyChannel);
         toast.error('讨论记录加载失败');
       });
     return () => {
       cancelled = true;
     };
-  }, [user, expanded, tab, peerId, toast]);
+  }, [historyChannel, tab, peerId, toast]);
 
   useEffect(() => {
     const q = threadQuery.trim();

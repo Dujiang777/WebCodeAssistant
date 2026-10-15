@@ -459,6 +459,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const selectedPathRef = useRef<string | null>(null);
   const dirtyRef = useRef(false);
   const liveSeq = useRef(0);
+  /** 打开文件的世代：慢的 readFile 不许盖住后点开的那个。 */
+  const fileLoadSeq = useRef(0);
   const playLiveRef = useRef<(id: string, file: string, manual?: boolean) => void>(() => {});
   /** 已经为哪些补丁发过影响面请求 —— 防止 patches 每次变化都重发一遍。 */
   const radiusRequested = useRef<Set<string>>(new Set());
@@ -1242,13 +1244,19 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         danger: true,
       });
       if (!confirmed) return;
+      // 立刻清掉脏缓冲，否则加载间隙里 Ctrl+S 会把丢掉的内容写进新路径。
+      dirtyRef.current = false;
+      setDocText(savedText);
     }
+    const seq = ++fileLoadSeq.current;
+    selectedPathRef.current = path;
     setSelectedPath(path);
     setFileLoading(true);
     setFileError(null);
     setSelection(null);
     try {
       const content = await api.readFile(workspaceId, path);
+      if (seq !== fileLoadSeq.current) return;
       setFile(content);
       setDocText(content.content ?? '');
       setSavedText(content.content ?? '');
@@ -1259,6 +1267,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       }
       rememberTab(path);
     } catch (err) {
+      if (seq !== fileLoadSeq.current) return;
       setFile(null);
       setDocText('');
       setSavedText('');
@@ -1267,7 +1276,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         toast.error(`打不开 ${path}：${messageOf(err)}`);
       }
     } finally {
-      setFileLoading(false);
+      if (seq === fileLoadSeq.current) setFileLoading(false);
     }
   };
 
@@ -1324,6 +1333,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       });
       if (!confirmed) return;
       dirtyRef.current = false;
+      setDocText(savedText);
     }
     const remaining = openTabs.filter((item) => item !== path);
     persistTabs(remaining);
@@ -1333,6 +1343,8 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       await openFile(remaining[0]);
       return;
     }
+    fileLoadSeq.current += 1;
+    selectedPathRef.current = null;
     setSelectedPath(null);
     setFile(null);
     setDocText('');
@@ -1407,6 +1419,9 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const saveFile = async () => {
     const target = file;
     if (!target || target.binary || target.truncated) return;
+    // 切文件后 file 还是旧的一帧：路径对不上或已经确认丢掉，都不能写盘。
+    if (target.path !== selectedPathRef.current) return;
+    if (!dirtyRef.current) return;
     if (docText === savedText) return;
     setSaving(true);
     try {
