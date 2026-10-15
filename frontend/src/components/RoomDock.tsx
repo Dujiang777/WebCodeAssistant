@@ -191,6 +191,7 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
   const [sending, setSending] = useState(false);
   const [hasOlder, setHasOlder] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [historyReady, setHistoryReady] = useState(true);
   const [pendingRetract, setPendingRetract] = useState<number | null>(null);
   const [focusId, setFocusId] = useState<number | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -437,15 +438,19 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
     if (tab === 'direct' && peerId === null) return;
     let cancelled = false;
     setHasOlder(false);
+    setHistoryReady(false);
     void api
       .roomMessages(tab === 'direct' ? peerId : null)
       .then((rows) => {
         if (cancelled) return;
         setHasOlder(rows.length >= PAGE);
         setMessages((current) => mergeMessages(current, rows));
+        setHistoryReady(true);
       })
       .catch(() => {
-        if (!cancelled) toast.error('讨论记录加载失败');
+        if (cancelled) return;
+        setHistoryReady(true);
+        toast.error('讨论记录加载失败');
       });
     return () => {
       cancelled = true;
@@ -1067,7 +1072,11 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
               {searching && hits == null && <p className="room-empty">正在搜索</p>}
               {searching && hits != null && hits.length === 0 && <p className="room-empty">这段对话里没有找到</p>}
               {!searching && shownRows.length === 0 && (
-                <p className="room-empty">还没有消息。@某人，或回复某一条，说说这段代码打算怎么改。</p>
+                <p className="room-empty">
+                  {historyReady
+                    ? '还没有消息。@某人，或回复某一条，说说这段代码打算怎么改。'
+                    : '正在载入对话'}
+                </p>
               )}
               {shownRows.map((message, index) => {
                 const previous = shownRows[index - 1];

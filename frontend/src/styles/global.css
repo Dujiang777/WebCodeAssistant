@@ -12335,7 +12335,25 @@ button.room-at {
   color: var(--violet);
 }
 
-.tree-row:hover .tree-size {
+/* 问 / 改 / 盾牌 / 复制 / 删除默认不占位，悬停或键盘落到这一行才露。
+   「补丁」是状态，不是动作，始终留着，不然挂了卡却看不见。 */
+.tree-actions .tree-act:not(.tree-act-patch),
+.tree-actions .icon-btn {
+  display: none;
+}
+
+.tree-row:hover .tree-actions .tree-act:not(.tree-act-patch),
+.tree-row:hover .tree-actions .icon-btn,
+.tree-row:focus-within .tree-actions .tree-act:not(.tree-act-patch),
+.tree-row:focus-within .tree-actions .icon-btn,
+.tree-row.selected .tree-actions .tree-act:not(.tree-act-patch),
+.tree-row.selected .tree-actions .icon-btn {
+  display: inline-flex;
+}
+
+.tree-row:hover .tree-size,
+.tree-row:focus-within .tree-size,
+.tree-row.selected .tree-size {
   display: none;
 }
 
