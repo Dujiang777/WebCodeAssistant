@@ -612,9 +612,10 @@ export function ModelsPage({ onBack, onLogout, onModelChanged }: {
       <PageBar
         title="模型服务"
         subtitle={user?.username ?? ''}
-        balance={null}
-        lowBalance={false}
+        balance={user?.credits ?? null}
+        lowBalance={user?.lowBalance ?? false}
         active="models"
+        isAdmin={user?.role === 'ADMIN'}
         onBack={onBack}
         onLogout={onLogout}
       />

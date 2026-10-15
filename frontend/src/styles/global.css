@@ -3334,6 +3334,7 @@ button.risk-chip:hover {
   width: 100%;
   min-height: 64px;
   max-height: 180px;
+  overflow-y: auto;
   resize: none;
   padding: 11px 12px;
   border: 1px solid var(--line-strong);
@@ -11531,6 +11532,11 @@ body {
   font: inherit;
   line-height: 1.45;
   background: rgba(12, 10, 16, 0.8);
+}
+
+.room-compose textarea {
+  max-height: 120px;
+  overflow-y: auto;
 }
 
 .room-compose textarea:focus {

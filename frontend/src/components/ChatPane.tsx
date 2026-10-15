@@ -347,6 +347,13 @@ export function ChatPane({
   }, [draft, sessionId]);
 
   useEffect(() => {
+    const node = textareaRef.current;
+    if (!node) return;
+    node.style.height = 'auto';
+    node.style.height = `${Math.min(Math.max(node.scrollHeight, 64), 180)}px`;
+  }, [draft]);
+
+  useEffect(() => {
     if (!composerSeed?.text) return;
     const seed = composerSeed.text;
     setDraft((current) => {

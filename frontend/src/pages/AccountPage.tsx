@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { adoptAuth, api, formatDateTime, loadUser, subscribeSession } from '../lib/api';
 import type { AuthUser, Dispatch, LoginSession, MeInfo } from '../lib/api';
 import { messageOf } from '../lib/chat';
+import { useConfirm } from '../components/ConfirmDialog';
 import { PageBar } from '../components/PageBar';
 import { DeviceIcon, KeyIcon, TerminalMark } from '../components/icons';
 
@@ -31,6 +32,7 @@ export function AccountPage({ onBack, onLogout }: { onBack: () => void; onLogout
   const [notice, setNotice] = useState<string | null>(null);
   /** dev 邮件通道下拿到的验证令牌：本地能一键走完验证，不用去翻日志。 */
   const [devToken, setDevToken] = useState<string | null>(null);
+  const { ask, dialog: confirmDialog } = useConfirm();
 
   useEffect(() => subscribeSession(setUser), []);
 
@@ -112,7 +114,14 @@ export function AccountPage({ onBack, onLogout }: { onBack: () => void; onLogout
     }
   };
 
-  const revoke = async (id: number) => {
+  const revoke = async (id: number, label: string) => {
+    const confirmed = await ask({
+      title: '注销这台设备？',
+      body: `${label} 上将立刻退出登录，30 天内也不能免密进来。`,
+      confirmLabel: '注销',
+      danger: true,
+    });
+    if (!confirmed) return;
     setError(null);
     try {
       await api.revokeSession(id);
@@ -283,7 +292,10 @@ export function AccountPage({ onBack, onLogout }: { onBack: () => void; onLogout
                       <td className="mono dim">{formatDateTime(session.createdAt)}</td>
                       <td className="mono dim">{formatDateTime(session.expiresAt)}</td>
                       <td className="act">
-                        <button className="btn btn-sm btn-danger" onClick={() => void revoke(session.id)}>
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={() => void revoke(session.id, session.device ?? session.ip ?? '这台设备')}
+                        >
                           注销
                         </button>
                       </td>
@@ -295,6 +307,7 @@ export function AccountPage({ onBack, onLogout }: { onBack: () => void; onLogout
           </section>
         </div>
       </main>
+      {confirmDialog}
     </div>
   );
 }

@@ -229,6 +229,7 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
   const [focusId, setFocusId] = useState<number | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLElement | null>(null);
+  const composeRef = useRef<HTMLTextAreaElement | null>(null);
   const [corner, setCorner] = useState<Corner>(readCorner);
   const [boxSize, setBoxSize] = useState<BoxSize>(readSize);
   const [dragging, setDragging] = useState(false);
@@ -478,6 +479,13 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
     }
     if (!editing) sessionStorage.setItem(draftStoreKey(tab, peerId), draft);
   }, [channelKey, draft, editing, tab, peerId]);
+
+  useEffect(() => {
+    const node = composeRef.current;
+    if (!node) return;
+    node.style.height = 'auto';
+    node.style.height = `${Math.min(Math.max(node.scrollHeight, 40), 120)}px`;
+  }, [draft, expanded, tab, peerId]);
 
   useEffect(() => {
     if (!user || tab !== 'direct' || peerId == null) return;
@@ -1089,6 +1097,9 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
                 placeholder="搜索账号，开始私聊"
                 aria-label="搜索私聊对象"
                 onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape' && query) setQuery('');
+                }}
               />
               {query.trim() ? (
                 <>
@@ -1135,6 +1146,9 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
                 placeholder="搜索这段对话"
                 aria-label="搜索这段对话"
                 onChange={(event) => setThreadQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape' && threadQuery) setThreadQuery('');
+                }}
               />
             </div>
           )}
@@ -1229,6 +1243,7 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
               )}
               <div>
                 <textarea
+                  ref={composeRef}
                   value={draft}
                   rows={2}
                   maxLength={1000}

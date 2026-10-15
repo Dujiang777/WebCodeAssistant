@@ -1773,6 +1773,13 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   };
 
   const rejectPatch = async (patch: PatchRecord) => {
+    const confirmed = await ask({
+      title: '丢掉这张补丁？',
+      body: `「${patch.file}」这张卡会被丢掉，磁盘不会动。`,
+      confirmLabel: '丢掉',
+      danger: true,
+    });
+    if (!confirmed) return;
     setPatchBusyId(patch.id);
     try {
       const rejected = await api.rejectPatch(patch.id);
@@ -1799,6 +1806,12 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     if (sid === null) return;
     const pending = patches.filter((patch) => patch.status === 'pending');
     if (pending.length < 2) return;
+    const confirmed = await ask({
+      title: '应用全部待确认补丁？',
+      body: `本会话还有 ${pending.length} 张卡。会先打一次快照，失败的不阻断其余。`,
+      confirmLabel: '全部应用',
+    });
+    if (!confirmed) return;
     // 批里若含「必须确认开关」的补丁，只有全部确认过才带 acknowledgeFlag；
     // 否则宁可让它们被逐条挡下（失败明细会写清原因），也不静默跳过这道确认。
     const allFlaggedAcked = pending.every(
@@ -1936,6 +1949,13 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     if (sid === null) return;
     const pending = group.filter((patch) => patch.status === 'pending');
     if (pending.length === 0) return;
+    const confirmed = await ask({
+      title: '丢掉这一组补丁？',
+      body: `一共 ${pending.length} 张卡会被丢掉，磁盘不会动。`,
+      confirmLabel: '丢掉这一组',
+      danger: true,
+    });
+    if (!confirmed) return;
     setApplyAllBusy(true);
     try {
       await api.rejectAllPatches(
@@ -1964,6 +1984,13 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       toast.info('这一组还没有应用前的快照，去胶卷里回滚');
       return;
     }
+    const confirmed = await ask({
+      title: '回滚到写盘前？',
+      body: '整个工作区会回到这一组补丁写盘之前。快照之外新增的文件会被删掉。',
+      confirmLabel: '回滚',
+      danger: true,
+    });
+    if (!confirmed) return;
     setApplyAllBusy(true);
     try {
       await api.restoreSnapshot(workspaceId, shotId);
