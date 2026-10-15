@@ -657,12 +657,24 @@ export interface BatchApplyResult {
 }
 
 /** 工作区本地 Git 状态。repo=false 表示还没 init。 */
+export interface GitFileChange {
+  path: string;
+  kind: 'modified' | 'added' | 'deleted' | 'untracked' | string;
+}
+
+export interface GitLogEntry {
+  sha: string;
+  message: string;
+  at: string;
+}
+
 export interface GitStatus {
   repo: boolean;
   branch: string | null;
   dirty: number;
-  files: string[];
+  files: GitFileChange[];
   lastCommit: string | null;
+  recent: GitLogEntry[];
 }
 
 export interface GitCommitResult {

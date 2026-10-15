@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 工作区本地 Git。只给人用：状态、初始化、提交。没有 push。
+ * 工作区本地 Git。只给人用：状态（含最近提交）、初始化、提交。没有 push。
  */
 @RestController
 @RequestMapping("/api/workspaces/{workspaceId}/git")

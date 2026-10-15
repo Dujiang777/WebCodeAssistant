@@ -2157,19 +2157,18 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     }
   };
 
-  const renameSession = async () => {
+  const renameSession = async (title: string) => {
     const sid = sessionId;
     if (sid === null) return;
-    const current = sessions.find((session) => session.id === sid);
-    const next = window.prompt('会话名称', current?.title ?? '');
-    if (next === null) return;
-    const title = next.trim();
-    if (!title) {
+    const next = title.trim();
+    if (!next) {
       toast.info('名称不能为空');
       return;
     }
+    const current = sessions.find((session) => session.id === sid);
+    if (current && current.title === next) return;
     try {
-      const updated = await api.renameSession(sid, title);
+      const updated = await api.renameSession(sid, next);
       setSessions((list) => list.map((session) => (session.id === sid ? updated : session)));
     } catch (err) {
       toast.error(messageOf(err));
@@ -2355,12 +2354,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         health={health}
         username={username}
         onBack={() => navigate('/workspaces')}
-        onRenameWorkspace={() => {
-          const current = workspace?.name ?? '';
-          const next = window.prompt('工作区名称', current);
-          if (next == null) return;
-          const name = next.trim();
-          if (!name || name === current) return;
+        onRenameWorkspace={(name) => {
           void api
             .renameWorkspace(workspaceId, name)
             .then((saved) => setWorkspace(saved))
@@ -2578,7 +2572,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
               ]}
               onNewSession={() => void createSession()}
               onDeleteSession={() => void deleteSession()}
-              onRenameSession={() => void renameSession()}
+              onRenameSession={(title) => void renameSession(title)}
               onClearSelection={() => setSelection(null)}
               onApplyAll={() => void applyAll()}
               applyAllBusy={applyAllBusy}
@@ -2666,6 +2660,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
         patches={patches}
         onGitInit={() => void initGit()}
         onGitCommit={(message) => void commitGit(message)}
+        onOpenGitFile={(path) => void openFile(path, true)}
       />
 
       {diffPatch && (

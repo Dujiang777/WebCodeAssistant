@@ -18,9 +18,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -59,10 +61,11 @@ public class GitWorkspaceService {
         try (Git git = Git.open(root.toFile())) {
             String branch = git.getRepository().getBranch();
             Status status = git.status().call();
-            List<String> files = changedFiles(status);
-            String last = lastMessage(git);
+            List<GitFileView> files = fileViews(status);
+            List<GitLogEntry> recent = recent(git);
+            String last = recent.isEmpty() ? null : blankToNull(recent.getFirst().message());
             return new GitStatusView(true, branch == null || branch.isBlank() ? "HEAD" : branch,
-                    files.size(), files.stream().limit(FILE_LIMIT).toList(), last);
+                    files.size(), files.stream().limit(FILE_LIMIT).toList(), last, recent);
         } catch (IOException | GitAPIException ex) {
             throw new ApiException(ErrorCode.BAD_REQUEST, "读 Git 状态失败：" + shortMessage(ex), ex);
         }
@@ -100,7 +103,7 @@ public class GitWorkspaceService {
             git.add().addFilepattern(".").setUpdate(false).call();
             git.add().setUpdate(true).addFilepattern(".").call();
             Status status = git.status().call();
-            List<String> files = changedFiles(status);
+            List<GitFileView> files = fileViews(status);
             if (files.isEmpty()) {
                 throw new ApiException(ErrorCode.BAD_REQUEST, "没有可提交的改动");
             }
@@ -129,28 +132,47 @@ public class GitWorkspaceService {
         }
     }
 
-    private static List<String> changedFiles(Status status) {
-        Set<String> files = new LinkedHashSet<>();
-        files.addAll(status.getModified());
-        files.addAll(status.getChanged());
-        files.addAll(status.getAdded());
-        files.addAll(status.getRemoved());
-        files.addAll(status.getMissing());
-        files.addAll(status.getUntracked());
-        return new ArrayList<>(files);
+    private static List<GitFileView> fileViews(Status status) {
+        Map<String, String> files = new LinkedHashMap<>();
+        putKind(files, status.getModified(), "modified");
+        putKind(files, status.getChanged(), "modified");
+        putKind(files, status.getAdded(), "added");
+        putKind(files, status.getUntracked(), "untracked");
+        putKind(files, status.getRemoved(), "deleted");
+        putKind(files, status.getMissing(), "deleted");
+        List<GitFileView> rows = new ArrayList<>(files.size());
+        for (Map.Entry<String, String> entry : files.entrySet()) {
+            rows.add(new GitFileView(entry.getKey(), entry.getValue()));
+        }
+        return rows;
     }
 
-    private static String lastMessage(Git git) {
+    private static void putKind(Map<String, String> files, Set<String> paths, String kind) {
+        boolean overwrite = "deleted".equals(kind);
+        for (String path : paths) {
+            if (overwrite) files.put(path, kind);
+            else files.putIfAbsent(path, kind);
+        }
+    }
+
+    private static List<GitLogEntry> recent(Git git) {
+        List<GitLogEntry> rows = new ArrayList<>();
         try {
-            var log = git.log().setMaxCount(1).call();
-            for (RevCommit commit : log) {
-                String shortMsg = commit.getShortMessage();
-                return shortMsg == null || shortMsg.isBlank() ? null : shortMsg;
+            for (RevCommit commit : git.log().setMaxCount(8).call()) {
+                String message = commit.getShortMessage();
+                rows.add(new GitLogEntry(
+                        commit.abbreviate(7).name(),
+                        message == null ? "" : message,
+                        Instant.ofEpochSecond(commit.getCommitTime()).toString()));
             }
         } catch (GitAPIException | RuntimeException ignored) {
             // 空仓库没有 commit
         }
-        return null;
+        return rows;
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     private static void writeIgnore(Path root) throws IOException {
@@ -166,10 +188,17 @@ public class GitWorkspaceService {
         return message == null || message.isBlank() ? throwable.getClass().getSimpleName() : message;
     }
 
-    public record GitStatusView(boolean repo, String branch, int dirty, List<String> files, String lastCommit) {
+    public record GitStatusView(boolean repo, String branch, int dirty, List<GitFileView> files,
+                                String lastCommit, List<GitLogEntry> recent) {
         static GitStatusView absent() {
-            return new GitStatusView(false, null, 0, List.of(), null);
+            return new GitStatusView(false, null, 0, List.of(), null, List.of());
         }
+    }
+
+    public record GitFileView(String path, String kind) {
+    }
+
+    public record GitLogEntry(String sha, String message, String at) {
     }
 
     public record GitCommitView(String sha, String message, int files) {

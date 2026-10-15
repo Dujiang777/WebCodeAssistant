@@ -147,7 +147,7 @@ interface ChatPaneProps extends PatchDeps {
   /** 删除当前会话（后端已有接口，这里只是补上入口）。 */
   onDeleteSession: () => void;
   /** 改当前会话的显示名。 */
-  onRenameSession: () => void;
+  onRenameSession: (title: string) => void;
   onClearSelection: () => void;
   onApplyAll: () => void;
   applyAllBusy: boolean;
@@ -287,6 +287,10 @@ export function ChatPane({
   charterOf,
 }: ChatPaneProps) {
   const [draft, setDraft] = useState('');
+  const [renaming, setRenaming] = useState(false);
+  const [renameDraft, setRenameDraft] = useState('');
+  const skipRename = useRef(false);
+  const sessionTitle = sessions.find((session) => session.id === sessionId)?.title ?? '';
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const stickToBottom = useRef(true);
@@ -586,21 +590,53 @@ export function ChatPane({
 
         <div className="topbar-spacer" />
 
-        <select
-          className="session-select"
-          value={sessionId ?? ''}
-          onChange={(event) => onSelectSession(Number(event.target.value))}
-          disabled={sessions.length === 0}
-          title="切换会话"
-        >
-          {sessions.length === 0 && <option value="">（暂无会话）</option>}
-          {sessions.map((session) => (
-            <option key={session.id} value={session.id}>
-              #{session.id} · {session.title}
-              {liveSessionIds.includes(session.id) ? ' · 运行中' : ''}
-            </option>
-          ))}
-        </select>
+        {renaming ? (
+          <input
+            className="session-rename"
+            value={renameDraft}
+            autoFocus
+            maxLength={80}
+            aria-label="会话名称"
+            onChange={(event) => setRenameDraft(event.target.value)}
+            onBlur={() => {
+              if (skipRename.current) {
+                skipRename.current = false;
+                setRenaming(false);
+                return;
+              }
+              const title = renameDraft.trim();
+              setRenaming(false);
+              if (title) onRenameSession(title);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                (event.target as HTMLInputElement).blur();
+              }
+              if (event.key === 'Escape') {
+                skipRename.current = true;
+                setRenameDraft(sessionTitle);
+                setRenaming(false);
+              }
+            }}
+          />
+        ) : (
+          <select
+            className="session-select"
+            value={sessionId ?? ''}
+            onChange={(event) => onSelectSession(Number(event.target.value))}
+            disabled={sessions.length === 0}
+            title="切换会话"
+          >
+            {sessions.length === 0 && <option value="">（暂无会话）</option>}
+            {sessions.map((session) => (
+              <option key={session.id} value={session.id}>
+                #{session.id} · {session.title}
+                {liveSessionIds.includes(session.id) ? ' · 运行中' : ''}
+              </option>
+            ))}
+          </select>
+        )}
 
         <button className="icon-btn" title="新建会话" onClick={onNewSession}>
           <PlusIcon size={13} />
@@ -608,7 +644,10 @@ export function ChatPane({
         <button
           className="icon-btn"
           title="重命名当前会话"
-          onClick={onRenameSession}
+          onClick={() => {
+            setRenameDraft(sessionTitle);
+            setRenaming(true);
+          }}
           disabled={sessionId === null}
         >
           <EditIcon size={13} />

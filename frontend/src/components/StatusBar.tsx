@@ -27,6 +27,7 @@ interface StatusBarProps {
   patches?: PatchRecord[];
   onGitInit?: () => void;
   onGitCommit?: (message: string) => void;
+  onOpenGitFile?: (path: string) => void;
 }
 
 export function StatusBar({
@@ -45,6 +46,7 @@ export function StatusBar({
   patches = [],
   onGitInit,
   onGitCommit,
+  onOpenGitFile,
 }: StatusBarProps) {
   const sizeRatio = workspaceSize / (200 * 1024 * 1024);
   const quotaTight = sizeRatio > 0.8;
@@ -56,13 +58,14 @@ export function StatusBar({
         {quotaTight && <span style={{ color: 'var(--ember)' }}>· 接近上限</span>}
       </span>
 
-      {onGitInit && onGitCommit && (
+      {onGitInit && onGitCommit && onOpenGitFile && (
         <GitBar
           git={git}
           busy={gitBusy}
           patches={patches}
           onInit={onGitInit}
           onCommit={onGitCommit}
+          onOpenFile={onOpenGitFile}
         />
       )}
 

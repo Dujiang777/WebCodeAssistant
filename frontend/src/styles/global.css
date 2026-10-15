@@ -1443,6 +1443,17 @@ button.crumbs-rename:hover {
   color: var(--signal);
 }
 
+.crumbs-rename-input {
+  min-width: 8em;
+  max-width: 22vw;
+  padding: 1px 6px;
+  border: 1px solid var(--signal-line);
+  border-radius: 6px;
+  background: var(--bg-2);
+  color: var(--fg-0);
+  font: inherit;
+}
+
 .crumbs-file {
   color: var(--fg-0);
   overflow: hidden;
@@ -2415,7 +2426,7 @@ button.crumbs-rename:hover {
   position: absolute;
   left: 0;
   bottom: calc(100% + 6px);
-  width: 280px;
+  width: 340px;
   padding: 10px;
   border: 1px solid var(--line);
   background: var(--bg-1);
@@ -2443,10 +2454,78 @@ button.crumbs-rename:hover {
 
 .git-files {
   margin: 0 0 8px;
-  padding-left: 16px;
-  max-height: 120px;
+  padding: 0;
+  list-style: none;
+  max-height: 132px;
   overflow: auto;
+}
+
+.git-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 3px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--fg-1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.git-file i {
+  flex: none;
+  width: 1.4em;
+  font-style: normal;
+  font-size: 10px;
+  color: var(--signal);
+}
+
+.git-file:hover:not(:disabled) {
+  color: var(--fg-0);
+  background: var(--bg-2);
+}
+
+.git-file:disabled {
+  cursor: default;
+  color: var(--fg-3);
+}
+
+.git-log {
+  margin: 8px 0 0;
+  padding: 8px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+  max-height: 140px;
+  overflow: auto;
+}
+
+.git-log li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 6px;
+  align-items: baseline;
+  padding: 3px 0;
   color: var(--fg-2);
+  font-size: 11px;
+}
+
+.git-log code {
+  color: var(--signal);
+  font-size: 10px;
+}
+
+.git-log span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-log time {
+  flex: none;
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
 }
 
 .git-msg {
@@ -3340,6 +3419,17 @@ button.risk-chip:hover {
 /* 会话切换下拉：聚焦只描金，键盘环同样交给全站兜底（原来这里也把 outline 抹了） */
 .session-select:focus {
   border-color: var(--signal-line);
+}
+
+.session-rename {
+  max-width: 240px;
+  padding: 5px 12px;
+  border: 1px solid var(--signal-line);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  color: var(--fg-0);
+  font-family: var(--font-mono);
+  font-size: 11px;
 }
 
 /* 工作区列表顶部的新建方式 tab */

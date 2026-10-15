@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import type { GitStatus, PatchRecord } from '../lib/api';
+import type { GitFileChange, GitStatus, PatchRecord } from '../lib/api';
 import { suggestCommit } from '../lib/git';
 
 interface GitBarProps {
@@ -9,16 +9,51 @@ interface GitBarProps {
   patches: PatchRecord[];
   onInit: () => void;
   onCommit: (message: string) => void;
+  onOpenFile: (path: string) => void;
 }
 
-export function GitBar({ git, busy, patches, onInit, onCommit }: GitBarProps) {
+const KIND_LABEL: Record<string, string> = {
+  modified: '改',
+  added: '新',
+  deleted: '删',
+  untracked: '未',
+};
+
+function kindLabel(kind: string): string {
+  return KIND_LABEL[kind] ?? kind;
+}
+
+function stamp(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+export function GitBar({ git, busy, patches, onInit, onCommit, onOpenFile }: GitBarProps) {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
+  const box = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (!open) return;
     setMessage((current) => current.trim() || suggestCommit(patches));
   }, [open, patches]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (event: MouseEvent) => {
+      if (!box.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
 
   if (!git) {
     return <span className="statusbar-item git-chip">Git …</span>;
@@ -41,9 +76,10 @@ export function GitBar({ git, busy, patches, onInit, onCommit }: GitBarProps) {
   }
 
   const label = git.dirty > 0 ? `${git.branch} · ${git.dirty} 处未提交` : `${git.branch} · 干净`;
+  const recent = git.recent ?? [];
 
   return (
-    <span className="statusbar-item git-chip">
+    <span className="statusbar-item git-chip" ref={box}>
       <button
         type="button"
         className={`git-chip-btn${git.dirty > 0 ? ' dirty' : ''}`}
@@ -63,7 +99,7 @@ export function GitBar({ git, busy, patches, onInit, onCommit }: GitBarProps) {
           {git.files.length > 0 && (
             <ul className="git-files">
               {git.files.map((file) => (
-                <li key={file}>{file}</li>
+                <GitFileRow key={file.path} file={file} onOpen={onOpenFile} />
               ))}
               {git.dirty > git.files.length && <li>…还有 {git.dirty - git.files.length} 个</li>}
             </ul>
@@ -90,8 +126,37 @@ export function GitBar({ git, busy, patches, onInit, onCommit }: GitBarProps) {
               </button>
             </>
           )}
+          {recent.length > 0 && (
+            <ol className="git-log">
+              {recent.map((entry) => (
+                <li key={entry.sha}>
+                  <code>{entry.sha}</code>
+                  <span>{entry.message || '（没有说明）'}</span>
+                  <time>{stamp(entry.at)}</time>
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
       )}
     </span>
+  );
+}
+
+function GitFileRow({ file, onOpen }: { file: GitFileChange; onOpen: (path: string) => void }) {
+  const gone = file.kind === 'deleted';
+  return (
+    <li>
+      <button
+        type="button"
+        className="git-file"
+        disabled={gone}
+        title={gone ? '已经从磁盘删掉了' : `打开 ${file.path}`}
+        onClick={() => onOpen(file.path)}
+      >
+        <i>{kindLabel(file.kind)}</i>
+        {file.path}
+      </button>
+    </li>
   );
 }

@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react';
+
 import { TerminalMark, ChevronIcon } from './icons';
 import { AvatarMenu } from './AvatarMenu';
 import { ModelPicker } from './ModelPicker';
@@ -28,7 +30,7 @@ interface TopBarProps {
   username: string;
   onBack: () => void;
   /** 给工作区改名。不传时名字只是文字。 */
-  onRenameWorkspace?: () => void;
+  onRenameWorkspace?: (name: string) => void;
   onLogout: () => void;
   pendingInbox: PendingInboxItem[];
   currentSessionId: number | null;
@@ -75,6 +77,29 @@ export function TopBar({
   showRec = false,
 }: TopBarProps) {
   const modelReady = health?.modelConfigured ?? false;
+  const [renaming, setRenaming] = useState(false);
+  const [renameDraft, setRenameDraft] = useState(workspaceName);
+  const skipRename = useRef(false);
+
+  useEffect(() => {
+    if (!renaming) setRenameDraft(workspaceName);
+  }, [workspaceName, renaming]);
+
+  const saveWorkspaceName = () => {
+    if (skipRename.current) {
+      skipRename.current = false;
+      setRenaming(false);
+      setRenameDraft(workspaceName);
+      return;
+    }
+    const name = renameDraft.trim();
+    setRenaming(false);
+    if (!name || name === workspaceName) {
+      setRenameDraft(workspaceName);
+      return;
+    }
+    onRenameWorkspace?.(name);
+  };
 
   return (
     <header className="topbar">
@@ -106,8 +131,37 @@ export function TopBar({
       </button>
 
       <div className="crumbs">
-        {onRenameWorkspace ? (
-          <button type="button" className="crumbs-ws crumbs-rename" title="给这个工作区改名" onClick={onRenameWorkspace}>
+        {onRenameWorkspace && renaming ? (
+          <input
+            className="crumbs-rename-input"
+            value={renameDraft}
+            autoFocus
+            maxLength={120}
+            aria-label="工作区名称"
+            onChange={(event) => setRenameDraft(event.target.value)}
+            onBlur={saveWorkspaceName}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                saveWorkspaceName();
+              }
+              if (event.key === 'Escape') {
+                skipRename.current = true;
+                setRenameDraft(workspaceName);
+                setRenaming(false);
+              }
+            }}
+          />
+        ) : onRenameWorkspace ? (
+          <button
+            type="button"
+            className="crumbs-ws crumbs-rename"
+            title="给这个工作区改名"
+            onClick={() => {
+              setRenameDraft(workspaceName);
+              setRenaming(true);
+            }}
+          >
             {workspaceName}
           </button>
         ) : (
