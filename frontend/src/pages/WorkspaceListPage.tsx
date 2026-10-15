@@ -5,6 +5,7 @@ import type { AuthUser, HealthInfo, Workspace } from '../lib/api';
 import { messageOf } from '../lib/chat';
 import { lastIdeWorkspaceId, navigate } from '../lib/router';
 import { AvatarMenu } from '../components/AvatarMenu';
+import { useConfirm } from '../components/ConfirmDialog';
 import { TerminalMark, FolderOpenIcon, PlusIcon, RefreshIcon, TrashIcon, EditIcon } from '../components/icons';
 
 /**
@@ -41,14 +42,16 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
   const [progress, setProgress] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const renameLock = useRef(false);
+  const { ask, dialog: confirmDialog } = useConfirm();
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [list, info] = await Promise.all([api.listWorkspaces(), api.health()]);
-      setWorkspaces(list);
-      setHealth(info);
+      const [listResult, healthResult] = await Promise.allSettled([api.listWorkspaces(), api.health()]);
+      if (listResult.status === 'fulfilled') setWorkspaces(listResult.value);
+      else throw listResult.reason;
+      if (healthResult.status === 'fulfilled') setHealth(healthResult.value);
     } catch (err) {
       setError(messageOf(err));
     } finally {
@@ -114,9 +117,12 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
 
   const removeWorkspace = async (workspace: Workspace) => {
     if (busy || deletingId !== null) return;
-    const confirmed = window.confirm(
-      `确定删除工作区「${workspace.name}」？磁盘上的文件、会话和补丁都会被清掉，不可恢复。`,
-    );
+    const confirmed = await ask({
+      title: '删除这个工作区？',
+      body: `确定删除工作区「${workspace.name}」？磁盘上的文件、会话和补丁都会被清掉，不可恢复。`,
+      confirmLabel: '删除',
+      danger: true,
+    });
     if (!confirmed) return;
     setDeletingId(workspace.id);
     setError(null);
@@ -431,6 +437,7 @@ export function WorkspaceListPage({ username, onLogout }: WorkspaceListPageProps
         )}
         </div>
       </div>
+      {confirmDialog}
     </div>
   );
 }

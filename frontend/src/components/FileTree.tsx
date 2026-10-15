@@ -140,6 +140,9 @@ export function FileTree({
             onChange={(event) => onQueryChange(event.target.value)}
             placeholder="筛选文件名…"
             aria-label="筛选文件"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape' && query) onQueryChange('');
+            }}
           />
         </div>
       )}

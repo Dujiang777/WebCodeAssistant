@@ -70,18 +70,30 @@ export function CreditsPage({ onBack, onLogout }: { onBack: () => void; onLogout
     setLoading(true);
     setError(null);
     try {
-      const [balance, planList, orderList, page] = await Promise.all([
+      const [balance, planList, orderList, page] = await Promise.allSettled([
         api.creditSummary(),
         api.creditPlans(),
         api.creditOrders(),
         api.creditLedger(PAGE_SIZE, 0),
       ]);
-      setSummary(balance);
-      setPlans(planList);
-      setOrders(orderList);
-      setLedger(page);
-      setOffset(0);
-      updateCredits(balance.balance, balance.lowBalance);
+      const failed: string[] = [];
+      if (balance.status === 'fulfilled') {
+        setSummary(balance.value);
+        updateCredits(balance.value.balance, balance.value.lowBalance);
+      } else {
+        failed.push(messageOf(balance.reason));
+      }
+      if (planList.status === 'fulfilled') setPlans(planList.value);
+      else failed.push('套餐暂时读不到');
+      if (orderList.status === 'fulfilled') setOrders(orderList.value);
+      else failed.push('订单暂时读不到');
+      if (page.status === 'fulfilled') {
+        setLedger(page.value);
+        setOffset(0);
+      } else {
+        failed.push('流水暂时读不到');
+      }
+      if (failed.length > 0) setError(failed.join('；'));
     } catch (err) {
       setError(messageOf(err));
     } finally {
@@ -308,7 +320,14 @@ export function CreditsPage({ onBack, onLogout }: { onBack: () => void; onLogout
                   </button>
                 </article>
               ))}
-              {plans.length === 0 && !loading && <p className="cr-empty">暂时没有可购买的套餐。</p>}
+              {plans.length === 0 && !loading && (
+                <p className="cr-empty">
+                  暂时没有可购买的套餐。
+                  <button type="button" className="btn btn-sm" onClick={() => void loadAll()}>
+                    再试一次
+                  </button>
+                </p>
+              )}
             </div>
           </section>
 

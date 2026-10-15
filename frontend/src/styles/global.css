@@ -3497,6 +3497,40 @@ button.risk-chip:hover {
   animation: overlay-fade var(--dur-2) var(--ease-out);
 }
 
+.confirm-backdrop {
+  z-index: 80;
+}
+
+.confirm-dialog {
+  width: min(420px, calc(100vw - 48px));
+  padding: 22px 22px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+  box-shadow: var(--panel-edge), var(--shadow-modal);
+  color: var(--fg-1);
+}
+
+.confirm-dialog h2 {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  color: var(--fg-0);
+}
+
+.confirm-dialog p {
+  margin: 0 0 18px;
+  line-height: 1.55;
+  color: var(--fg-2);
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .modal {
   position: relative;
   width: min(1180px, calc(100vw - 48px));
@@ -5651,6 +5685,10 @@ button.risk-chip:hover {
   font-size: 12px;
   color: var(--fg-2);
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
 /* ------------------------------------------------------------------- 余额区 */
@@ -10739,6 +10777,7 @@ body {
   gap: 2px;
   padding: 0 6px;
   overflow-x: auto;
+  overflow-y: hidden;
   border-bottom: 1px solid var(--line);
   background: var(--bg-2);
 }

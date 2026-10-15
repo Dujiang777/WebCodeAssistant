@@ -139,6 +139,14 @@ export function EditorPane({
   askRef.current = onAskSelection;
   const setSelRef = useRef(setSel);
   setSelRef.current = setSel;
+  const tabsBar = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    tabsBar.current?.querySelector<HTMLElement>('.editor-tab.on')?.scrollIntoView({
+      inline: 'nearest',
+      block: 'nearest',
+    });
+  }, [file?.path]);
 
   // 诊断：文件内容变化后防抖 lint（编辑器缓冲区，不用等保存）。
   // 请求带序号，慢响应不许覆盖新响应 —— 打字快的时候旧 lint 还在路上是常态。
@@ -314,7 +322,16 @@ export function EditorPane({
       </div>
 
       {tabs.length > 0 && (
-        <div className="editor-tabs" role="tablist" aria-label="已打开的文件">
+        <div
+          className="editor-tabs"
+          role="tablist"
+          aria-label="已打开的文件"
+          ref={tabsBar}
+          onWheel={(event) => {
+            if (event.currentTarget.scrollWidth <= event.currentTarget.clientWidth) return;
+            event.currentTarget.scrollLeft += event.deltaY;
+          }}
+        >
           {tabs.map((path) => {
             const active = file?.path === path;
             const name = path.split('/').pop() ?? path;
@@ -327,6 +344,14 @@ export function EditorPane({
                 className={`editor-tab${active ? ' on' : ''}`}
                 title={path}
                 onClick={() => onSelectTab?.(path)}
+                onMouseDown={(event) => {
+                  if (event.button === 1) event.preventDefault();
+                }}
+                onAuxClick={(event) => {
+                  if (event.button !== 1) return;
+                  event.preventDefault();
+                  onCloseTab?.(path);
+                }}
               >
                 <span className="editor-tab-name">{name}</span>
                 {active && dirty && <span className="dirty-mark" />}

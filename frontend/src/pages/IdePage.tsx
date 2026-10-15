@@ -41,6 +41,7 @@ import type { ChatEvent, StreamStatus } from '../lib/sse';
 import { copyText } from '../lib/clipboard';
 import { useToast } from '../lib/toast';
 import { ChatPane } from '../components/ChatPane';
+import { useConfirm } from '../components/ConfirmDialog';
 import { AgentDesk } from '../components/AgentDesk';
 import { ConstitutionModal } from '../components/ConstitutionModal';
 import { ProfileModal } from '../components/ProfileModal';
@@ -233,6 +234,7 @@ const lastSeqBySession = new Map<number, number>();
 
 export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const toast = useToast();
+  const { ask, dialog: confirmDialog } = useConfirm();
 
   // 记下「最近干活的编辑器」：二级页顶栏的品牌区靠它一键回工作台。
   // 放在这里而不是各二级页，是因为「进过编辑器」只有本页知道。
@@ -1233,9 +1235,12 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
   const openFile = async (path: string, announce = false) => {
     if (dirtyRef.current && selectedPathRef.current && selectedPathRef.current !== path) {
       const stay = selectedPathRef.current;
-      const confirmed = window.confirm(
-        `「${stay}」有未保存的修改。切换文件会丢掉这些改动，确定继续？`,
-      );
+      const confirmed = await ask({
+        title: '丢掉未保存的修改？',
+        body: `「${stay}」有未保存的修改。切换文件会丢掉这些改动。`,
+        confirmLabel: '丢掉并切换',
+        danger: true,
+      });
       if (!confirmed) return;
     }
     setSelectedPath(path);
@@ -1273,9 +1278,12 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
       return;
     }
     if (manual && dirtyRef.current && selectedPathRef.current === filePath) {
-      const confirmed = window.confirm(
-        `「${filePath}」有未保存的修改。放预览会先回到磁盘上的版本（还没写盘），确定继续？`,
-      );
+      const confirmed = await ask({
+        title: '丢掉未保存的修改？',
+        body: `「${filePath}」有未保存的修改。放预览会先回到磁盘上的版本（还没写盘）。`,
+        confirmLabel: '丢掉并预览',
+        danger: true,
+      });
       if (!confirmed) return;
       dirtyRef.current = false;
       setDocText(savedText);
@@ -1308,7 +1316,12 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
 
   const closeTab = async (path: string) => {
     if (selectedPathRef.current === path && dirtyRef.current) {
-      const confirmed = window.confirm(`「${path}」有未保存的修改。关闭标签会丢掉这些改动，确定继续？`);
+      const confirmed = await ask({
+        title: '丢掉未保存的修改？',
+        body: `「${path}」有未保存的修改。关闭标签会丢掉这些改动。`,
+        confirmLabel: '丢掉并关闭',
+        danger: true,
+      });
       if (!confirmed) return;
       dirtyRef.current = false;
     }
@@ -1475,7 +1488,12 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
 
   const deleteEntry = async (node: FileNode) => {
     const label = node.type === 'dir' ? '目录' : '文件';
-    const confirmed = window.confirm(`确定删除${label} “${node.path}” 吗？此操作不可撤销。`);
+    const confirmed = await ask({
+      title: `删除这个${label}？`,
+      body: `「${node.path}」会从磁盘上删掉，不可恢复。`,
+      confirmLabel: '删除',
+      danger: true,
+    });
     if (!confirmed) return;
     try {
       await api.deleteEntry(workspaceId, node.path);
@@ -2184,7 +2202,12 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
     }
     const current = sessions.find((session) => session.id === sid);
     const label = current?.title ? `「${current.title}」` : `#${sid}`;
-    const confirmed = window.confirm(`确定删除会话 ${label}？消息和待确认补丁都会消失，不可恢复。`);
+    const confirmed = await ask({
+      title: '删除这个会话？',
+      body: `确定删除会话 ${label}？消息和待确认补丁都会消失，不可恢复。`,
+      confirmLabel: '删除',
+      danger: true,
+    });
     if (!confirmed) return;
     try {
       await api.deleteSession(sid);
@@ -2769,6 +2792,7 @@ export function IdePage({ workspaceId, username, onLogout }: IdePageProps) {
           navigate('/models');
         }}
       />
+      {confirmDialog}
     </div>
   );
 }
