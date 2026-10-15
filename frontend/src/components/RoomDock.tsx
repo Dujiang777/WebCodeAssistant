@@ -11,11 +11,20 @@ import { useToast } from '../lib/toast';
 type Tab = 'inbox' | 'public' | 'direct';
 
 const POS_KEY = 'wca.room.pos';
+const SIZE_KEY = 'wca.room.size';
 const PAGE = 80;
+const MIN_W = 300;
+const MIN_H = 320;
+const DEFAULT_SIZE = { width: 360, height: 400 };
 
 interface Corner {
   right: number;
   bottom: number;
+}
+
+interface BoxSize {
+  width: number;
+  height: number;
 }
 
 function readCorner(): Corner {
@@ -30,7 +39,31 @@ function readCorner(): Corner {
   } catch {
     // 记录坏了就回到默认位置
   }
-  return { right: 24, bottom: 120 };
+  return { right: 20, bottom: 28 };
+}
+
+function readSize(): BoxSize {
+  try {
+    const raw = localStorage.getItem(SIZE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<BoxSize>;
+      if (typeof parsed.width === 'number' && typeof parsed.height === 'number') {
+        return { width: parsed.width, height: parsed.height };
+      }
+    }
+  } catch {
+    // 记录坏了就回到默认大小
+  }
+  return { ...DEFAULT_SIZE };
+}
+
+function clampSize(size: BoxSize): BoxSize {
+  const maxW = Math.max(MIN_W, window.innerWidth - 16);
+  const maxH = Math.max(MIN_H, window.innerHeight - 16);
+  return {
+    width: Math.min(maxW, Math.max(MIN_W, Math.round(size.width))),
+    height: Math.min(maxH, Math.max(MIN_H, Math.round(size.height))),
+  };
 }
 
 function clampCorner(corner: Corner, width: number, height: number): Corner {
@@ -197,8 +230,10 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
   const scroller = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLElement | null>(null);
   const [corner, setCorner] = useState<Corner>(readCorner);
+  const [boxSize, setBoxSize] = useState<BoxSize>(readSize);
   const [dragging, setDragging] = useState(false);
   const cornerRef = useRef(corner);
+  const sizeRef = useRef(boxSize);
   const skipClick = useRef(false);
   const pinBottom = useRef(true);
   const holdScroll = useRef(false);
@@ -211,23 +246,31 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
   const channelKey = tab === 'direct' ? `d:${peerId ?? 'x'}` : tab;
   const meId = user?.userId ?? 0;
   cornerRef.current = corner;
+  sizeRef.current = boxSize;
 
   const place = (next: Corner) => {
     const node = boxRef.current;
-    const width = node?.offsetWidth ?? 52;
-    const height = node?.offsetHeight ?? 52;
+    const width = expanded ? sizeRef.current.width : node?.offsetWidth ?? 52;
+    const height = expanded ? sizeRef.current.height : node?.offsetHeight ?? 52;
     const clamped = clampCorner(next, width, height);
     cornerRef.current = clamped;
     setCorner(clamped);
   };
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => place(cornerRef.current));
-    const onResize = () => place(cornerRef.current);
-    window.addEventListener('resize', onResize);
+    const fit = () => {
+      const nextSize = clampSize(sizeRef.current);
+      if (nextSize.width !== sizeRef.current.width || nextSize.height !== sizeRef.current.height) {
+        sizeRef.current = nextSize;
+        setBoxSize(nextSize);
+      }
+      place(cornerRef.current);
+    };
+    const frame = window.requestAnimationFrame(fit);
+    window.addEventListener('resize', fit);
     return () => {
       window.cancelAnimationFrame(frame);
-      window.removeEventListener('resize', onResize);
+      window.removeEventListener('resize', fit);
     };
   }, [expanded]);
 
@@ -264,7 +307,41 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
     window.addEventListener('pointercancel', up);
   };
 
-  const spot = { right: corner.right, bottom: corner.bottom };
+  const beginResize = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.button !== 0) return;
+    event.stopPropagation();
+    const pointerId = event.pointerId;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const origin = sizeRef.current;
+    const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+      const next = clampSize({
+        width: origin.width + (startX - ev.clientX),
+        height: origin.height + (startY - ev.clientY),
+      });
+      sizeRef.current = next;
+      setBoxSize(next);
+      setDragging(true);
+      place(cornerRef.current);
+    };
+    const up = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      setDragging(false);
+      localStorage.setItem(SIZE_KEY, JSON.stringify(sizeRef.current));
+      localStorage.setItem(POS_KEY, JSON.stringify(cornerRef.current));
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  };
+
+  const spot = expanded
+    ? { right: corner.right, bottom: corner.bottom, width: boxSize.width, height: boxSize.height }
+    : { right: corner.right, bottom: corner.bottom };
 
   useEffect(() => subscribeRoomOpen(() => setExpanded(true)), []);
 
@@ -497,9 +574,7 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
     if (tab === 'public') {
       void api
         .roomRead('PUBLIC', null)
-        .then(() =>
-          setNotices((current) => current.filter((item) => item.kind !== 'PUBLIC' && item.kind !== 'MENTION')),
-        )
+        .then(() => setNotices((current) => current.filter((item) => item.kind !== 'PUBLIC')))
         .catch(() => undefined);
       return;
     }
@@ -556,7 +631,7 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
   const shownPeople = people.filter((person) =>
     person.username.toLowerCase().includes(query.trim().toLowerCase()),
   );
-  const publicUnread = notices.filter((item) => item.kind === 'PUBLIC' || item.kind === 'MENTION').length;
+  const publicUnread = notices.filter((item) => item.kind === 'PUBLIC').length;
   const directUnread = notices.filter((item) => item.kind === 'DIRECT').length;
   const peerName = people.find((person) => person.id === peerId)?.username
     ?? threads.find((item) => item.peerId === peerId)?.username
@@ -771,6 +846,7 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
       setTab('direct');
       return;
     }
+    if (notice.kind === 'MENTION') void dismiss(notice.id);
     setTab('public');
   };
 
@@ -933,6 +1009,14 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
         <i className="room-stars far" />
         <i className="room-stars bright" />
       </div>
+      <button
+        type="button"
+        className="room-resize"
+        tabIndex={-1}
+        aria-label="拖动调整讨论室大小"
+        title="拖动左上角调整大小"
+        onPointerDown={beginResize}
+      />
       <header
         className="room-head"
         title="拖动标题可以挪开"
@@ -1133,18 +1217,15 @@ export function RoomDock({ user, onLogin }: { user: AuthUser | null; onLogin: ()
                   ))}
                 </div>
               )}
-              {!editing && (
-              <label>
-                <input
-                  type="checkbox"
-                  checked={attachFile && Boolean(code.excerpt)}
-                  disabled={!code.excerpt}
-                  onChange={(event) => setAttachFile(event.target.checked)}
-                />
-                {code.excerpt
-                  ? `带上第 ${code.startLine}–${code.endLine} 行${code.clipped ? '（前 2000 字）' : ''}`
-                  : '先选中一段代码再带上'}
-              </label>
+              {!editing && code.excerpt && (
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={attachFile}
+                    onChange={(event) => setAttachFile(event.target.checked)}
+                  />
+                  {`带上第 ${code.startLine}–${code.endLine} 行${code.clipped ? '（前 2000 字）' : ''}`}
+                </label>
               )}
               <div>
                 <textarea

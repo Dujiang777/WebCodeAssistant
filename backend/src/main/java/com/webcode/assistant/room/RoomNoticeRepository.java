@@ -106,7 +106,7 @@ public class RoomNoticeRepository {
         return jdbc.sql("""
                         update room_notices
                         set read_at = now(6)
-                        where user_id = :user and read_at is null and kind in ('PUBLIC', 'MENTION')
+                        where user_id = :user and read_at is null and kind = 'PUBLIC'
                         """)
                 .param("user", userId)
                 .update();
