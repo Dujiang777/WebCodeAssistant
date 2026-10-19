@@ -12,6 +12,8 @@
   <a href="http://139.199.88.15:8081/">在线演示</a>
   ·
   <a href="https://gitee.com/du-jiangjiang/web-code-assistant/issues">Issue</a>
+  ·
+  <a href="LICENSE">木兰宽松许可证，第2版</a>
 </p>
 
 演示站是共享环境。登录页点「一键随机演示账号」就能进，不必注册。**不要克隆私有仓库，不要贴真实 Key。** 支付是模拟的；站点目前走 HTTP。问题提到 [Gitee Issue](https://gitee.com/du-jiangjiang/web-code-assistant/issues)。
@@ -395,7 +397,9 @@ Flyway 自动迁移（V1 → V15）。核心关系：**`credit_ledger` 是事实
 - 登录锁定按账号计，没有按 IP。
 - 演示站是共享机，编译带着服务进程身份跑，不要当 CI，也不要往里面放机密。
 
-**还没做：** 每用户 Docker 沙箱、Java LSP、真实支付网关、IP 限流、多人同时改同一工作区、自动开 PR。开源协议尚未选定，商用或内网部署前请先确认。
+**还没做：** 每用户 Docker 沙箱、Java LSP、真实支付网关、IP 限流、多人同时改同一工作区、自动开 PR。
+
+源码按 [木兰宽松许可证，第2版](LICENSE) 发布。
 
 ---
 
