@@ -10,7 +10,11 @@
   <a href="https://github.com/Dujiang777/WebCodeAssistant">GitHub</a>
   ·
   <a href="http://139.199.88.15:8081/">在线演示</a>
+  ·
+  <a href="https://gitee.com/du-jiangjiang/web-code-assistant/issues">Issue</a>
 </p>
+
+演示站是共享环境。登录页点「一键随机演示账号」就能进，不必注册。**不要克隆私有仓库，不要贴真实 Key。** 支付是模拟的；站点目前走 HTTP。问题提到 [Gitee Issue](https://gitee.com/du-jiangjiang/web-code-assistant/issues)。
 
 <div align="center">
   <img src="docs/media/03-workbench.jpg" alt="三栏工作台：文件树、Monaco、待确认补丁卡" width="960" />
@@ -131,11 +135,11 @@
 ```bash
 cd deploy
 cp ../.env.example .env
-# 至少改掉：DB_PASSWORD / JWT_SECRET / LLM_*
+# 至少改掉：DB_PASSWORD / JWT_SECRET / APP_SECRET / LLM_*
 docker compose up --build
 ```
 
-打开 **http://localhost:5173**，会落到产品首页。
+打开 **http://localhost:5173**，会落到产品首页。健康检查：`GET http://localhost:8080/api/health`。
 
 | 路径 | 页面 |
 | --- | --- |
@@ -190,6 +194,35 @@ node tools/mock-llm/server.mjs --port 8787
 4. 选中 `@Autowired` 那两行，问「改成构造器注入」。出现紫色补丁卡，磁盘还没动。
 5. 看影响面，点「看着改」，再「应用并验收」或只「应用并写盘」。
 6. 刷新整页：文件、对话、补丁状态都在。
+
+### 接到自己的机器上
+
+本地 Compose 不是生产形态。有 Docker 用上面那份；小机器、宿主机已有 MySQL / Redis 时，走 [`deploy/server/README.md`](deploy/server/README.md)（systemd + 反代静态资源）。
+
+- 后端默认 `8080`，前面要反代，站点上 HTTPS。
+- 编译验证要宿主机 JDK 17+（`COMPILE_JAVA_HOME`）。自测用的 Maven settings **不要**带进生产。
+- 备份两样：MySQL（用户、会话、账本）和 `WORKSPACE_ROOT`（真实仓库）。Flyway 会建表，不会帮你备份。
+- 语义检索要单独配 embedding。DeepSeek 官方没有 `/v1/embeddings`；三项留空 = 关键词检索仍可用。
+- **不要**把 `tools/mock-llm` 接到真实环境。
+
+### 上线必改
+
+不改就是事故。完整清单和每一行的原因在 [`.env.example`](.env.example)。
+
+| 变量 | 不改会怎样 |
+| --- | --- |
+| `DB_PASSWORD` | 默认口令等于开门 |
+| `JWT_SECRET`（≥ 32 字节） | 任何人都能伪造登录态。生成：`openssl rand -base64 48` |
+| `APP_SECRET` | 用户自带的模型 Key 会和 JWT 共用一把锁。同样 ≥ 32 字节 |
+| `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL` | 对话不可用。URL 要带 `/v1`，模型必须支持 function calling |
+| `CORS_ALLOWED_ORIGINS` | 浏览器拦掉全部接口 |
+| `FRONTEND_BASE_URL` | 验证 / 重置邮件链到 localhost |
+| `MAIL_MODE=smtp` 及 host / 账号 | `dev` 只写日志，用户收不到信 |
+| `ADMIN_USERNAMES` | 填一次造出首位管理员，**之后立刻清空** |
+| `CREDIT_ENFORCE=true` | 否则余额能透支 |
+| `AUTH_REQUIRE_VERIFIED_EMAIL` | 邮件没通之前不要开，否则老账号会被锁在模型门外 |
+| `LLM_LOG_REQUESTS=false` | 默认 `true`，生产会把模型请求打进日志 |
+| `WORKSPACE_ROOT` | 用户代码落盘处，必须进备份 |
 
 ---
 
@@ -345,7 +378,7 @@ Flyway 自动迁移（V1 → V15）。核心关系：**`credit_ledger` 是事实
 
 刷新必须防并发：前端 `refreshAccessToken()` 是单例 Promise。SSE 的令牌每次建连现取。
 
-上线必做：`ADMIN_USERNAMES` 造出第一个管理员后清空、`MAIL_MODE=smtp`、`FRONTEND_BASE_URL` 改成你的域名、`JWT_SECRET` ≥ 32 字节、`CREDIT_ENFORCE=true`。
+上线变量见上面的「上线必改」。密钥只放环境变量或主机上的 env 文件，不进 git、不进镜像、不进日志。
 
 ---
 
@@ -360,8 +393,9 @@ Flyway 自动迁移（V1 → V15）。核心关系：**`credit_ledger` 是事实
 - 支付是模拟的。接微信 / 支付宝要自己补回调验签。
 - 计费是产品内用量，不对齐服务商账单。
 - 登录锁定按账号计，没有按 IP。
+- 演示站是共享机，编译带着服务进程身份跑，不要当 CI，也不要往里面放机密。
 
-**还没做：** 每用户 Docker 沙箱、Java LSP、真实支付网关、IP 限流、多人同时改同一工作区、自动开 PR。
+**还没做：** 每用户 Docker 沙箱、Java LSP、真实支付网关、IP 限流、多人同时改同一工作区、自动开 PR。开源协议尚未选定，商用或内网部署前请先确认。
 
 ---
 
