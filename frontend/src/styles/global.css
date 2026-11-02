@@ -10,6 +10,22 @@
    类名与 DOM 结构是历史契约（自检脚本按类名断言），本文件只做「换血不换骨」。
    ========================================================================== */
 
+/* ============================================================================
+   响应式档位（2026-11-02 治理定稿；改断点前先读这里，新需求只准复用这些数）
+   ─────────────────────────────────────────────────────────────────────────
+   · ≤720   手机档   ：创建网格收单列、冲印印章缩小（本文件唯一 720 块）
+   · ≤900   窄档·通用：顶栏品牌文字隐去、面包屑截断、登录页 v1 分栏收单列
+                        （gate.css 同数为引导页 nav/hero 间距调整）
+   · ≤980   窄档·登录：登录页 v2（auth-studio）分栏收单列、表单卡全宽
+   · ≤1080  平板档   ：仅 gate.css，引导页片盒脊网格收窄
+   · >1280  桌面档   ：IDE 三栏完整形态；≤1279.98 时 JS 侧自动收文件树+工位
+                        （IdePage.tsx matchMedia，CSS 无对应断点）
+   为什么不再收敛成三个数：每个数都绑着具体页面/具体代际的布局意图
+   （900 与 980 是登录页两代布局各自的坍塌阈值，1080 只服务引导页），
+   强行统一会改变 901–980 / 981–1080 区间的实际渲染，收益近乎零。
+   要加新断点 = 先在这里登记，再落规则。
+   ========================================================================== */
+
 :root {
   /* 底色：暖调近黑，像暗房里的相纸暗盒。
      黑室批（2026-10-08）：底再压深到显影盘的黑 —— 氛围光只有在足够黑的底上才读得出「环境」。 */
@@ -919,38 +935,6 @@ a.link:hover,
   transform: scale(var(--press));
 }
 
-.empty-steps {
-  margin: 10px 0 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  counter-reset: step;
-}
-
-.empty-steps li {
-  counter-increment: step;
-  position: relative;
-  padding: 9px 12px 9px 38px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--bg-2);
-  color: var(--fg-1);
-  font-size: 12.5px;
-  line-height: 1.55;
-}
-
-.empty-steps li::before {
-  content: counter(step, decimal-leading-zero);
-  position: absolute;
-  left: 12px;
-  top: 9px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--signal);
-}
-
 .loading-block {
   padding: 18px 14px;
   color: var(--fg-2);
@@ -1094,12 +1078,6 @@ a.link:hover,
 }
 
 /* --------------------------------------------------------------- 工作区列表 */
-
-.workspace-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
 
 .workspace-row {
   display: block;
@@ -1652,11 +1630,6 @@ button.crumbs-rename:hover {
   font-size: 10.5px;
   color: var(--fg-3);
   flex: none;
-}
-
-.tree-guide {
-  flex: none;
-  align-self: stretch;
 }
 
 .tree-create-input {
@@ -8164,9 +8137,18 @@ button.risk-chip:hover {
   transform: translateX(2px);
 }
 
+/* 手机档（≤720）：创建网格收单列；批35 的冲印印章同步缩小
+   （原批35  section 内另有一个 720 块，收敛时合并到这里） */
 @media (max-width: 720px) {
   .ws-create-grid {
     grid-template-columns: 1fr;
+  }
+
+  .patch-stamp {
+    top: 34px;
+    right: 10px;
+    font-size: 9.5px;
+    padding: 2px 7px 3px;
   }
 }
 
@@ -9081,7 +9063,6 @@ body {
   overflow-x: hidden;
 }
 
-.chat-scroll .msg-in,
 .chat-scroll .patch-card,
 .chat-scroll .plan-card,
 .chat-scroll .tool-card {
@@ -9331,15 +9312,6 @@ body {
 }
 
 /* 窄屏时印章容易和 patch-stat 的 +N/-M 撞上 —— 压小并挪到标题下方一点 */
-@media (max-width: 720px) {
-  .patch-stamp {
-    top: 34px;
-    right: 10px;
-    font-size: 9.5px;
-    padding: 2px 7px 3px;
-  }
-}
-
 /* ═══════════════════════════════════════════════════════════════════
    批35「显影三镜」：把「正在发生」这件事画出来
    ① 计划卡 live = 卡底显影进度条（循环推进的金线）
@@ -9715,8 +9687,7 @@ body {
    不改顶栏高度与模糊、不拆片盒脊 / 片边 select / 轨道发送键。
    ═══════════════════════════════════════════════════════════════════ */
 
-.auth-kicker,
-.page-kicker {
+.auth-kicker {
   margin: 0 0 10px;
   font-family: var(--font-display);
   font-size: 11px;
@@ -9973,8 +9944,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .auth-kicker,
-  .page-kicker {
+  .auth-kicker {
     text-shadow: none;
   }
 }
@@ -9985,53 +9955,6 @@ body {
    顶栏高度、片盒脊层数、配额条高度、轨道发送键。
    ═══════════════════════════════════════════════════════════════════ */
 
-.film-sprocket {
-  pointer-events: none;
-  background-color: #120e08;
-  background-image: repeating-linear-gradient(
-    180deg,
-    #120e08 0 6px,
-    #080604 6px 8px,
-    transparent 8px 18px,
-    #080604 18px 20px,
-    #120e08 20px 28px
-  );
-}
-
-.film-sprocket-left,
-.film-sprocket-right {
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  width: 22px;
-  z-index: 40;
-  box-shadow: inset 0 0 0 1px var(--signal-line), 0 0 24px rgba(0, 0, 0, 0.55);
-}
-
-.film-sprocket-left { left: 0; }
-.film-sprocket-right { right: 0; transform: scaleX(-1); }
-
-.film-sprocket-page {
-  position: absolute;
-  top: 14px;
-  bottom: 14px;
-  left: 10px;
-  width: 14px;
-  border-radius: 2px;
-  box-shadow: inset 0 0 0 1px var(--signal-line);
-  z-index: 1;
-}
-
-.film-sprocket-rail {
-  position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: 3px;
-  width: 7px;
-  border-radius: 1px;
-  opacity: 0.85;
-  z-index: 0;
-}
 
 .auth-wrap.auth-wrap-v2 {
   padding-left: clamp(40px, 7vw, 96px);
@@ -10059,19 +9982,6 @@ body {
 
 .auth-wrap-v2 .auth-features li:hover {
   border-color: var(--signal-line);
-}
-
-.auth-stamp {
-  margin-left: auto;
-  font-family: var(--font-display);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: var(--on-signal);
-  background: var(--signal);
-  padding: 3px 8px;
-  border-radius: 2px;
-  box-shadow: 0 0 16px var(--signal-dim);
 }
 
 .term-win {
@@ -10263,18 +10173,6 @@ body {
   color: var(--signal-soft);
 }
 
-[data-theme='ivory'] .film-sprocket {
-  background-color: #d8c9a8;
-  background-image: repeating-linear-gradient(
-    180deg,
-    #d8c9a8 0 6px,
-    #c4b28a 6px 8px,
-    transparent 8px 18px,
-    #c4b28a 18px 20px,
-    #d8c9a8 20px 28px
-  );
-}
-
 [data-theme='ivory'] .term-win,
 [data-theme='ivory'] .ws-page.card.wide,
 [data-theme='ivory'] .cr-plan.featured {
@@ -10321,25 +10219,6 @@ body {
   padding: 52px 56px 36px;
 }
 
-.ws-slate {
-  display: inline-flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 16px;
-  padding: 6px 12px;
-  border: 1px solid var(--signal-line);
-  background: #0c0906;
-  box-shadow: var(--panel-edge), 0 0 24px var(--signal-dim);
-}
-
-.ws-slate span {
-  font-family: var(--font-display);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: var(--signal);
-}
-
 .ws-library .ws-hero-title {
   font-size: clamp(42px, 6vw, 76px);
   line-height: 1.05;
@@ -10378,32 +10257,6 @@ body {
   grid-template-columns: minmax(0, 1.45fr) minmax(400px, 0.72fr);
   gap: clamp(28px, 6vw, 80px);
   align-items: center;
-}
-
-.auth-meter {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  margin: 10px 0 6px;
-  padding: 5px 12px;
-  border: 1px solid var(--signal-line);
-  background: #0c0906;
-}
-
-.auth-meter span {
-  font-family: var(--font-display);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--signal);
-}
-
-.auth-meter i {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--signal);
-  opacity: 0.55;
 }
 
 .auth-wrap-v2 .auth-title {
@@ -10487,21 +10340,12 @@ body {
   padding-top: 28px;
 }
 
-.page-kicker {
-  font-size: 12px;
-}
-
 .cr-hero {
   padding: 34px 32px 28px;
 }
 
 .cr-balance-value {
   font-size: 68px;
-}
-
-[data-theme='ivory'] .ws-slate,
-[data-theme='ivory'] .auth-meter {
-  background: #f3ead4;
 }
 
 [data-theme='ivory'] .ws-library .ws-page.card.wide {
@@ -10591,11 +10435,6 @@ body {
 
 .cr-balance-value {
   font-size: 48px;
-}
-
-.ws-library .page-kicker,
-.page-kicker {
-  display: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -11164,7 +11003,6 @@ body {
 
 .room-head,
 .room-tabs,
-.room-people,
 .room-log,
 .room-compose {
   position: relative;
@@ -11233,8 +11071,6 @@ body {
 }
 
 .room-tabs button,
-.room-people input,
-.room-people button,
 .room-compose textarea {
   border: 1px solid var(--line);
   background: var(--bg-2);
@@ -11259,65 +11095,6 @@ body {
   box-shadow: 0 1px 0 rgba(255, 244, 220, 0.4);
 }
 
-.room-people {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 148px;
-  margin: 0 12px 8px;
-  padding: 8px;
-  border: 1px solid rgba(232, 180, 90, 0.18);
-  border-radius: 12px;
-  background: rgba(7, 6, 10, 0.5);
-  backdrop-filter: blur(12px);
-}
-
-.room-people input,
-.room-people button {
-  border: 1px solid var(--line);
-  background: var(--bg-2);
-  color: var(--fg-0);
-  border-radius: 8px;
-  font-size: 12px;
-}
-
-.room-people input {
-  padding: 6px 8px;
-}
-
-.room-people > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  overflow: auto;
-}
-
-.room-people button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-.room-people button.on {
-  border-color: var(--signal-line);
-  color: var(--signal-soft);
-  background: var(--signal-dim);
-}
-
-.room-people i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--fg-2);
-}
-
-.room-people i.on {
-  background: var(--signal);
-}
 
 .room-notice {
   display: flex;

@@ -1,4 +1,7 @@
-/* 产品入口长页。变量只挂在 .gate 上，不动 :root 的 Brass 契约。 */
+/* 产品入口长页。变量只挂在 .gate 上，不动 :root 的 Brass 契约。
+   断点沿用 global.css 文件头的「响应式档位」：900 = 窄档（nav/hero 间距）、
+   1080 = 平板档（片盒脊网格收窄）。本文件是引导页自治样式（自带 --gate-* 令牌域），
+   故意不并回 global.css —— 并进去只会让两个文件互相踩。 */
 
 body:has(.gate) {
   overflow: auto;
