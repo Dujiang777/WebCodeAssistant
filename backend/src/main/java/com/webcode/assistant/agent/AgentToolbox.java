@@ -22,7 +22,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 /**
@@ -68,6 +70,16 @@ public class AgentToolbox {
     /** 本轮已执行的工具调用次数，用于封顶，避免模型在死循环里烧 token。 */
     private final AtomicInteger toolCalls = new AtomicInteger();
 
+    /**
+     * 看门狗的存活信号：最近一次「回合确实在动」的时间戳。
+     * 进 {@link #guard} 与工具执行结束时各打一次 —— 模型纯思考期没有事件可推，
+     * 工具期有，看门狗靠它区分「框架级挂死」和「慢工具」。
+     */
+    private final AtomicLong lastActivityAt = new AtomicLong(System.currentTimeMillis());
+
+    /** 工具是否正在执行（含人工闸门等待）：在飞即活着，哪怕构建跑了好几分钟。 */
+    private final AtomicBoolean toolInFlight = new AtomicBoolean(false);
+
     /** 本轮生成的补丁，回合结束后统一挂到 assistant 消息上。 */
     private final List<UUID> proposedPatches = new ArrayList<>();
 
@@ -107,6 +119,16 @@ public class AgentToolbox {
 
     public List<UUID> proposedPatches() {
         return List.copyOf(proposedPatches);
+    }
+
+    /** 看门狗读它判断「多久没动静了」。 */
+    public AtomicLong lastActivityAt() {
+        return lastActivityAt;
+    }
+
+    /** 看门狗读它判断「工具是否在飞」—— 在飞的工具不计入空转。 */
+    public AtomicBoolean toolInFlight() {
+        return toolInFlight;
     }
 
     /**
@@ -590,6 +612,7 @@ public class AgentToolbox {
             throw new TurnCanceledException();
         }
 
+        lastActivityAt.set(System.currentTimeMillis());
         publisher.toolCall(toolName, args);
         // 工位（功能 13）：每次工具动作都翻译成空间状态 —— 打开的文件、光标、正在搜什么
         deskService.toolStarted(sessionId, toolName, args);
@@ -621,6 +644,7 @@ public class AgentToolbox {
             }
         }
 
+        toolInFlight.set(true);
         try {
             ToolOutcome outcome = action.apply(decision);
             publisher.toolResult(toolName, true, outcome.uiSummary());
@@ -641,6 +665,9 @@ public class AgentToolbox {
             deskService.toolFinished(sessionId, toolName, false, message);
             log.warn("工具 {} 内部错误", toolName, ex);
             return "工具执行失败 -> 内部错误: " + message;
+        } finally {
+            toolInFlight.set(false);
+            lastActivityAt.set(System.currentTimeMillis());
         }
     }
 

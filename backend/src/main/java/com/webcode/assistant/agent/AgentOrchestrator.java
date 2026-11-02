@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Agent 编排：一次对话从「收到消息」到「推送 done」的全过程。
@@ -68,6 +69,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class AgentOrchestrator {
 
     private static final Logger log = LoggerFactory.getLogger(AgentOrchestrator.class);
+
+    /** 看门狗：模型侧零事件的宽限（无首字、工具也没在飞）—— 超过即判定静默挂死。 */
+    private static final long IDLE_CEILING_MS = 120_000;
+    /** 看门狗：单个工具在飞的宽限（构建、大范围检索可能跑几分钟，不能误杀）。 */
+    private static final long TOOL_CEILING_MS = 600_000;
 
     private final ChatModelConfig.ModelGateway modelGateway;
     private final ChatEventHub eventHub;
@@ -360,27 +366,38 @@ public class AgentOrchestrator {
                     .onError(error -> {
                         streamEnded.set(true);
                         log.warn("Agent 回合失败 session={}", request.sessionId(), error);
-                        if (cancellation.isCanceled(request.sessionId(), generation)) {
-                            if (cancellation.isStale(request.sessionId(), generation)) {
-                                refundSuperseded(request, charge);
+                        synchronized (charge) {
+                            // 看门狗已终局（超时）：迟到的错误只记录，不重复落消息、不重复退款
+                            if (cancellation.isTimedOut(request.sessionId(), generation)) {
                                 return;
                             }
-                            // 用户停止：半截回答也要保留（不是失败），预扣全额退还
-                            finishStopped(request, answer, toolbox, publisher, charge);
-                            return;
+                            if (cancellation.isCanceled(request.sessionId(), generation)) {
+                                // 同 finish：登记超时抢占终局通道，看门狗见到即退场
+                                cancellation.timeout(request.sessionId(), generation);
+                                if (cancellation.isStale(request.sessionId(), generation)) {
+                                    refundSuperseded(request, charge);
+                                    return;
+                                }
+                                // 用户停止：半截回答也要保留（不是失败），预扣全额退还
+                                finishStopped(request, answer, toolbox, publisher, charge);
+                                return;
+                            }
+                            String message = describe(error);
+                            persistAssistantError(request.sessionId(), message);
+                            publisher.error(message);
+                            // 回合失败 = 没花掉 token = 必须退钱。事件流接手之后，退款责任在这里，
+                            // 不在外层的兜底（那时候模型可能还在生成，见 Charge.handedOff）。
+                            refundFailedTurn(request, charge);
                         }
-                        String message = describe(error);
-                        persistAssistantError(request.sessionId(), message);
-                        publisher.error(message);
-                        // 回合失败 = 没花掉 token = 必须退钱。事件流接手之后，退款责任在这里，
-                        // 不在外层的兜底（那时候模型可能还在生成，见 Charge.handedOff）。
-                        refundFailedTurn(request, charge);
                     })
                     .start();
             // start() 是异步的：从这里开始，本轮的收尾（结算或退款）归事件流回调负责
             charge.handOff();
+            // 心跳归零从看门狗起跑这一刻算：之前的装配耗时不算模型侧空转
+            toolbox.lastActivityAt().set(System.currentTimeMillis());
             Thread.startVirtualThread(() ->
-                    watchFirstByte(request.sessionId(), publisher, firstByte, streamEnded, generation));
+                    watchFirstByte(request, charge, publisher, firstByte, streamEnded,
+                            answer, toolbox, toolbox.lastActivityAt(), toolbox.toolInFlight(), generation));
         } catch (RuntimeException ex) {
             log.error("Agent 启动异常 session={}", request.sessionId(), ex);
             String message = describe(ex);
@@ -394,7 +411,11 @@ public class AgentOrchestrator {
             AgentRequest.ToolProfile profile, AgentToolbox toolbox) {
         return switch (profile) {
             case DIRECT -> null;
-            case EDIT -> SafeToolExecutors.of(toolbox, Set.of("propose_patch", "grep", "read_file"));
+            // set_plan 必须在 EDIT 里：「分步计划」类问题按关键词会落到 EDIT 档，
+            // 少了它计划流永远触发不了（计划卡/显影进度条变成死功能）；
+            // 而 mock 若向没offer工具的请求硬吐 set_plan，AiServices 会
+            // toolExecutor=null NPE 且被 LangChain4j 静默吞掉 → 回合挂死。
+            case EDIT -> SafeToolExecutors.of(toolbox, Set.of("propose_patch", "grep", "read_file", "set_plan"));
             case SEARCH -> SafeToolExecutors.of(toolbox,
                     Set.of("grep", "semantic_search", "spring_map", "read_file"));
             case FULL -> SafeToolExecutors.of(toolbox);
@@ -461,19 +482,50 @@ public class AgentOrchestrator {
     }
 
     /**
-     * 首字看门狗：模型排队时持续推 stage，避免前端只能空转。
-     * 不在这里强杀回合 —— 工具先行时可能 60s 内都没有 text。
+     * 首字看门狗：模型排队时持续推 stage，避免前端只能空转；彻底没动静就自己终局。
+     *
+     * <p>宽限分两档，靠 toolbox 的心跳区分「框架级挂死」和「慢工具」：
+     * <ul>
+     *   <li><b>120s 零事件</b>（无首字、工具也没在飞）—— 这就是 10 月抓到的
+     *       LangChain4j 静默吞异常挂死：模型调了没 offer 的工具，AiServices 侧
+     *       toolExecutor=null NPE 被 {@code ignoringExceptions} 吞掉，
+     *       onError / onCompleteResponse 都不来，预扣永久悬空；</li>
+     *   <li><b>600s 单个工具还在飞</b> —— 构建、大范围检索允许慢，但十分钟还不回来
+     *       同样是病态，一并终局（用户随时可手动停止，这里只是兜底）。</li>
+     * </ul>
+     * 终局动作在 {@code charge} 锁内注册超时抢占通道：前端空转看门狗会自动
+     * {@code cancelTurn}（只置取消标志、不退款），若见到 isCanceled 就退场，
+     * 挂死回合的预扣照样没人退。迟到的完成/错误见到
+     * {@link TurnCancellation#isTimedOut} 只做兜底，不重复落消息、不重复收费。
      */
-    private void watchFirstByte(long sessionId, ChatEventPublisher publisher,
-                                AtomicBoolean firstByte, AtomicBoolean streamEnded, long generation) {
+    private void watchFirstByte(AgentRequest request, Charge charge, ChatEventPublisher publisher,
+                                AtomicBoolean firstByte, AtomicBoolean streamEnded,
+                                StringBuilder answer, AgentToolbox toolbox,
+                                AtomicLong lastActivityAt, AtomicBoolean toolInFlight, long generation) {
         try {
-            for (int tick = 1; tick <= 15; tick++) {
+            for (int tick = 1; tick <= 90; tick++) {
                 Thread.sleep(8_000);
-                if (streamEnded.get() || firstByte.get() || cancellation.isCanceled(sessionId, generation)) {
+                // 真终局信号：流结束了 / 出过字了 / 已被人终局过 —— 看门狗退场
+                if (streamEnded.get() || firstByte.get()
+                        || cancellation.isTimedOut(request.sessionId(), generation)) {
+                    return;
+                }
+                long idleMs = System.currentTimeMillis() - lastActivityAt.get();
+                boolean toolFlying = toolInFlight.get();
+                long ceiling = toolFlying ? TOOL_CEILING_MS : IDLE_CEILING_MS;
+                if (idleMs > ceiling) {
+                    terminateSilentTurn(request, charge, publisher, answer, toolbox,
+                            firstByte, streamEnded, generation, toolFlying);
+                    return;
+                }
+                if (cancellation.isCanceled(request.sessionId(), generation)) {
+                    // 用户停止且回合还在动静：onError 会在下一个工具边界正常收尾，看门狗退场
                     return;
                 }
                 int seconds = tick * 8;
-                if (tick <= 3) {
+                if (toolFlying) {
+                    publisher.stage("工具执行中（已 " + idleMs / 1000 + " 秒），模型在等结果…");
+                } else if (seconds <= 24) {
                     publisher.stage("模型还在计算（已 " + seconds + " 秒），首字还没到…");
                 } else {
                     publisher.stage("仍在等待模型首字（已 " + seconds + " 秒）。可点停止后换更快的模型。");
@@ -484,20 +536,79 @@ public class AgentOrchestrator {
         }
     }
 
+    /**
+     * 看门狗终局（在 {@code charge} 锁内调用）：登记超时并完成收尾。
+     *
+     * <p>三条分支对应三种静默来路，共同点是「流回调永远不会来，钱必须在这里退」：
+     * <ul>
+     *   <li>已被新问题取代（stale）→ 只退预扣，不落消息不推事件（SSE 早已静音）；</li>
+     *   <li>取消标志先到（用户手点 / 前端空转看门狗自动取消）→ 按停止收尾，
+     *       半截回答照常落库；</li>
+     *   <li>纯静默挂死 → 落错误说明 + 推错误事件 + 退款。</li>
+     * </ul>
+     */
+    private void terminateSilentTurn(AgentRequest request, Charge charge, ChatEventPublisher publisher,
+                                     StringBuilder answer, AgentToolbox toolbox,
+                                     AtomicBoolean firstByte, AtomicBoolean streamEnded,
+                                     long generation, boolean toolFlying) {
+        synchronized (charge) {
+            // 锁内复检：模型可能刚好在这一瞬完成 / 出错 / 出过字 —— 那种情况
+            // 交给正常流回调收尾，看门狗不抢。streamEnded / firstByte 都在锁外
+            // 置位但必然早于 finish() 拿锁，所以锁内看到的就是最新事实。
+            if (streamEnded.get() || firstByte.get()
+                    || cancellation.isTimedOut(request.sessionId(), generation)) {
+                return;
+            }
+            cancellation.timeout(request.sessionId(), generation);
+            if (cancellation.isStale(request.sessionId(), generation)) {
+                refundSuperseded(request, charge);
+                log.warn("回合看门狗终局（已被取代）session={} generation={}", request.sessionId(), generation);
+                return;
+            }
+            if (cancellation.isCanceled(request.sessionId(), generation)) {
+                // 取消先到了一步：按停止收尾（用户看到了「已停止」），但预扣照样退
+                finishStopped(request, answer, toolbox, publisher, charge);
+                log.warn("回合看门狗终局（取消）session={} generation={}", request.sessionId(), generation);
+                return;
+            }
+            String reason = toolFlying
+                    ? "本轮的一个工具执行超过 10 分钟仍未返回，已自动结束并退还预扣积分。"
+                    : "本轮超过 2 分钟没有任何响应，已自动结束并退还预扣积分。反复出现请更换更快的模型。";
+            persistAssistantError(request.sessionId(), reason);
+            publisher.error(toolFlying ? "本轮工具执行超时（10 分钟），已退还预扣积分"
+                    : "本轮超时（2 分钟无响应），已退还预扣积分");
+            refundFailedTurn(request, charge);
+            log.warn("回合看门狗终局 session={} generation={} toolFlying={}",
+                    request.sessionId(), generation, toolFlying);
+        }
+    }
+
     /** 回合结束：结算积分、落库回答、挂上补丁、校验引用、记录用量、推送 done。 */
     private long finish(AgentRequest request, Workspace workspace, StringBuilder answer,
                         ChatResponse response, AgentToolbox toolbox, ChatEventPublisher publisher,
                         Charge charge, long generation) {
-        // 取消竞态兜底：工具抛出的 TurnCanceledException 会被 LangChain4j 当作
-        // 「工具失败结果」喂回模型，回合反而自然完成走进这里 —— 那就不能按正常结算收尾
-        //（用户点了停止却还被扣分、消息还没有 stopped 标记）。只要标志在，一律按停止处理。
-        if (cancellation.isCanceled(request.sessionId(), generation)) {
-            if (cancellation.isStale(request.sessionId(), generation)) {
-                refundSuperseded(request, charge);
+        // 与看门狗抢终局通道：判定与登记都在 charge 锁内完成，两者只可能有一个收尾。
+        synchronized (charge) {
+            // 看门狗已终局（超时）：迟到的完成回调只兜底 —— 不重复结算、不重复落消息、不重复推 done。
+            // 典型来路：吞异常那一跳里模型其实还在跑，十几秒后才把答案吐完。
+            if (cancellation.isTimedOut(request.sessionId(), generation)) {
+                log.warn("看门狗终局后迟到完成，放弃结算 session={} generation={}",
+                        request.sessionId(), generation);
                 return -1L;
             }
-            finishStopped(request, answer, toolbox, publisher, charge);
-            return -1L;
+            // 取消竞态兜底：工具抛出的 TurnCanceledException 会被 LangChain4j 当作
+            // 「工具失败结果」喂回模型，回合反而自然完成走进这里 —— 那就不能按正常结算收尾
+            //（用户点了停止却还被扣分、消息还没有 stopped 标记）。只要标志在，一律按停止处理。
+            if (cancellation.isCanceled(request.sessionId(), generation)) {
+                // 登记超时抢占通道：看门狗若同时在终局，见到这个标志就会退场
+                cancellation.timeout(request.sessionId(), generation);
+                if (cancellation.isStale(request.sessionId(), generation)) {
+                    refundSuperseded(request, charge);
+                    return -1L;
+                }
+                finishStopped(request, answer, toolbox, publisher, charge);
+                return -1L;
+            }
         }
 
         String text = answer.length() > 0

@@ -2,6 +2,7 @@ package com.webcode.assistant.agent;
 
 import org.springframework.stereotype.Component;
 
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -26,6 +27,8 @@ public class TurnCancellation {
     private static final class State {
         final AtomicLong generation = new AtomicLong(0);
         volatile boolean userCanceled;
+        /** 被看门狗按「无响应超时」终局的代次。迟到的完成/错误只做幂等兜底。 */
+        final Set<Long> timedOut = ConcurrentHashMap.newKeySet();
     }
 
     private final ConcurrentHashMap<Long, State> states = new ConcurrentHashMap<>();
@@ -41,6 +44,18 @@ public class TurnCancellation {
     public void cancel(long sessionId) {
         State state = states.computeIfAbsent(sessionId, id -> new State());
         state.userCanceled = true;
+    }
+
+    /** 看门狗登记：这个代次已按「静默无响应」终局（退款 + 说明已发出，见 AgentOrchestrator）。 */
+    public void timeout(long sessionId, long generation) {
+        State state = states.computeIfAbsent(sessionId, id -> new State());
+        state.timedOut.add(generation);
+    }
+
+    /** 这个代次是不是已经被看门狗终局了。 */
+    public boolean isTimedOut(long sessionId, long generation) {
+        State state = states.get(sessionId);
+        return state != null && state.timedOut.contains(generation);
     }
 
     /** 只看用户有没有点停止（给取消接口做即时判断）。 */

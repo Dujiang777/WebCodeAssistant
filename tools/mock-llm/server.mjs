@@ -128,6 +128,34 @@ function extractFileContent(toolResult) {
 }
 
 /**
+ * 从 system prompt 里取出「当前文件」的正文。
+ *
+ * DIRECT 档（请求不带任何工具）时，后端会把文件内容直接放进 prompt：
+ *   当前文件：`src/.../UserService.java`
+ *   ```java
+ *   <原文>
+ *   ```
+ * mock 要像真实模型一样就地取材直接作答，而不是硬吐一个 read_file 工具调用 ——
+ * 后者会让没注册执行器的 AiServices NPE，异常还被 LangChain4j 静默吞掉（回合挂死）。
+ */
+function extractPromptFileContent(messages) {
+  const system = messages
+    .filter((m) => m.role === 'system')
+    .map((m) => String(m.content ?? ''))
+    .join('\n');
+  const at = system.indexOf('当前文件：`');
+  if (at < 0) return null;
+  const fenceStart = system.indexOf('```', at);
+  if (fenceStart < 0) return null;
+  const nl = system.indexOf('\n', fenceStart);
+  if (nl < 0) return null;
+  const fenceEnd = system.indexOf('\n```', nl);
+  if (fenceEnd < 0) return null;
+  const body = system.slice(nl + 1, fenceEnd);
+  return body.length > 0 ? body : null;
+}
+
+/**
  * 去掉 read_file 加上的 `   42| ` 行号前缀。
  *
  * read_file 现在**刻意**带行号返回（这样模型的引用能精确到行），但 diff 的上下文行
@@ -363,6 +391,14 @@ function handleCompletion(body, res) {
   const toolMessages = findToolMessages(messages);
   const intent = detectIntent(messages);
   const currentFile = extractCurrentFile(messages);
+  // 请求里实际 offer 了哪些工具 —— mock 只能调这些。真实模型在没有工具的
+  // 请求下结构上不可能吐工具调用；mock 硬吐会让后端 NPE 后静默挂死。
+  const offered = new Set(
+    (Array.isArray(body.tools) ? body.tools : [])
+      .map((t) => t?.function?.name ?? t?.name)
+      .filter((name) => typeof name === 'string' && name.length > 0),
+  );
+  const promptContent = extractPromptFileContent(messages);
 
   // 回归场景「坏JSON恢复测试」：第一轮故意吐坏 JSON 工具参数 —— 后端应把解析失败
   // 作为工具结果喂回模型（而不是静默挂死），下一轮 mock 看到失败结果后正常收尾。
@@ -374,7 +410,7 @@ function handleCompletion(body, res) {
   }
 
   return (STEP_DELAY_MS > 0 ? sleep(STEP_DELAY_MS) : Promise.resolve()).then(() =>
-    respond(toolMessages, intent, currentFile, lastUserText.includes('分步计划'), res),
+    respond(toolMessages, intent, currentFile, lastUserText.includes('分步计划'), res, offered, promptContent),
   );
 }
 
@@ -402,15 +438,16 @@ function respondWhatIf(userText, res) {
   return finish(res, { inputTokens: 1200, outputTokens: 220 });
 }
 
-function respond(toolMessages, intent, currentFile, planRequested, res) {
+function respond(toolMessages, intent, currentFile, planRequested, res, offered, promptContent) {
   if (toolMessages.length === 0) {
     // 第一轮：先读代码
     if (!currentFile) {
       streamText(res, ['当前还没有打开文件，请先在左侧文件树里点开一个文件，我再帮你分析。']);
       return finish(res, { inputTokens: 400, outputTokens: 40 });
     }
-    // 计划流（触发词「分步计划」）：动工前先 set_plan，模拟 Codex 式「先给计划再执行」
-    if (planRequested) {
+    // 计划流（触发词「分步计划」）：动工前先 set_plan，模拟 Codex 式「先给计划再执行」。
+    // 只在请求真的 offer 了 set_plan 时才走（EDIT/FULL 档），否则退化成直接作答。
+    if (planRequested && offered.has('set_plan')) {
       streamToolCall(res, 'set_plan', {
         steps: [
           `读取 ${currentFile}，确认字段注入的现状`,
@@ -420,8 +457,19 @@ function respond(toolMessages, intent, currentFile, planRequested, res) {
       });
       return finish(res, { inputTokens: 500, outputTokens: 60 });
     }
-    streamToolCall(res, 'read_file', { path: currentFile });
-    return finish(res, { inputTokens: 400, outputTokens: 30 });
+    // 有 read_file 可调才调；没有（DIRECT 档：代码已在上下文）就直接作答 ——
+    // 硬吐工具调用会让没注册执行器的 AiServices NPE，异常被 LangChain4j 的
+    // ignoringExceptions 吞掉，回调断链、回合静默挂死（2026-11-02 踩坑）。
+    if (offered.has('read_file')) {
+      streamToolCall(res, 'read_file', { path: currentFile });
+      return finish(res, { inputTokens: 400, outputTokens: 30 });
+    }
+    if (promptContent) {
+      streamText(res, explainChunks(currentFile, promptContent));
+    } else {
+      streamText(res, ['当前还没有打开文件，请先在左侧文件树里点开一个文件，我再帮你分析。']);
+    }
+    return finish(res, { inputTokens: 900, outputTokens: 280 });
   }
 
   const lastToolName = (() => {
@@ -601,6 +649,18 @@ const server = http.createServer((req, res) => {
       Connection: 'keep-alive',
     });
 
+    // 调试仪表（MOCK_LLM_DEBUG=1 开启）：请求进出全打点。
+    // 2026-11-02 排查「smoke 第一轮挂死」时加的临时仪表 —— 根因是 mock 向
+    // 没 offer 工具的请求硬吐工具调用，后端 AiServices NPE 被 LangChain4j
+    // 静默吞掉。仪表默认关闭（回归时刷屏），排查 SSE 类问题时再开。
+    const trace = process.env.MOCK_LLM_DEBUG
+      ? (...args) => console.error(`[mock] ${new Date().toISOString()}`, ...args)
+      : () => {};
+    trace(`REQ body=${raw.length}B msgs=${(body.messages || []).length} tools=${(body.tools || []).length} stream=${body.stream} lastUser=${String((body.messages || []).filter((m) => m.role === 'user').slice(-1)[0]?.content ?? '').slice(0, 40)}`);
+    res.on('close', () => {
+      trace(`CLOSE ended=${res.writableEnded}`);
+    });
+
     // 提示词抓取（MOCK_LLM_CAPTURE=输出路径）：把最近一次请求的 system prompt
     // 与工具描述落盘，让探针能断言「提示词真的送到了模型」—— 2026-09-30 加，
     // 用于守住「执行纪律」这类纯 prompt 行为（模型行为没法用单元测试断言，
@@ -625,11 +685,16 @@ const server = http.createServer((req, res) => {
     }
 
     // handleCompletion 现在是异步的（STEP_DELAY_MS > 0 时会先等一会儿再吐流）
-    handleCompletion(body, res).catch((error) => {
-      sendChunk(res, { choices: [{ index: 0, delta: { content: `mock 内部错误: ${error.message}` }, finish_reason: 'stop' }] });
-      res.write('data: [DONE]\n\n');
-      res.end();
-    });
+    handleCompletion(body, res)
+      .then(() => {
+        trace('DONE');
+      })
+      .catch((error) => {
+        trace(`ERR ${error.message}`);
+        sendChunk(res, { choices: [{ index: 0, delta: { content: `mock 内部错误: ${error.message}` }, finish_reason: 'stop' }] });
+        res.write('data: [DONE]\n\n');
+        res.end();
+      });
   });
 });
 
