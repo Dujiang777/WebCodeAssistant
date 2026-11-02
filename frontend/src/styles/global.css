@@ -12196,11 +12196,14 @@ button.room-at {
   padding: 0 6px;
 }
 
+/* hover 与「已聚焦」都描金；键盘焦点环交给全站的 :focus-visible 兜底 ——
+   这里原先带着 `outline: none`，等于把 select 的键盘焦点整个抹掉（同 .ad-select
+   批22 的修法）。注意 select 属于「支持键盘输入」的控件，鼠标点开也会匹配
+   :focus-visible 画环 —— 这是可接受的：环+描金双重提示正在操作的控件。 */
 .outline-select:hover,
 .outline-select:focus {
   border-color: var(--signal-line);
   color: var(--fg-0);
-  outline: none;
 }
 
 .sel-chip {
